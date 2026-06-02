@@ -1,0 +1,12 @@
+{
+  "run": {
+    "name": "nearest_sunlit",
+    "description": "Default circular nearest-sunlit offload simulation"
+  },
+  "scheduler": {
+    "name": "nearest-sunlit"
+  },
+  "output": {
+    "path": "output/nearest_sunlit"
+  }
+}
