@@ -1,0 +1,24 @@
+{
+  "run": {
+    "name": "demand_points",
+    "description": "Task-oriented demand-point workload smoke simulation"
+  },
+  "task": {
+    "generation_mode": "demand-points",
+    "random_seed": 42,
+    "interval_s": 300,
+    "demand_points_file": "data/demand/sample_population_points.csv",
+    "tasks_per_step_choices": [0, 5, 10, 20],
+    "tasks_per_step_weights": [0.2, 0.4, 0.3, 0.1],
+    "cpu_cycles_choices": [100000000.0, 1000000000.0, 5000000000.0],
+    "cpu_cycles_weights": [0.6, 0.3, 0.1],
+    "input_bits_choices": [1000000.0, 10000000.0, 100000000.0],
+    "input_bits_weights": [0.6, 0.3, 0.1],
+    "output_bits_choices": [100000.0, 1000000.0, 10000000.0],
+    "output_bits_weights": [0.6, 0.3, 0.1],
+    "deadline_s": 120.0
+  },
+  "output": {
+    "path": "output/demand_points"
+  }
+}

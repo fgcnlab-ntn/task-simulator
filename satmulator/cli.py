@@ -21,6 +21,7 @@ from .output import (
     write_tasks_csv,
 )
 from .scheduler import create_scheduler
+from .workload import load_demand_points
 
 
 DEFAULT_CONFIG = {
@@ -43,10 +44,21 @@ DEFAULT_CONFIG = {
     "task_enable": True,
     "scheduler": "local",
     "task_interval_s": 300,
+    "task_generation_mode": "satellite-deterministic",
+    "task_random_seed": 42,
     "tasks_per_sat": 1,
+    "tasks_per_step_choices": [0, 5, 10, 20],
+    "tasks_per_step_weights": [0.2, 0.4, 0.2, 0.2],
     "task_cpu_cycles": 1.0e9,
+    "task_cpu_cycles_choices": [1.0e8, 1.0e9, 5.0e9],
+    "task_cpu_cycles_weights": [0.6, 0.3, 0.1],
     "task_input_bits": 1.0e7,
+    "task_input_bits_choices": [1.0e6, 1.0e7, 1.0e8],
+    "task_input_bits_weights": [0.6, 0.3, 0.1],
     "task_output_bits": 1.0e6,
+    "task_output_bits_choices": [1.0e5, 1.0e6, 1.0e7],
+    "task_output_bits_weights": [0.6, 0.3, 0.1],
+    "task_demand_points_file": None,
     "task_deadline_s": 120.0,
     "cpu_rate_cycles_s": 1.0e8,
     "joule_per_cycle": 1.0e-8,
@@ -80,10 +92,21 @@ CONFIG_SECTIONS = {
     "task": {
         "enabled": "task_enable",
         "interval_s": "task_interval_s",
+        "generation_mode": "task_generation_mode",
+        "random_seed": "task_random_seed",
         "tasks_per_sat": "tasks_per_sat",
+        "tasks_per_step_choices": "tasks_per_step_choices",
+        "tasks_per_step_weights": "tasks_per_step_weights",
         "cpu_cycles": "task_cpu_cycles",
+        "cpu_cycles_choices": "task_cpu_cycles_choices",
+        "cpu_cycles_weights": "task_cpu_cycles_weights",
         "input_bits": "task_input_bits",
+        "input_bits_choices": "task_input_bits_choices",
+        "input_bits_weights": "task_input_bits_weights",
         "output_bits": "task_output_bits",
+        "output_bits_choices": "task_output_bits_choices",
+        "output_bits_weights": "task_output_bits_weights",
+        "demand_points_file": "task_demand_points_file",
         "deadline_s": "task_deadline_s",
         "cpu_rate_cycles_s": "cpu_rate_cycles_s",
         "joule_per_cycle": "joule_per_cycle",
@@ -125,7 +148,10 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--no-task", dest="task_enable", action="store_false", default=None, help="disable task generation and execution")
     p.add_argument("--scheduler", choices=("local", "nearest-sunlit"))
     p.add_argument("--task-interval-s", type=int)
+    p.add_argument("--task-generation-mode", choices=("satellite-deterministic", "demand-points"))
+    p.add_argument("--task-random-seed", type=int)
     p.add_argument("--tasks-per-sat", type=int)
+    p.add_argument("--task-demand-points-file", type=Path)
     p.add_argument("--task-cpu-cycles", type=float)
     p.add_argument("--task-input-bits", dest="task_input_bits", type=float)
     p.add_argument("--task-output-bits", dest="task_output_bits", type=float)
@@ -179,6 +205,9 @@ def resolve_config(cli_args: argparse.Namespace) -> argparse.Namespace:
     values.update({key: value for key, value in cli_values.items() if value is not None})
     values["config"] = config_path
     values["tle_file"] = None if values["tle_file"] is None else Path(values["tle_file"])
+    values["task_demand_points_file"] = (
+        None if values["task_demand_points_file"] is None else Path(values["task_demand_points_file"])
+    )
     values["out"] = Path(values["out"])
     return argparse.Namespace(**values)
 
@@ -226,13 +255,24 @@ def build_configs(args: argparse.Namespace) -> tuple[BatteryConfig, TaskConfig, 
     task_config = TaskConfig(
         enabled=args.task_enable,
         interval_s=args.task_interval_s,
+        generation_mode=args.task_generation_mode,
+        random_seed=args.task_random_seed,
         tasks_per_sat=args.tasks_per_sat,
+        tasks_per_step_choices=tuple(args.tasks_per_step_choices),
+        tasks_per_step_weights=tuple(args.tasks_per_step_weights),
         cpu_cycles=args.task_cpu_cycles,
+        cpu_cycles_choices=tuple(args.task_cpu_cycles_choices),
+        cpu_cycles_weights=tuple(args.task_cpu_cycles_weights),
         input_bits=args.task_input_bits,
+        input_bits_choices=tuple(args.task_input_bits_choices),
+        input_bits_weights=tuple(args.task_input_bits_weights),
         output_bits=args.task_output_bits,
+        output_bits_choices=tuple(args.task_output_bits_choices),
+        output_bits_weights=tuple(args.task_output_bits_weights),
         deadline_s=args.task_deadline_s,
         cpu_rate_cycles_s=args.cpu_rate_cycles_s,
         joule_per_cycle=args.joule_per_cycle,
+        demand_points=load_demand_points(args.task_demand_points_file),
     )
     isl_config = ISLConfig(
         isl_forward_rate_bps=args.isl_forward_rate_bps,
@@ -270,10 +310,21 @@ def effective_run_config(args: argparse.Namespace) -> dict:
         "task": {
             "enabled": args.task_enable,
             "interval_s": args.task_interval_s,
+            "generation_mode": args.task_generation_mode,
+            "random_seed": args.task_random_seed,
             "tasks_per_sat": args.tasks_per_sat,
+            "tasks_per_step_choices": args.tasks_per_step_choices,
+            "tasks_per_step_weights": args.tasks_per_step_weights,
             "cpu_cycles": args.task_cpu_cycles,
+            "cpu_cycles_choices": args.task_cpu_cycles_choices,
+            "cpu_cycles_weights": args.task_cpu_cycles_weights,
             "input_bits": args.task_input_bits,
+            "input_bits_choices": args.task_input_bits_choices,
+            "input_bits_weights": args.task_input_bits_weights,
             "output_bits": args.task_output_bits,
+            "output_bits_choices": args.task_output_bits_choices,
+            "output_bits_weights": args.task_output_bits_weights,
+            "demand_points_file": None if args.task_demand_points_file is None else str(args.task_demand_points_file),
             "deadline_s": args.task_deadline_s,
             "cpu_rate_cycles_s": args.cpu_rate_cycles_s,
             "joule_per_cycle": args.joule_per_cycle,

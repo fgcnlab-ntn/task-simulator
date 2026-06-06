@@ -8,7 +8,7 @@ The current model supports:
 - circular Walker-style orbit model and TLE/SGP4 orbit model
 - sunlight/eclipse classification
 - per-satellite battery state
-- deterministic task generation
+- deterministic and demand-point task generation
 - local and nearest-sunlit schedulers
 - one-hop ISL time/energy accounting for offloaded tasks
 - CSV/SVG outputs for quick inspection
@@ -55,6 +55,12 @@ Nearest-sunlit offloading:
 python3 minimal_orbit.py --config configs/nearest_sunlit.json
 ```
 
+Task-oriented demand-point workload:
+
+```bash
+python3 minimal_orbit.py --config configs/demand_points.json
+```
+
 CLI flags override config values:
 
 ```bash
@@ -96,8 +102,9 @@ The effective merged config is written to:
 - 66 satellites, 6 planes, 550 km altitude, 53° inclination
 - start time `2026-05-22T12:00:00Z`, duration 1800 s, step 30 s
 - battery capacity 100000 J, initial 80%, safe minimum 20%
-- one task per satellite every 300 s
-- task size 1e9 CPU cycles, 1e7 input bits, 1e6 output bits
+- default legacy mode: one task per satellite every 300 s
+- demand-point mode: task locations and workload sizes sampled from configured distributions
+- default legacy task size 1e9 CPU cycles, 1e7 input bits, 1e6 output bits
 - one-hop ISL: 10 Mbps forward/return, 1e-7 J/bit TX, 5e-8 J/bit RX
 - scheduler: `local`
 
@@ -110,6 +117,8 @@ Each run writes:
 - `tasks.csv` — per-task assignment, time, energy, and completion result
 - `run_config.json` — effective config
 - `*.svg` — quick visual checks for orbit, battery, sunlight, and task results
+
+See `TASK_CONFIG.md` for the task-oriented config fields.
 
 ## Code structure
 

@@ -13,16 +13,34 @@ class BatteryConfig:
 
 
 @dataclass(frozen=True)
+class DemandPoint:
+    lat_deg: float
+    lon_deg: float
+    weight: float
+
+
+@dataclass(frozen=True)
 class TaskConfig:
     enabled: bool
     interval_s: int
+    generation_mode: str
+    random_seed: int | None
     tasks_per_sat: int
+    tasks_per_step_choices: tuple[int, ...]
+    tasks_per_step_weights: tuple[float, ...]
     cpu_cycles: float
+    cpu_cycles_choices: tuple[float, ...]
+    cpu_cycles_weights: tuple[float, ...]
     input_bits: float
+    input_bits_choices: tuple[float, ...]
+    input_bits_weights: tuple[float, ...]
     output_bits: float
+    output_bits_choices: tuple[float, ...]
+    output_bits_weights: tuple[float, ...]
     deadline_s: float
     cpu_rate_cycles_s: float
     joule_per_cycle: float
+    demand_points: tuple[DemandPoint, ...]
 
 
 @dataclass(frozen=True)
@@ -42,6 +60,8 @@ class Task:
     input_bits: float
     output_bits: float
     deadline_s: float
+    lat_deg: float | None = None
+    lon_deg: float | None = None
 
 
 @dataclass(frozen=True)
@@ -51,6 +71,8 @@ class TaskRecord:
     source_sat: int
     target_sat: int
     mode: str
+    lat_deg: float | None
+    lon_deg: float | None
     cpu_cycles: float
     input_bits: float
     output_bits: float

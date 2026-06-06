@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import random
 from dataclasses import dataclass, field
 
 from .models import BatteryConfig, SatelliteState, SatelliteView
@@ -102,6 +103,7 @@ class EnvironmentRuntime:
     """Mutable simulation state shared by orbit, scheduler, and accounting."""
 
     satellites: list[SatelliteRuntime]
+    rng: random.Random = field(default_factory=random.Random)
     time_s: int = 0
     next_task_id: int = 0
     pending_tasks: list[int] = field(default_factory=list)

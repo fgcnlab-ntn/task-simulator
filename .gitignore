@@ -34,3 +34,8 @@ output/
 
 # Keep dependency manifests
 !requirements.txt
+
+# Keep small checked-in demand samples
+!data/
+!data/demand/
+!data/demand/sample_population_points.csv

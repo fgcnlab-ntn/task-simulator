@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime as dt
 import math
+import random
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
@@ -22,6 +23,7 @@ from .models import (
 )
 from .scheduler import Scheduler
 from .runtime import EnvironmentRuntime, SatelliteRuntime
+from .workload import generate_step_tasks, validate_task_config
 
 
 @dataclass
@@ -104,30 +106,6 @@ def estimate_assignment_time(
             ),
         )
     raise ValueError(f"unknown assignment mode: {assignment.mode}")
-
-
-def generate_step_tasks(env: EnvironmentRuntime, task_config: TaskConfig) -> list[Task]:
-    if not task_config.enabled:
-        return []
-    if env.time_s <= 0 or env.time_s % task_config.interval_s != 0:
-        return []
-
-    tasks: list[Task] = []
-    for sat in env.satellites:
-        for _ in range(task_config.tasks_per_sat):
-            tasks.append(
-                Task(
-                    task_id=env.next_task_id,
-                    created_time_s=env.time_s,
-                    source_sat=sat.sat_id,
-                    cpu_cycles=task_config.cpu_cycles,
-                    input_bits=task_config.input_bits,
-                    output_bits=task_config.output_bits,
-                    deadline_s=task_config.deadline_s,
-                )
-            )
-            env.next_task_id += 1
-    return tasks
 
 
 def assign_step_tasks(
@@ -225,6 +203,8 @@ def apply_step(
                 source_sat=assignment.source_sat,
                 target_sat=assignment.target_sat,
                 mode=assignment.mode,
+                lat_deg=task.lat_deg,
+                lon_deg=task.lon_deg,
                 cpu_cycles=task.cpu_cycles,
                 input_bits=task.input_bits,
                 output_bits=task.output_bits,
@@ -291,12 +271,14 @@ def iter_circular_states(
     if step_s <= 0:
         raise ValueError("step must be positive")
     validate_battery_config(battery)
+    validate_task_config(task_config)
 
     sats_per_plane = satellites // planes
     radius_km = EARTH_RADIUS_KM + altitude_km
     inclination_rad = math.radians(inclination_deg)
     mean_motion = math.sqrt(EARTH_MU_KM3_S2 / (radius_km**3))
     env = EnvironmentRuntime(
+        rng=random.Random(task_config.random_seed),
         satellites=[
             SatelliteRuntime(
                 sat_id=sat_id,
@@ -372,6 +354,7 @@ def iter_tle_states(
     if step_s <= 0:
         raise ValueError("step must be positive")
     validate_battery_config(battery)
+    validate_task_config(task_config)
 
     try:
         from skyfield.api import load, wgs84
@@ -384,6 +367,7 @@ def iter_tle_states(
     ts, satellites = load_tle_satellites(tle_file)
     eph = load(sun_position_file)
     env = EnvironmentRuntime(
+        rng=random.Random(task_config.random_seed),
         satellites=[
             SatelliteRuntime(
                 sat_id=sat_id,
