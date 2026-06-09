@@ -65,6 +65,8 @@ def validate_task_config(task_config: TaskConfig) -> None:
         raise ValueError("CPU rate must be positive")
     if task_config.joule_per_cycle < 0:
         raise ValueError("joule per cycle must be non-negative")
+    if not 0.0 <= task_config.min_elevation_deg <= 90.0:
+        raise ValueError("minimum elevation must be within [0, 90]")
     if task_config.generation_mode not in {"satellite-deterministic", "demand-points"}:
         raise ValueError(f"unknown task generation mode: {task_config.generation_mode}")
     validate_distribution(
@@ -144,11 +146,12 @@ def nearest_satellite_id(
     satellites: Iterable[SatelliteRuntime],
     point: DemandPoint,
     time_utc: dt.datetime,
+    min_elevation_deg: float = 30.0,
 ) -> int:
-    visible_best_sat_id = -1
-    visible_best_distance_km = float("inf")
-    fallback_best_sat_id = -1
-    fallback_best_distance_km = float("inf")
+    best_sat_id = -1
+    best_distance_km = float("inf")
+    fallback_sat_id = -1
+    fallback_distance_km = float("inf")
     wgs84, au_km, geocentric = skyfield_visibility_modules()
     t = skyfield_timescale().from_datetime(time_utc)
     ground = wgs84.latlon(point.lat_deg, point.lon_deg).at(t)
@@ -156,13 +159,14 @@ def nearest_satellite_id(
         altitude_deg, distance_km = satellite_altitude_distance_from_ground(
             sat, t, ground, au_km, geocentric
         )
-        if distance_km < fallback_best_distance_km:
-            fallback_best_sat_id = sat.sat_id
-            fallback_best_distance_km = distance_km
-        if altitude_deg > 0.0 and distance_km < visible_best_distance_km:
-            visible_best_sat_id = sat.sat_id
-            visible_best_distance_km = distance_km
-    best_sat_id = visible_best_sat_id if visible_best_sat_id >= 0 else fallback_best_sat_id
+        if distance_km < fallback_distance_km:
+            fallback_sat_id = sat.sat_id
+            fallback_distance_km = distance_km
+        if altitude_deg >= min_elevation_deg and distance_km < best_distance_km:
+            best_sat_id = sat.sat_id
+            best_distance_km = distance_km
+    if best_sat_id < 0:
+        best_sat_id = fallback_sat_id
     if best_sat_id < 0:
         raise ValueError("cannot assign demand task without satellites")
     return best_sat_id
@@ -213,7 +217,12 @@ def generate_demand_point_tasks(env: EnvironmentRuntime, task_config: TaskConfig
             Task(
                 task_id=env.next_task_id,
                 created_time_s=env.time_s,
-                source_sat=nearest_satellite_id(env.satellites, point, env.time_utc),
+                source_sat=nearest_satellite_id(
+                    env.satellites,
+                    point,
+                    env.time_utc,
+                    task_config.min_elevation_deg,
+                ),
                 cpu_cycles=weighted_choice(
                     env.rng, task_config.cpu_cycles_choices, task_config.cpu_cycles_weights
                 ),

@@ -41,6 +41,7 @@ class TaskConfig:
     cpu_rate_cycles_s: float
     joule_per_cycle: float
     demand_points: tuple[DemandPoint, ...]
+    min_elevation_deg: float
 
 
 @dataclass(frozen=True)

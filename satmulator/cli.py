@@ -59,6 +59,7 @@ DEFAULT_CONFIG = {
     "task_output_bits_choices": [1.0e5, 1.0e6, 1.0e7],
     "task_output_bits_weights": [0.6, 0.3, 0.1],
     "task_demand_points_file": None,
+    "task_min_elevation_deg": 30.0,
     "task_deadline_s": 120.0,
     "cpu_rate_cycles_s": 1.0e8,
     "joule_per_cycle": 1.0e-8,
@@ -107,6 +108,7 @@ CONFIG_SECTIONS = {
         "output_bits_choices": "task_output_bits_choices",
         "output_bits_weights": "task_output_bits_weights",
         "demand_points_file": "task_demand_points_file",
+        "min_elevation_deg": "task_min_elevation_deg",
         "deadline_s": "task_deadline_s",
         "cpu_rate_cycles_s": "cpu_rate_cycles_s",
         "joule_per_cycle": "joule_per_cycle",
@@ -152,6 +154,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--task-random-seed", type=int)
     p.add_argument("--tasks-per-sat", type=int)
     p.add_argument("--task-demand-points-file", type=Path)
+    p.add_argument("--task-min-elevation-deg", type=float)
     p.add_argument("--task-cpu-cycles", type=float)
     p.add_argument("--task-input-bits", dest="task_input_bits", type=float)
     p.add_argument("--task-output-bits", dest="task_output_bits", type=float)
@@ -234,6 +237,8 @@ def validate_args(args: argparse.Namespace) -> None:
         raise ValueError("--task-cpu-cycles must be positive")
     if args.task_deadline_s <= 0:
         raise ValueError("--task-deadline-s must be positive")
+    if not 0.0 <= args.task_min_elevation_deg <= 90.0:
+        raise ValueError("--task-min-elevation-deg must be within [0, 90]")
     if args.cpu_rate_cycles_s <= 0:
         raise ValueError("--cpu-rate-cycles-s must be positive")
     if args.joule_per_cycle < 0:
@@ -273,6 +278,7 @@ def build_configs(args: argparse.Namespace) -> tuple[BatteryConfig, TaskConfig, 
         cpu_rate_cycles_s=args.cpu_rate_cycles_s,
         joule_per_cycle=args.joule_per_cycle,
         demand_points=load_demand_points(args.task_demand_points_file),
+        min_elevation_deg=args.task_min_elevation_deg,
     )
     isl_config = ISLConfig(
         isl_forward_rate_bps=args.isl_forward_rate_bps,
@@ -325,6 +331,7 @@ def effective_run_config(args: argparse.Namespace) -> dict:
             "output_bits_choices": args.task_output_bits_choices,
             "output_bits_weights": args.task_output_bits_weights,
             "demand_points_file": None if args.task_demand_points_file is None else str(args.task_demand_points_file),
+            "min_elevation_deg": args.task_min_elevation_deg,
             "deadline_s": args.task_deadline_s,
             "cpu_rate_cycles_s": args.cpu_rate_cycles_s,
             "joule_per_cycle": args.joule_per_cycle,

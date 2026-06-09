@@ -8,6 +8,7 @@
     "random_seed": 42,
     "interval_s": 300,
     "demand_points_file": "data/demand/sample_population_points.csv",
+    "min_elevation_deg": 30.0,
     "tasks_per_step_choices": [0, 5, 10, 20],
     "tasks_per_step_weights": [0.2, 0.4, 0.3, 0.1],
     "cpu_cycles_choices": [100000000.0, 1000000000.0, 5000000000.0],

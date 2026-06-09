@@ -18,6 +18,10 @@ model.  The new config keeps that old mode for compatibility and adds a
   the number of tasks created at each generation time in `demand-points` mode.
 - `demand_points_file`: CSV file with `lat,lon,weight` columns.  The weight can
   come from population, nighttime lights, or measured traffic demand.
+- `min_elevation_deg`: minimum ground-to-satellite elevation angle used when
+  selecting a serving satellite. Defaults to 30 degrees. If no satellite meets
+  the threshold, the simulator falls back to the nearest satellite so existing
+  runs remain serviceable.
 - `cpu_cycles_choices`, `cpu_cycles_weights`: discrete CPU demand distribution.
 - `input_bits_choices`, `input_bits_weights`: discrete input data distribution.
 - `output_bits_choices`, `output_bits_weights`: discrete output data distribution.

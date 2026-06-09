@@ -1,4 +1,5 @@
 import datetime as dt
+import math
 import unittest
 
 from satmulator.models import DemandPoint
@@ -35,7 +36,14 @@ class DemandPointCoordinateTests(unittest.TestCase):
         point = DemandPoint(lat_deg=25.033, lon_deg=121.5654, weight=1.0)
         time_utc = dt.datetime(2026, 6, 7, 12, tzinfo=dt.timezone.utc)
         ground = ground_position_km(point, time_utc)
-        near = SatelliteRuntime(0, "near", 0, 0, 1.0, pos_km=ground)
+        near = SatelliteRuntime(
+            0,
+            "near",
+            0,
+            0,
+            1.0,
+            pos_km=tuple(component * 1.1 for component in ground),
+        )
         far = SatelliteRuntime(1, "far", 0, 1, 1.0, pos_km=(0.0, 0.0, 0.0))
 
         self.assertEqual(nearest_satellite_id([far, near], point, time_utc), 0)
@@ -55,6 +63,28 @@ class DemandPointCoordinateTests(unittest.TestCase):
         self.assertGreater(visible_altitude, 0.0)
         self.assertLess(hidden_altitude, 0.0)
         self.assertEqual(nearest_satellite_id([hidden, visible], point, time_utc), 0)
+
+    def test_nearest_satellite_applies_minimum_elevation(self) -> None:
+        point = DemandPoint(lat_deg=0.0, lon_deg=0.0, weight=1.0)
+        time_utc = dt.datetime(2026, 6, 7, 12, tzinfo=dt.timezone.utc)
+        ground = ground_position_km(point, time_utc)
+        earth_radius = math.sqrt(sum(component**2 for component in ground))
+        radial = tuple(component / earth_radius for component in ground)
+        tangent = (-radial[1], radial[0], 0.0)
+        tangent_norm = math.sqrt(sum(component**2 for component in tangent))
+        tangent = tuple(component / tangent_norm for component in tangent)
+        angle = math.radians(8.0)
+        low_position = tuple(
+            (radial[index] * math.cos(angle) + tangent[index] * math.sin(angle))
+            * (earth_radius + 550.0)
+            for index in range(3)
+        )
+        high_position = tuple(component * (earth_radius + 35786.0) for component in radial)
+        low = SatelliteRuntime(0, "low", 0, 0, 1.0, pos_km=low_position)
+        high = SatelliteRuntime(1, "high", 0, 1, 1.0, pos_km=high_position)
+
+        self.assertEqual(nearest_satellite_id([low, high], point, time_utc, 0.0), 0)
+        self.assertEqual(nearest_satellite_id([low, high], point, time_utc, 30.0), 1)
 
 
 if __name__ == "__main__":

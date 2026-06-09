@@ -28,6 +28,7 @@
   "task": {
     "enabled": true,
     "interval_s": 300,
+    "min_elevation_deg": 30.0,
     "tasks_per_sat": 1,
     "cpu_cycles": 1000000000.0,
     "input_bits": 10000000.0,
