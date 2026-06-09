@@ -19,15 +19,18 @@ model.  The new config keeps that old mode for compatibility and adds a
 - `demand_points_file`: CSV file with `lat,lon,weight` columns.  The weight can
   come from population, nighttime lights, or measured traffic demand.
 - `min_elevation_deg`: minimum ground-to-satellite elevation angle used when
-  selecting a serving satellite. Defaults to 30 degrees. If no satellite meets
-  the threshold, the simulator falls back to the nearest satellite so existing
-  runs remain serviceable.
+  selecting a serving satellite. Defaults to 30 degrees. Tasks wait while no
+  satellite meets the threshold and fail with `no_coverage` when their deadline
+  expires.
 - `cpu_cycles_choices`, `cpu_cycles_weights`: discrete CPU demand distribution.
 - `input_bits_choices`, `input_bits_weights`: discrete input data distribution.
 - `output_bits_choices`, `output_bits_weights`: discrete output data distribution.
 - `deadline_s`: task deadline.
 - `cpu_rate_cycles_s`: compute rate used by the time model.
 - `joule_per_cycle`: compute energy coefficient.
+
+Task records include `waiting_time_s`. Waiting for coverage counts toward
+`total_time_s` and the task deadline.
 
 ## Data source direction
 

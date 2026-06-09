@@ -4,7 +4,7 @@ import datetime as dt
 import random
 from dataclasses import dataclass, field
 
-from .models import BatteryConfig, SatelliteState, SatelliteView
+from .models import BatteryConfig, SatelliteState, SatelliteView, Task
 
 
 Vector3 = tuple[float, float, float]
@@ -108,7 +108,7 @@ class EnvironmentRuntime:
     time_s: int = 0
     time_utc: dt.datetime | None = None
     next_task_id: int = 0
-    pending_tasks: list[int] = field(default_factory=list)
+    pending_tasks: list[Task] = field(default_factory=list)
     completed_tasks: list[int] = field(default_factory=list)
     failed_tasks: list[int] = field(default_factory=list)
 

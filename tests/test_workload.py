@@ -1,12 +1,14 @@
 import datetime as dt
 import math
 import unittest
+from types import SimpleNamespace
 
-from satmulator.models import DemandPoint
-from satmulator.runtime import SatelliteRuntime
+from satmulator.models import DemandPoint, Task
+from satmulator.runtime import EnvironmentRuntime, SatelliteRuntime
 from satmulator.workload import (
     ground_position_km,
     nearest_satellite_id,
+    resolve_pending_tasks,
     satellite_altitude_distance,
 )
 
@@ -85,6 +87,30 @@ class DemandPointCoordinateTests(unittest.TestCase):
 
         self.assertEqual(nearest_satellite_id([low, high], point, time_utc, 0.0), 0)
         self.assertEqual(nearest_satellite_id([low, high], point, time_utc, 30.0), 1)
+        self.assertIsNone(nearest_satellite_id([low], point, time_utc, 30.0))
+
+    def test_pending_task_expires_without_coverage(self) -> None:
+        point = DemandPoint(lat_deg=0.0, lon_deg=0.0, weight=1.0)
+        time_utc = dt.datetime(2026, 6, 7, 12, tzinfo=dt.timezone.utc)
+        hidden = SatelliteRuntime(0, "hidden", 0, 0, 1.0, pos_km=(0.0, 0.0, 0.0))
+        task = Task(0, 0, None, 1.0, 0.0, 0.0, 120.0, point.lat_deg, point.lon_deg)
+        env = EnvironmentRuntime(
+            satellites=[hidden],
+            time_s=60,
+            time_utc=time_utc,
+            pending_tasks=[task],
+        )
+        config = SimpleNamespace(min_elevation_deg=30.0)
+
+        ready, expired = resolve_pending_tasks(env, config)
+        self.assertEqual((ready, expired), ([], []))
+        self.assertEqual(env.pending_tasks, [task])
+
+        env.time_s = 120
+        ready, expired = resolve_pending_tasks(env, config)
+        self.assertEqual(ready, [])
+        self.assertEqual(expired, [task])
+        self.assertEqual(env.pending_tasks, [])
 
 
 if __name__ == "__main__":

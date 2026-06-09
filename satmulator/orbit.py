@@ -114,6 +114,8 @@ def assign_step_tasks(
     tasks: list[Task],
     satellite_views: list[SatelliteView],
 ) -> list[Assignment]:
+    if any(task.source_sat is None for task in tasks):
+        raise ValueError("cannot assign tasks without a visible source satellite")
     return [
         scheduler.assign_task(task=task, satellite_views=satellite_views)
         for task in tasks
@@ -129,6 +131,7 @@ def apply_step(
     isl_config: ISLConfig,
     tasks: list[Task],
     assignments: list[Assignment],
+    expired_tasks: list[Task] | None = None,
 ) -> tuple[list[SatelliteState], list[TaskRecord]]:
     stats_by_sat = {sat.sat_id: SatelliteStepStats() for sat in env.satellites}
     records: list[TaskRecord] = []
@@ -139,11 +142,40 @@ def apply_step(
         for sat in env.satellites
     }
 
+    expired_tasks = [] if expired_tasks is None else expired_tasks
     for task in tasks:
+        assert task.source_sat is not None
         stats_by_sat[task.source_sat].generated_tasks += 1
+
+    for task in expired_tasks:
+        waiting_time_s = env.time_s - task.created_time_s
+        env.failed_tasks.append(task.task_id)
+        records.append(
+            TaskRecord(
+                task_id=task.task_id,
+                created_time_s=task.created_time_s,
+                source_sat=-1,
+                target_sat=-1,
+                mode="unassigned",
+                lat_deg=task.lat_deg,
+                lon_deg=task.lon_deg,
+                cpu_cycles=task.cpu_cycles,
+                input_bits=task.input_bits,
+                output_bits=task.output_bits,
+                deadline_s=task.deadline_s,
+                waiting_time_s=waiting_time_s,
+                compute_time_s=0.0,
+                transmission_time_s=0.0,
+                total_time_s=waiting_time_s,
+                energy_j=0.0,
+                completed=False,
+                failed_reason="no_coverage",
+            )
+        )
 
     for assignment in assignments:
         task = task_by_id[assignment.task_id]
+        waiting_time_s = env.time_s - task.created_time_s
         source_stats = stats_by_sat[assignment.source_sat]
         target_stats = stats_by_sat[assignment.target_sat]
         time_cost = estimate_assignment_time(
@@ -163,7 +195,8 @@ def apply_step(
         source_energy_j = 0.0
         target_energy_j = 0.0
 
-        if time_cost.total_time_s > task.deadline_s:
+        total_time_s = waiting_time_s + time_cost.total_time_s
+        if total_time_s > task.deadline_s:
             is_completed = False
             failed_reason = "deadline"
         else:
@@ -209,9 +242,10 @@ def apply_step(
                 input_bits=task.input_bits,
                 output_bits=task.output_bits,
                 deadline_s=task.deadline_s,
+                waiting_time_s=waiting_time_s,
                 compute_time_s=time_cost.compute_time_s,
                 transmission_time_s=time_cost.transmission_time_s,
-                total_time_s=time_cost.total_time_s,
+                total_time_s=total_time_s,
                 energy_j=source_energy_j if is_completed else 0.0,
                 completed=is_completed,
                 failed_reason=failed_reason,
@@ -305,7 +339,7 @@ def iter_circular_states(
                 sunlit = is_sunlit_cylindrical_shadow(pos)
                 env.satellites[sat_id].update_orbit(pos_km=pos, vel_km_s=vel, sunlit=sunlit)
 
-        tasks = generate_step_tasks(env, task_config)
+        tasks, expired_tasks = generate_step_tasks(env, task_config)
         assignments = assign_step_tasks(
             scheduler=scheduler,
             tasks=tasks,
@@ -319,6 +353,7 @@ def iter_circular_states(
             isl_config=isl_config,
             tasks=tasks,
             assignments=assignments,
+            expired_tasks=expired_tasks,
         )
         yield states, task_records
 
@@ -402,7 +437,7 @@ def iter_tle_states(
                 sunlit=sunlit,
             )
 
-        tasks = generate_step_tasks(env, task_config)
+        tasks, expired_tasks = generate_step_tasks(env, task_config)
         assignments = assign_step_tasks(
             scheduler=scheduler,
             tasks=tasks,
@@ -416,6 +451,7 @@ def iter_tle_states(
             isl_config=isl_config,
             tasks=tasks,
             assignments=assignments,
+            expired_tasks=expired_tasks,
         )
         yield states, task_records
 

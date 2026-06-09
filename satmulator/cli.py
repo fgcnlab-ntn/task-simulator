@@ -401,15 +401,16 @@ def run(args: argparse.Namespace) -> int:
 
     task_records = [task for _, tasks in raw_steps for task in tasks]
     all_steps = [states for states, _ in raw_steps]
+    task_records_by_step = [tasks for _, tasks in raw_steps]
 
     write_states_csv(args.out / "states.csv", start, all_steps)
-    write_summary_csv(args.out / "summary.csv", all_steps)
+    write_summary_csv(args.out / "summary.csv", all_steps, task_records_by_step)
     write_tasks_csv(args.out / "tasks.csv", task_records)
     write_snapshot_svg(args.out / "snapshot_start.svg", all_steps[0], "Orbit snapshot at t=0s", start_context)  # pdf
     write_snapshot_svg(args.out / "snapshot_end.svg", all_steps[-1], f"Orbit snapshot at t={all_steps[-1][0].time_s}s", end_context)
     write_summary_svg(args.out / "sunlight_summary.svg", all_steps)
     write_battery_svg(args.out / "battery_summary.svg", all_steps)
-    write_task_svg(args.out / "task_summary.svg", all_steps)
+    write_task_svg(args.out / "task_summary.svg", all_steps, task_records_by_step)
     write_sunlight_timeline_svg(args.out / "sunlight_timeline.svg", all_steps)
     write_battery_timeline_svg(args.out / "battery_timeline.svg", all_steps)
     write_task_mode_summary_svg(args.out / "task_mode_summary.svg", task_records)

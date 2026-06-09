@@ -147,11 +147,9 @@ def nearest_satellite_id(
     point: DemandPoint,
     time_utc: dt.datetime,
     min_elevation_deg: float = 30.0,
-) -> int:
+) -> int | None:
     best_sat_id = -1
     best_distance_km = float("inf")
-    fallback_sat_id = -1
-    fallback_distance_km = float("inf")
     wgs84, au_km, geocentric = skyfield_visibility_modules()
     t = skyfield_timescale().from_datetime(time_utc)
     ground = wgs84.latlon(point.lat_deg, point.lon_deg).at(t)
@@ -159,28 +157,26 @@ def nearest_satellite_id(
         altitude_deg, distance_km = satellite_altitude_distance_from_ground(
             sat, t, ground, au_km, geocentric
         )
-        if distance_km < fallback_distance_km:
-            fallback_sat_id = sat.sat_id
-            fallback_distance_km = distance_km
         if altitude_deg >= min_elevation_deg and distance_km < best_distance_km:
             best_sat_id = sat.sat_id
             best_distance_km = distance_km
-    if best_sat_id < 0:
-        best_sat_id = fallback_sat_id
-    if best_sat_id < 0:
-        raise ValueError("cannot assign demand task without satellites")
-    return best_sat_id
+    return None if best_sat_id < 0 else best_sat_id
 
 
-def generate_step_tasks(env: EnvironmentRuntime, task_config: TaskConfig) -> list[Task]:
+def generate_step_tasks(
+    env: EnvironmentRuntime,
+    task_config: TaskConfig,
+) -> tuple[list[Task], list[Task]]:
     if not task_config.enabled:
-        return []
-    if env.time_s <= 0 or env.time_s % task_config.interval_s != 0:
-        return []
+        return [], []
     if task_config.generation_mode == "satellite-deterministic":
-        return generate_satellite_deterministic_tasks(env, task_config)
+        if env.time_s <= 0 or env.time_s % task_config.interval_s != 0:
+            return [], []
+        return generate_satellite_deterministic_tasks(env, task_config), []
     if task_config.generation_mode == "demand-points":
-        return generate_demand_point_tasks(env, task_config)
+        if env.time_s > 0 and env.time_s % task_config.interval_s == 0:
+            env.pending_tasks.extend(generate_demand_point_tasks(env, task_config))
+        return resolve_pending_tasks(env, task_config)
     raise ValueError(f"unknown task generation mode: {task_config.generation_mode}")
 
 
@@ -217,12 +213,7 @@ def generate_demand_point_tasks(env: EnvironmentRuntime, task_config: TaskConfig
             Task(
                 task_id=env.next_task_id,
                 created_time_s=env.time_s,
-                source_sat=nearest_satellite_id(
-                    env.satellites,
-                    point,
-                    env.time_utc,
-                    task_config.min_elevation_deg,
-                ),
+                source_sat=None,
                 cpu_cycles=weighted_choice(
                     env.rng, task_config.cpu_cycles_choices, task_config.cpu_cycles_weights
                 ),
@@ -239,3 +230,44 @@ def generate_demand_point_tasks(env: EnvironmentRuntime, task_config: TaskConfig
         )
         env.next_task_id += 1
     return tasks
+
+
+def resolve_pending_tasks(
+    env: EnvironmentRuntime,
+    task_config: TaskConfig,
+) -> tuple[list[Task], list[Task]]:
+    if env.time_utc is None:
+        raise ValueError("demand-point task generation requires an absolute UTC simulation time")
+    ready: list[Task] = []
+    expired: list[Task] = []
+    still_pending: list[Task] = []
+    for task in env.pending_tasks:
+        if task.lat_deg is None or task.lon_deg is None:
+            raise ValueError("pending demand-point task requires latitude and longitude")
+        point = DemandPoint(lat_deg=task.lat_deg, lon_deg=task.lon_deg, weight=1.0)
+        source_sat = nearest_satellite_id(
+            env.satellites,
+            point,
+            env.time_utc,
+            task_config.min_elevation_deg,
+        )
+        if source_sat is not None:
+            ready.append(
+                Task(
+                    task_id=task.task_id,
+                    created_time_s=task.created_time_s,
+                    source_sat=source_sat,
+                    cpu_cycles=task.cpu_cycles,
+                    input_bits=task.input_bits,
+                    output_bits=task.output_bits,
+                    deadline_s=task.deadline_s,
+                    lat_deg=task.lat_deg,
+                    lon_deg=task.lon_deg,
+                )
+            )
+        elif env.time_s - task.created_time_s >= task.deadline_s:
+            expired.append(task)
+        else:
+            still_pending.append(task)
+    env.pending_tasks = still_pending
+    return ready, expired

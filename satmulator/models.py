@@ -56,7 +56,7 @@ class ISLConfig:
 class Task:
     task_id: int
     created_time_s: int
-    source_sat: int
+    source_sat: int | None
     cpu_cycles: float
     input_bits: float
     output_bits: float
@@ -78,6 +78,7 @@ class TaskRecord:
     input_bits: float
     output_bits: float
     deadline_s: float
+    waiting_time_s: float
     compute_time_s: float
     transmission_time_s: float
     total_time_s: float

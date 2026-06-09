@@ -74,7 +74,11 @@ def write_states_csv(path: Path, start: dt.datetime, all_steps: list[list[Satell
                 )
 
 
-def write_summary_csv(path: Path, all_steps: list[list[SatelliteState]]) -> None:
+def write_summary_csv(
+    path: Path,
+    all_steps: list[list[SatelliteState]],
+    task_records_by_step: list[list[TaskRecord]] | None = None,
+) -> None:
     with path.open("w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow([
@@ -90,14 +94,25 @@ def write_summary_csv(path: Path, all_steps: list[list[SatelliteState]]) -> None
             "failed_tasks",
             "task_energy_j",
         ])
-        for states in all_steps:
+        records_by_step = task_records_by_step or [[] for _ in all_steps]
+        generated_by_time = Counter(
+            record.created_time_s for records in records_by_step for record in records
+        )
+        for states, records in zip(all_steps, records_by_step):
             sunlit = sum(1 for s in states if s.sunlit)
             min_battery_pct = min(s.battery_pct for s in states)
             avg_battery_pct = sum(s.battery_pct for s in states) / len(states)
             unsafe_battery = sum(1 for s in states if not s.safe_battery)
-            generated_tasks = sum(s.generated_tasks for s in states)
+            unassigned_failures = sum(
+                not record.completed and record.source_sat < 0 for record in records
+            )
+            generated_tasks = (
+                generated_by_time[states[0].time_s]
+                if task_records_by_step is not None
+                else sum(s.generated_tasks for s in states)
+            )
             completed_tasks = sum(s.completed_tasks for s in states)
-            failed_tasks = sum(s.failed_tasks for s in states)
+            failed_tasks = sum(s.failed_tasks for s in states) + unassigned_failures
             task_energy_j = sum(s.task_energy_j for s in states)
             writer.writerow([
                 states[0].time_s,
@@ -129,6 +144,7 @@ def write_tasks_csv(path: Path, task_records: list[TaskRecord]) -> None:
             "input_bits",
             "output_bits",
             "deadline_s",
+            "waiting_time_s",
             "compute_time_s",
             "transmission_time_s",
             "total_time_s",
@@ -152,6 +168,7 @@ def write_tasks_csv(path: Path, task_records: list[TaskRecord]) -> None:
                 f"{task.input_bits:.6f}",
                 f"{task.output_bits:.6f}",
                 f"{task.deadline_s:.6f}",
+                f"{task.waiting_time_s:.6f}",
                 f"{task.compute_time_s:.6f}",
                 f"{task.transmission_time_s:.6f}",
                 f"{task.total_time_s:.6f}",
@@ -315,7 +332,11 @@ def write_battery_svg(path: Path, all_steps: list[list[SatelliteState]]) -> None
     path.write_text("".join(lines))
 
 
-def write_task_svg(path: Path, all_steps: list[list[SatelliteState]]) -> None:
+def write_task_svg(
+    path: Path,
+    all_steps: list[list[SatelliteState]],
+    task_records_by_step: list[list[TaskRecord]] | None = None,
+) -> None:
     width = 900
     height = 360
     margin_l = 60
@@ -331,9 +352,12 @@ def write_task_svg(path: Path, all_steps: list[list[SatelliteState]]) -> None:
     done = 0
     failed = 0
     max_count = 1
-    for states in all_steps:
+    records_by_step = task_records_by_step or [[] for _ in all_steps]
+    for states, records in zip(all_steps, records_by_step):
         done += sum(s.completed_tasks for s in states)
-        failed += sum(s.failed_tasks for s in states)
+        failed += sum(s.failed_tasks for s in states) + sum(
+            not record.completed and record.source_sat < 0 for record in records
+        )
         cumulative_completed.append((states[0].time_s, done))
         cumulative_failed.append((states[0].time_s, failed))
         max_count = max(max_count, done, failed)
