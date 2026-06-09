@@ -18,7 +18,8 @@ compute capacity.
 
 ## Install
 
-Circular runs use only the Python standard library. TLE runs require Skyfield:
+TLE runs and demand-point coordinate conversion require Skyfield. Circular
+runs without demand-point workloads use only the Python standard library:
 
 ```bash
 python3 -m pip install -r requirements.txt

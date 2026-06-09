@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime as dt
 import random
 from dataclasses import dataclass, field
 
@@ -105,6 +106,7 @@ class EnvironmentRuntime:
     satellites: list[SatelliteRuntime]
     rng: random.Random = field(default_factory=random.Random)
     time_s: int = 0
+    time_utc: dt.datetime | None = None
     next_task_id: int = 0
     pending_tasks: list[int] = field(default_factory=list)
     completed_tasks: list[int] = field(default_factory=list)

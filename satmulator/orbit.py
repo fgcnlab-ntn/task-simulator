@@ -252,6 +252,7 @@ def apply_step(
 
 def iter_circular_states(
     *,
+    start: dt.datetime | None = None,
     satellites: int,
     planes: int,
     altitude_km: float,
@@ -293,6 +294,7 @@ def iter_circular_states(
 
     for time_s in range(0, duration_s + 1, step_s):
         env.time_s = time_s
+        env.time_utc = None if start is None else start + dt.timedelta(seconds=time_s)
         for plane in range(planes):
             raan = 2.0 * math.pi * plane / planes
             plane_phase = 2.0 * math.pi * walker_phase * plane / satellites
@@ -383,6 +385,7 @@ def iter_tle_states(
     for time_s in range(0, duration_s + 1, step_s):
         env.time_s = time_s
         now = start + dt.timedelta(seconds=time_s)
+        env.time_utc = now
         t = ts.from_datetime(now)
         for sat_id, sat in enumerate(satellites):
             geocentric = sat.at(t)

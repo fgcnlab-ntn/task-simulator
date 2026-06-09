@@ -375,6 +375,7 @@ def run(args: argparse.Namespace) -> int:
     else:
         raw_steps = list(
             iter_circular_states(
+                start=start,
                 satellites=args.satellites,
                 planes=args.planes,
                 altitude_km=args.altitude_km,
