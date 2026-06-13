@@ -57,6 +57,8 @@ class SatelliteRuntime:
             y_km=self.pos_km[1],
             z_km=self.pos_km[2],
             sunlit=self.sunlit,
+            battery_j=self.battery_j,
+            load=self.load,
         )
 
     def snapshot(
@@ -69,6 +71,7 @@ class SatelliteRuntime:
         generated_tasks: int,
         completed_tasks: int,
         failed_tasks: int,
+        deferred_tasks: int,
         task_energy_j: float,
     ) -> SatelliteState:
         return SatelliteState(
@@ -95,6 +98,7 @@ class SatelliteRuntime:
             generated_tasks=generated_tasks,
             completed_tasks=completed_tasks,
             failed_tasks=failed_tasks,
+            deferred_tasks=deferred_tasks,
             task_energy_j=task_energy_j,
         )
 
@@ -110,6 +114,7 @@ class EnvironmentRuntime:
     next_task_id: int = 0
     pending_tasks: list[Task] = field(default_factory=list)
     completed_tasks: list[int] = field(default_factory=list)
+    deferred_tasks: list[Task] = field(default_factory=list)
     failed_tasks: list[int] = field(default_factory=list)
 
     def views(self) -> list[SatelliteView]:

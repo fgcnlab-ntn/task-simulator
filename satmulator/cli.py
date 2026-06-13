@@ -4,9 +4,13 @@ import argparse
 import datetime as dt
 import json
 from pathlib import Path
-
-from .models import BatteryConfig, ISLConfig, TaskConfig
-from .orbit import circular_snapshot_context, iter_circular_states, iter_tle_states, tle_snapshot_context
+from .models import BatteryConfig, ISLConfig, SchedulerConfig, TaskConfig
+from .orbit import (
+    circular_snapshot_context,
+    iter_circular_states,
+    iter_tle_states,
+    tle_snapshot_context,
+)
 from .output import (
     write_battery_svg,
     write_battery_timeline_svg,
@@ -68,6 +72,15 @@ DEFAULT_CONFIG = {
     "isl_tx_energy_per_bit_j": 1.0e-7,
     "isl_rx_energy_per_bit_j": 5.0e-8,
     "out": "output/minimal_orbit",
+    "scheduler_max_tasks_per_sat_per_slot": 4,
+    "scheduler_defer_penalty": 3.0,
+    "scheduler_fail_penalty": 1000.0,
+    "scheduler_time_weight": 1.0,
+    "scheduler_energy_weight": 2.0,
+    "scheduler_battery_weight": 5.0,
+    "scheduler_load_weight": 0.1,
+    "scheduler_eclipse_local_penalty": 2.0,
+    "scheduler_low_battery_threshold_pct": 35.0,
 }
 
 
@@ -119,7 +132,18 @@ CONFIG_SECTIONS = {
         "isl_tx_energy_per_bit_j": "isl_tx_energy_per_bit_j",
         "isl_rx_energy_per_bit_j": "isl_rx_energy_per_bit_j",
     },
-    "scheduler": {"name": "scheduler"},
+    "scheduler": {
+        "name": "scheduler",
+        "max_tasks_per_sat_per_slot": "scheduler_max_tasks_per_sat_per_slot",
+        "defer_penalty": "scheduler_defer_penalty",
+        "fail_penalty": "scheduler_fail_penalty",
+        "time_weight": "scheduler_time_weight",
+        "energy_weight": "scheduler_energy_weight",
+        "battery_weight": "scheduler_battery_weight",
+        "load_weight": "scheduler_load_weight",
+        "eclipse_local_penalty": "scheduler_eclipse_local_penalty",
+        "low_battery_threshold_pct": "scheduler_low_battery_threshold_pct",
+    },
     "output": {"path": "out"},
 }
 
@@ -129,13 +153,21 @@ def parse_args() -> argparse.Namespace:
         description="Run the minimal satellite orbit simulator",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    p.add_argument("--config", type=Path, help="JSON config file; CLI flags override it")
+    p.add_argument(
+        "--config", type=Path, help="JSON config file; CLI flags override it"
+    )
     p.add_argument("--orbit-model", dest="orbit_model", choices=("circular", "tle"))
     p.add_argument("--tle-file", type=Path, help="local TLE file for --orbit-model tle")
-    p.add_argument("--sun-position-file", dest="sun_position_file", help="local file used by Skyfield for Sun position")
+    p.add_argument(
+        "--sun-position-file",
+        dest="sun_position_file",
+        help="local file used by Skyfield for Sun position",
+    )
     p.add_argument("--start-utc")
     p.add_argument("--satellites", type=int, help="total satellite count")
-    p.add_argument("--planes", type=int, help="orbital plane count; must divide satellites")
+    p.add_argument(
+        "--planes", type=int, help="orbital plane count; must divide satellites"
+    )
     p.add_argument("--altitude-km", type=float)
     p.add_argument("--inclination-deg", type=float)
     p.add_argument("--duration-s", type=int)
@@ -146,11 +178,34 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--battery-min-safe-pct", type=float)
     p.add_argument("--harvest-w", type=float, help="charging power while sunlit")
     p.add_argument("--idle-w", type=float, help="baseline power draw")
-    p.add_argument("--task-enable", dest="task_enable", action="store_true", default=None, help="enable deterministic local tasks")
-    p.add_argument("--no-task", dest="task_enable", action="store_false", default=None, help="disable task generation and execution")
-    p.add_argument("--scheduler", choices=("local", "nearest-sunlit"))
+    p.add_argument(
+        "--task-enable",
+        dest="task_enable",
+        action="store_true",
+        default=None,
+        help="enable deterministic local tasks",
+    )
+    p.add_argument(
+        "--no-task",
+        dest="task_enable",
+        action="store_false",
+        default=None,
+        help="disable task generation and execution",
+    )
+    p.add_argument("--scheduler", choices=("local", "nearest-sunlit", "slack-aware"))
+    p.add_argument("--scheduler-max-tasks-per-sat-per-slot", type=int)
+    p.add_argument("--scheduler-defer-penalty", type=float)
+    p.add_argument("--scheduler-fail-penalty", type=float)
+    p.add_argument("--scheduler-time-weight", type=float)
+    p.add_argument("--scheduler-energy-weight", type=float)
+    p.add_argument("--scheduler-battery-weight", type=float)
+    p.add_argument("--scheduler-load-weight", type=float)
+    p.add_argument("--scheduler-eclipse-local-penalty", type=float)
+    p.add_argument("--scheduler-low-battery-threshold-pct", type=float)
     p.add_argument("--task-interval-s", type=int)
-    p.add_argument("--task-generation-mode", choices=("satellite-deterministic", "demand-points"))
+    p.add_argument(
+        "--task-generation-mode", choices=("satellite-deterministic", "demand-points")
+    )
     p.add_argument("--task-random-seed", type=int)
     p.add_argument("--tasks-per-sat", type=int)
     p.add_argument("--task-demand-points-file", type=Path)
@@ -205,11 +260,17 @@ def resolve_config(cli_args: argparse.Namespace) -> argparse.Namespace:
     values = DEFAULT_CONFIG.copy()
     if config_path is not None:
         values.update(load_json_config(config_path))
-    values.update({key: value for key, value in cli_values.items() if value is not None})
+    values.update(
+        {key: value for key, value in cli_values.items() if value is not None}
+    )
     values["config"] = config_path
-    values["tle_file"] = None if values["tle_file"] is None else Path(values["tle_file"])
+    values["tle_file"] = (
+        None if values["tle_file"] is None else Path(values["tle_file"])
+    )
     values["task_demand_points_file"] = (
-        None if values["task_demand_points_file"] is None else Path(values["task_demand_points_file"])
+        None
+        if values["task_demand_points_file"] is None
+        else Path(values["task_demand_points_file"])
     )
     values["out"] = Path(values["out"])
     return argparse.Namespace(**values)
@@ -244,12 +305,26 @@ def validate_args(args: argparse.Namespace) -> None:
     if args.joule_per_cycle < 0:
         raise ValueError("--joule-per-cycle must be non-negative")
     if args.isl_forward_rate_bps <= 0 or args.isl_return_rate_bps <= 0:
-        raise ValueError("--isl-forward-rate-bps and --isl-return-rate-bps must be positive")
+        raise ValueError(
+            "--isl-forward-rate-bps and --isl-return-rate-bps must be positive"
+        )
     if args.isl_tx_energy_per_bit_j < 0 or args.isl_rx_energy_per_bit_j < 0:
-        raise ValueError("--isl-tx-energy-per-bit-j and --isl-rx-energy-per-bit-j must be non-negative")
+        raise ValueError(
+            "--isl-tx-energy-per-bit-j and --isl-rx-energy-per-bit-j must be non-negative"
+        )
+    if args.scheduler_max_tasks_per_sat_per_slot <= 0:
+        raise ValueError("--scheduler-max-tasks-per-sat-per-slot must be positive")
+    if args.scheduler_fail_penalty < 0 or args.scheduler_defer_penalty < 0:
+        raise ValueError("scheduler penalties must be non-negative")
+    if not 0 <= args.scheduler_low_battery_threshold_pct <= 100:
+        raise ValueError(
+            "--scheduler-low-battery-threshold-pct must be within [0, 100]"
+        )
 
 
-def build_configs(args: argparse.Namespace) -> tuple[BatteryConfig, TaskConfig, ISLConfig]:
+def build_configs(
+    args: argparse.Namespace,
+) -> tuple[BatteryConfig, TaskConfig, ISLConfig, SchedulerConfig]:
     battery = BatteryConfig(
         capacity_j=args.battery_capacity_j,
         initial_j=args.battery_capacity_j * args.battery_initial_pct / 100.0,
@@ -286,7 +361,19 @@ def build_configs(args: argparse.Namespace) -> tuple[BatteryConfig, TaskConfig, 
         isl_tx_energy_per_bit_j=args.isl_tx_energy_per_bit_j,
         isl_rx_energy_per_bit_j=args.isl_rx_energy_per_bit_j,
     )
-    return battery, task_config, isl_config
+    scheduler_config = SchedulerConfig(
+        name=args.scheduler,
+        max_tasks_per_sat_per_slot=args.scheduler_max_tasks_per_sat_per_slot,
+        defer_penalty=args.scheduler_defer_penalty,
+        fail_penalty=args.scheduler_fail_penalty,
+        time_weight=args.scheduler_time_weight,
+        energy_weight=args.scheduler_energy_weight,
+        battery_weight=args.scheduler_battery_weight,
+        load_weight=args.scheduler_load_weight,
+        eclipse_local_penalty=args.scheduler_eclipse_local_penalty,
+        low_battery_threshold_pct=args.scheduler_low_battery_threshold_pct,
+    )
+    return battery, task_config, isl_config, scheduler_config
 
 
 def effective_run_config(args: argparse.Namespace) -> dict:
@@ -330,7 +417,9 @@ def effective_run_config(args: argparse.Namespace) -> dict:
             "output_bits": args.task_output_bits,
             "output_bits_choices": args.task_output_bits_choices,
             "output_bits_weights": args.task_output_bits_weights,
-            "demand_points_file": None if args.task_demand_points_file is None else str(args.task_demand_points_file),
+            "demand_points_file": None
+            if args.task_demand_points_file is None
+            else str(args.task_demand_points_file),
             "min_elevation_deg": args.task_min_elevation_deg,
             "deadline_s": args.task_deadline_s,
             "cpu_rate_cycles_s": args.cpu_rate_cycles_s,
@@ -344,6 +433,15 @@ def effective_run_config(args: argparse.Namespace) -> dict:
         },
         "scheduler": {
             "name": args.scheduler,
+            "max_tasks_per_sat_per_slot": args.scheduler_max_tasks_per_sat_per_slot,
+            "defer_penalty": args.scheduler_defer_penalty,
+            "fail_penalty": args.scheduler_fail_penalty,
+            "time_weight": args.scheduler_time_weight,
+            "energy_weight": args.scheduler_energy_weight,
+            "battery_weight": args.scheduler_battery_weight,
+            "load_weight": args.scheduler_load_weight,
+            "eclipse_local_penalty": args.scheduler_eclipse_local_penalty,
+            "low_battery_threshold_pct": args.scheduler_low_battery_threshold_pct,
         },
         "output": {
             "path": str(args.out),
@@ -358,7 +456,7 @@ def run(args: argparse.Namespace) -> int:
     (args.out / "run_config.json").write_text(
         json.dumps(effective_run_config(args), indent=2, sort_keys=True) + "\n"
     )
-    battery, task_config, isl_config = build_configs(args)
+    battery, task_config, isl_config, scheduler_config = build_configs(args)
     scheduler = create_scheduler(args.scheduler)
 
     if args.orbit_model == "tle":
@@ -373,12 +471,19 @@ def run(args: argparse.Namespace) -> int:
                 step_s=args.step_s,
                 battery=battery,
                 task_config=task_config,
+                scheduler_config=scheduler_config,
                 isl_config=isl_config,
                 scheduler=scheduler,
             )
         )
-        start_context = tle_snapshot_context(sun_position_file=args.sun_position_file, start=start, time_s=0)
-        end_context = tle_snapshot_context(sun_position_file=args.sun_position_file, start=start, time_s=raw_steps[-1][0][0].time_s)
+        start_context = tle_snapshot_context(
+            sun_position_file=args.sun_position_file, start=start, time_s=0
+        )
+        end_context = tle_snapshot_context(
+            sun_position_file=args.sun_position_file,
+            start=start,
+            time_s=raw_steps[-1][0][0].time_s,
+        )
     else:
         raw_steps = list(
             iter_circular_states(
@@ -393,6 +498,7 @@ def run(args: argparse.Namespace) -> int:
                 task_config=task_config,
                 isl_config=isl_config,
                 scheduler=scheduler,
+                scheduler_config=scheduler_config,
                 walker_phase=args.walker_phase,
             )
         )
@@ -406,15 +512,27 @@ def run(args: argparse.Namespace) -> int:
     write_states_csv(args.out / "states.csv", start, all_steps)
     write_summary_csv(args.out / "summary.csv", all_steps, task_records_by_step)
     write_tasks_csv(args.out / "tasks.csv", task_records)
-    write_snapshot_svg(args.out / "snapshot_start.svg", all_steps[0], "Orbit snapshot at t=0s", start_context)  # pdf
-    write_snapshot_svg(args.out / "snapshot_end.svg", all_steps[-1], f"Orbit snapshot at t={all_steps[-1][0].time_s}s", end_context)
+    write_snapshot_svg(
+        args.out / "snapshot_start.svg",
+        all_steps[0],
+        "Orbit snapshot at t=0s",
+        start_context,
+    )  # pdf
+    write_snapshot_svg(
+        args.out / "snapshot_end.svg",
+        all_steps[-1],
+        f"Orbit snapshot at t={all_steps[-1][0].time_s}s",
+        end_context,
+    )
     write_summary_svg(args.out / "sunlight_summary.svg", all_steps)
     write_battery_svg(args.out / "battery_summary.svg", all_steps)
     write_task_svg(args.out / "task_summary.svg", all_steps, task_records_by_step)
     write_sunlight_timeline_svg(args.out / "sunlight_timeline.svg", all_steps)
     write_battery_timeline_svg(args.out / "battery_timeline.svg", all_steps)
     write_task_mode_summary_svg(args.out / "task_mode_summary.svg", task_records)
-    write_offload_target_histogram_svg(args.out / "offload_target_histogram.svg", task_records)
+    write_offload_target_histogram_svg(
+        args.out / "offload_target_histogram.svg", task_records
+    )
 
     first = all_steps[0]
     last = all_steps[-1]
@@ -424,13 +542,25 @@ def run(args: argparse.Namespace) -> int:
     print(f"  satellites: {len(first)}")
     if args.orbit_model == "circular":
         print(f"  planes: {args.planes}")
-    print(f"  steps: {len(all_steps)}, duration: {args.duration_s}s, step: {args.step_s}s")
-    print(f"  t=0 sunlit/eclipse: {sum(s.sunlit for s in first)}/{len(first) - sum(s.sunlit for s in first)}")
-    print(f"  final sunlit/eclipse: {sum(s.sunlit for s in last)}/{len(last) - sum(s.sunlit for s in last)}")
-    print(f"  final battery min/avg: {min(s.battery_pct for s in last):.2f}%/{sum(s.battery_pct for s in last) / len(last):.2f}%")
-    print(f"  tasks completed/failed: {sum(1 for t in task_records if t.completed)}/{sum(1 for t in task_records if not t.completed)}")
+    print(
+        f"  steps: {len(all_steps)}, duration: {args.duration_s}s, step: {args.step_s}s"
+    )
+    print(
+        f"  t=0 sunlit/eclipse: {sum(s.sunlit for s in first)}/{len(first) - sum(s.sunlit for s in first)}"
+    )
+    print(
+        f"  final sunlit/eclipse: {sum(s.sunlit for s in last)}/{len(last) - sum(s.sunlit for s in last)}"
+    )
+    print(
+        f"  final battery min/avg: {min(s.battery_pct for s in last):.2f}%/{sum(s.battery_pct for s in last) / len(last):.2f}%"
+    )
+    print(
+        f"  tasks completed/failed: {sum(1 for t in task_records if t.completed)}/{sum(1 for t in task_records if not t.completed)}"
+    )
     print(f"  output: {args.out.resolve()}")
-    print("  open snapshot_start.svg, snapshot_end.svg, sunlight_summary.svg, battery_summary.svg, or task_summary.svg to see results")
+    print(
+        "  open snapshot_start.svg, snapshot_end.svg, sunlight_summary.svg, battery_summary.svg, or task_summary.svg to see results"
+    )
     return 0
 
 

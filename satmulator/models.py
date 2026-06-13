@@ -53,6 +53,20 @@ class ISLConfig:
 
 
 @dataclass(frozen=True)
+class SchedulerConfig:
+    name: str
+    max_tasks_per_sat_per_slot: int = 4
+    defer_penalty: float = 3.0
+    fail_penalty: float = 1000.0
+    time_weight: float = 1.0
+    energy_weight: float = 2.0
+    battery_weight: float = 5.0
+    load_weight: float = 0.1
+    eclipse_local_penalty: float = 2.0
+    low_battery_threshold_pct: float = 35.0
+
+
+@dataclass(frozen=True)
 class Task:
     task_id: int
     created_time_s: int
@@ -88,6 +102,9 @@ class TaskRecord:
     source_energy_j: float = 0.0
     target_energy_j: float = 0.0
     total_energy_j: float = 0.0
+    status: str = "completed"
+    remaining_deadline_s: float = 0.0
+    score: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -96,6 +113,8 @@ class Assignment:
     source_sat: int
     target_sat: int
     mode: str
+    score: float = 0.0
+    failed_reason: str = ""
 
 
 @dataclass(frozen=True)
@@ -105,6 +124,8 @@ class SatelliteView:
     y_km: float
     z_km: float
     sunlit: bool
+    battery_j: float = 0.0
+    load: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -133,6 +154,7 @@ class SatelliteState:
     completed_tasks: int
     failed_tasks: int
     task_energy_j: float
+    deferred_tasks: int = 0
 
 
 @dataclass(frozen=True)
