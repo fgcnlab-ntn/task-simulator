@@ -25,12 +25,22 @@ runs without demand-point workloads use only the Python standard library:
 python3 -m pip install -r requirements.txt
 ```
 
-`de421.bsp` is not tracked by git. Circular runs do not need it. TLE runs use it
+`de440s.bsp` is not tracked by git. Circular runs do not need it. TLE runs use it
 for Sun-position calculation; Skyfield can download it on first use:
 
 ```bash
-python3 -c "from skyfield.api import load; load('de421.bsp')"
+python3 -c "from skyfield.api import load; load('de440s.bsp')"
 ```
+
+### Ephemeris data source
+Solar positions are computed using the JPL DE440s ephemeris
+(`de440s.bsp`) loaded through Skyfield.
+
+References:
+
+- Ephemeris data (DE440s): https://ssd.jpl.nasa.gov/ftp/eph/planets/bsp/de440s.bsp
+- DE440 technical paper: https://doi.org/10.3847/1538-3881/abd414
+- Skyfield documentation: https://rhodesmill.org/skyfield/planets.html
 
 For offline TLE runs, provide a local path:
 
@@ -39,7 +49,7 @@ python3 minimal_orbit.py \
   --config configs/default.json \
   --orbit-model tle \
   --tle-file tle/stations.tle \
-  --sun-position-file /path/to/de421.bsp
+  --sun-position-file /path/to/de440s.bsp
 ```
 
 ## Run

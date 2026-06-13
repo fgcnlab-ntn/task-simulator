@@ -27,7 +27,7 @@ from .workload import load_demand_points
 DEFAULT_CONFIG = {
     "orbit_model": "circular",
     "tle_file": None,
-    "sun_position_file": "de421.bsp",
+    "sun_position_file": "de440s.bsp",
     "start_utc": "2026-05-22T12:00:00Z",
     "satellites": 66,
     "planes": 6,

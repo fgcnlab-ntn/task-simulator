@@ -6,7 +6,7 @@
   "orbit": {
     "orbit_model": "circular",
     "tle_file": null,
-    "sun_position_file": "de421.bsp",
+    "sun_position_file": "de440s.bsp",
     "satellites": 66,
     "planes": 6,
     "altitude_km": 550.0,
