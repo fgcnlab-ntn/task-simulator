@@ -149,6 +149,8 @@ class RunLog:
         self._terminal_ids: set[int] = set()
         self._completed = 0
         self._failed = 0
+        self._steps = 0
+        self._final_states: list[SatelliteState] | None = None
         self._manifest: dict[str, object] = {
             "schema_version": SCHEMA_VERSION,
             "status": "running",
@@ -166,6 +168,8 @@ class RunLog:
             self._manifest["satellites"] = satellite_catalog(states)
             write_json(self.run_path, self._manifest)
         append_json_line(self._states, state_record(self.start, states, context))
+        self._steps += 1
+        self._final_states = states
 
     def write_task_event(self, event: dict[str, object]) -> None:
         record = {"schema_version": SCHEMA_VERSION, **event}
@@ -185,11 +189,18 @@ class RunLog:
                 self._failed += 1
         append_json_line(self._tasks, record)
 
-    def complete(self, all_steps: list[list[SatelliteState]]) -> None:
-        final_states = all_steps[-1]
+    def complete(self, all_steps: list[list[SatelliteState]] | None = None) -> None:
+        if all_steps is not None:
+            final_states = all_steps[-1]
+            steps = len(all_steps)
+        elif self._final_states is not None:
+            final_states = self._final_states
+            steps = self._steps
+        else:
+            raise ValueError("cannot complete a run with no state records")
         summary = {
             "schema_version": SCHEMA_VERSION,
-            "steps": len(all_steps),
+            "steps": steps,
             "final_time_s": final_states[0].time_s,
             "satellites": len(final_states),
             "tasks": {

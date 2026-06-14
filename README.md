@@ -72,6 +72,12 @@ Task-oriented demand-point workload:
 python3 minimal_orbit.py --config configs/demand_points.json
 ```
 
+Regenerate plots from an existing run without rerunning the simulation:
+
+```bash
+python3 minimal_orbit.py --plot-run output/minimal_orbit
+```
+
 CLI flags override config values:
 
 ```bash
@@ -151,6 +157,7 @@ See `TASK_CONFIG.md` for the task-oriented config fields.
 - `satmulator/scheduler.py` — task assignment schedulers
 - `satmulator/battery.py` — battery update logic
 - `satmulator/runlog.py` — streaming JSON/JSONL experiment logs
+- `satmulator/plotting.py` — rebuilds SVG plots from experiment logs
 - `satmulator/output.py` — SVG writers
 - `satmulator/geometry.py` — geometry helpers
 

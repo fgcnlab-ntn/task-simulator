@@ -5,22 +5,8 @@ import datetime as dt
 import json
 from pathlib import Path
 from .models import BatteryConfig, ISLConfig, SchedulerConfig, TaskConfig
-from .orbit import (
-    circular_snapshot_context,
-    iter_circular_states,
-    iter_tle_states,
-    tle_snapshot_context,
-)
-from .output import (
-    write_battery_svg,
-    write_battery_timeline_svg,
-    write_offload_target_histogram_svg,
-    write_snapshot_svg,
-    write_summary_svg,
-    write_sunlight_timeline_svg,
-    write_task_mode_summary_svg,
-    write_task_svg,
-)
+from .orbit import iter_circular_states, iter_tle_states
+from .plotting import render_run_plots
 from .runlog import RunLog
 from .scheduler import create_scheduler
 from .workload import load_demand_points
@@ -225,6 +211,11 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--isl-tx-energy-per-bit-j", type=float)
     p.add_argument("--isl-rx-energy-per-bit-j", type=float)
     p.add_argument("--out", type=Path)
+    p.add_argument(
+        "--plot-run",
+        type=Path,
+        help="regenerate SVG plots from an existing JSON/JSONL run log",
+    )
     return resolve_config(p.parse_args())
 
 
@@ -258,6 +249,7 @@ def load_json_config(path: Path) -> dict:
 def resolve_config(cli_args: argparse.Namespace) -> argparse.Namespace:
     cli_values = vars(cli_args).copy()
     config_path = cli_values.pop("config", None)
+    plot_run = cli_values.pop("plot_run", None)
     values = DEFAULT_CONFIG.copy()
     if config_path is not None:
         values.update(load_json_config(config_path))
@@ -265,6 +257,7 @@ def resolve_config(cli_args: argparse.Namespace) -> argparse.Namespace:
         {key: value for key, value in cli_values.items() if value is not None}
     )
     values["config"] = config_path
+    values["plot_run"] = plot_run
     values["tle_file"] = (
         None if values["tle_file"] is None else Path(values["tle_file"])
     )
@@ -500,55 +493,23 @@ def run(args: argparse.Namespace) -> int:
                 **common,
             )
 
-        raw_steps = []
-        for states, task_records_at_step in step_iterator:
-            raw_steps.append((states, task_records_at_step))
-
-        if args.orbit_model == "tle":
-            start_context = tle_snapshot_context(
-                sun_position_file=args.sun_position_file, start=start, time_s=0
-            )
-            end_context = tle_snapshot_context(
-                sun_position_file=args.sun_position_file,
-                start=start,
-                time_s=raw_steps[-1][0][0].time_s,
-            )
-        else:
-            start_context = circular_snapshot_context()
-            end_context = circular_snapshot_context()
-
-        task_records = [task for _, tasks in raw_steps for task in tasks]
-        all_steps = [states for states, _ in raw_steps]
-        task_records_by_step = [tasks for _, tasks in raw_steps]
-
-        write_snapshot_svg(
-            args.out / "snapshot_start.svg",
-            all_steps[0],
-            "Orbit snapshot at t=0s",
-            start_context,
-        )
-        write_snapshot_svg(
-            args.out / "snapshot_end.svg",
-            all_steps[-1],
-            f"Orbit snapshot at t={all_steps[-1][0].time_s}s",
-            end_context,
-        )
-        write_summary_svg(args.out / "sunlight_summary.svg", all_steps)
-        write_battery_svg(args.out / "battery_summary.svg", all_steps)
-        write_task_svg(args.out / "task_summary.svg", all_steps, task_records_by_step)
-        write_sunlight_timeline_svg(args.out / "sunlight_timeline.svg", all_steps)
-        write_battery_timeline_svg(args.out / "battery_timeline.svg", all_steps)
-        write_task_mode_summary_svg(args.out / "task_mode_summary.svg", task_records)
-        write_offload_target_histogram_svg(
-            args.out / "offload_target_histogram.svg", task_records
-        )
-        run_log.complete(all_steps)
+        first = None
+        last = None
+        steps = 0
+        for states, _ in step_iterator:
+            if first is None:
+                first = states
+            last = states
+            steps += 1
+        run_log.complete()
     except BaseException as exc:
         run_log.fail(exc)
         raise
 
-    first = all_steps[0]
-    last = all_steps[-1]
+    assert first is not None and last is not None
+    render_run_plots(args.out)
+    summary = json.loads((args.out / "summary.json").read_text())
+    task_summary = summary["tasks"]
     print("Minimal orbit simulation complete")
     print(f"  orbit model: {args.orbit_model}")
     print(f"  scheduler: {scheduler.name}")
@@ -556,7 +517,7 @@ def run(args: argparse.Namespace) -> int:
     if args.orbit_model == "circular":
         print(f"  planes: {args.planes}")
     print(
-        f"  steps: {len(all_steps)}, duration: {args.duration_s}s, step: {args.step_s}s"
+        f"  steps: {steps}, duration: {args.duration_s}s, step: {args.step_s}s"
     )
     print(
         f"  t=0 sunlit/eclipse: {sum(s.sunlit for s in first)}/{len(first) - sum(s.sunlit for s in first)}"
@@ -568,7 +529,7 @@ def run(args: argparse.Namespace) -> int:
         f"  final battery min/avg: {min(s.battery_pct for s in last):.2f}%/{sum(s.battery_pct for s in last) / len(last):.2f}%"
     )
     print(
-        f"  tasks completed/failed: {sum(1 for t in task_records if t.completed)}/{sum(1 for t in task_records if t.status == 'failed')}"
+        f"  tasks completed/failed: {task_summary['completed']}/{task_summary['failed']}"
     )
     print(f"  output: {args.out.resolve()}")
     print(
@@ -578,4 +539,9 @@ def run(args: argparse.Namespace) -> int:
 
 
 def main() -> int:
-    return run(parse_args())
+    args = parse_args()
+    if args.plot_run is not None:
+        render_run_plots(args.plot_run)
+        print(f"Plots regenerated from {args.plot_run.resolve()}")
+        return 0
+    return run(args)
