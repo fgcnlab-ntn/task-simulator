@@ -5,11 +5,11 @@ import math
 import random
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
+from typing import Callable, Iterable
 
 from .battery import apply_battery_step, validate_battery_config
 from .constants import EARTH_MU_KM3_S2, EARTH_RADIUS_KM
-from .geometry import circular_state, is_sunlit_cylindrical_shadow, xy_unit
+from .geometry import circular_state, is_sunlit_cylindrical_shadow, vector_unit, xy_unit
 from .models import (
     Assignment,
     BatteryConfig,
@@ -25,6 +25,9 @@ from .models import (
 from .runtime import EnvironmentRuntime, SatelliteRuntime, TaskEventSink
 from .scheduler import Scheduler
 from .workload import generate_step_tasks, validate_task_config
+
+
+StepSink = Callable[[list[SatelliteState], SnapshotContext], None]
 
 
 @dataclass
@@ -524,6 +527,7 @@ def iter_circular_states(
     scheduler_config: SchedulerConfig,
     walker_phase: int = 0,
     task_event_sink: TaskEventSink | None = None,
+    step_sink: StepSink | None = None,
 ) -> Iterable[tuple[list[SatelliteState], list[TaskRecord]]]:
     if satellites <= 0:
         raise ValueError("satellites must be positive")
@@ -608,6 +612,8 @@ def iter_circular_states(
             expired_tasks=expired_tasks,
         )
 
+        if step_sink is not None:
+            step_sink(states, circular_snapshot_context())
         yield states, task_records
 
 
@@ -645,6 +651,7 @@ def iter_tle_states(
     scheduler: Scheduler,
     scheduler_config: SchedulerConfig,
     task_event_sink: TaskEventSink | None = None,
+    step_sink: StepSink | None = None,
 ) -> Iterable[tuple[list[SatelliteState], list[TaskRecord]]]:
     if step_s <= 0:
         raise ValueError("step must be positive")
@@ -683,6 +690,10 @@ def iter_tle_states(
         now = start + dt.timedelta(seconds=time_s)
         env.time_utc = now
         t = ts.from_datetime(now)
+        earth = eph["earth"].at(t)
+        sun = eph["sun"].at(t)
+        sun_vector = tuple(float(x) for x in (sun.position.km - earth.position.km))
+        context = snapshot_context_from_sun_vector(sun_vector)
 
         for sat_id, sat in enumerate(satellites):
             geocentric = sat.at(t)
@@ -729,6 +740,8 @@ def iter_tle_states(
             expired_tasks=expired_tasks,
         )
 
+        if step_sink is not None:
+            step_sink(states, context)
         yield states, task_records
 
 
@@ -736,6 +749,17 @@ def circular_snapshot_context() -> SnapshotContext:
     return SnapshotContext(
         projection_label="ECI x-y projection; circular orbit model uses fixed +x sun direction",
         sun_xy_unit=(1.0, 0.0),
+        sun_eci_unit=(1.0, 0.0, 0.0),
+    )
+
+
+def snapshot_context_from_sun_vector(
+    sun_vector: tuple[float, float, float],
+) -> SnapshotContext:
+    return SnapshotContext(
+        projection_label="ECI x-y projection; sun arrow is the real Sun vector projected into this plane",
+        sun_xy_unit=xy_unit(sun_vector),
+        sun_eci_unit=vector_unit(sun_vector),
     )
 
 
@@ -761,7 +785,4 @@ def tle_snapshot_context(
 
     sun_vector = tuple(float(x) for x in (sun.position.km - earth.position.km))
 
-    return SnapshotContext(
-        projection_label="ECI x-y projection; sun arrow is the real Sun vector projected into this plane",
-        sun_xy_unit=xy_unit(sun_vector),
-    )
+    return snapshot_context_from_sun_vector(sun_vector)

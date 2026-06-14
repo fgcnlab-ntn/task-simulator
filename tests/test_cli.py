@@ -1,4 +1,5 @@
 import argparse
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -73,6 +74,11 @@ class EffectiveRunConfigTests(unittest.TestCase):
             self.assertTrue((output / "states.jsonl").exists())
             self.assertTrue((output / "tasks.jsonl").exists())
             self.assertTrue((output / "summary.json").exists())
+            state = json.loads((output / "states.jsonl").read_text())
+            self.assertEqual(
+                state["snapshot_context"]["sun_eci_unit"],
+                [1.0, 0.0, 0.0],
+            )
 
 
 if __name__ == "__main__":

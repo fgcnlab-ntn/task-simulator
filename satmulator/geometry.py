@@ -27,6 +27,15 @@ def xy_unit(v: tuple[float, float, float]) -> tuple[float, float] | None:
     return (x / norm, y / norm)
 
 
+def vector_unit(
+    v: tuple[float, float, float],
+) -> tuple[float, float, float] | None:
+    norm = math.sqrt(sum(component * component for component in v))
+    if norm == 0:
+        return None
+    return tuple(component / norm for component in v)
+
+
 def circular_state(
     radius_km: float,
     inclination_rad: float,

@@ -8,6 +8,7 @@ from satmulator.models import (
     BatteryConfig,
     ISLConfig,
     SatelliteState,
+    SnapshotContext,
     SchedulerConfig,
     TaskConfig,
 )
@@ -46,6 +47,30 @@ def sample_state(time_s: int = 0) -> SatelliteState:
 
 
 class RunLogTests(unittest.TestCase):
+    def test_writes_self_contained_snapshot_context(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            start = dt.datetime(2026, 6, 14, tzinfo=dt.timezone.utc)
+            log = RunLog(output, start, {})
+            context = SnapshotContext(
+                projection_label="ECI",
+                sun_xy_unit=(0.6, 0.8),
+                sun_eci_unit=(0.6, 0.8, 0.0),
+            )
+
+            log.write_step([sample_state()], context)
+            log.complete([[sample_state()]])
+
+            record = next(iter_state_steps(output))
+            self.assertEqual(
+                record["snapshot_context"],
+                {
+                    "projection_label": "ECI",
+                    "sun_eci_unit": [0.6, 0.8, 0.0],
+                    "sun_xy_unit": [0.6, 0.8],
+                },
+            )
+
     def test_writes_one_valid_state_object_per_jsonl_line(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory)

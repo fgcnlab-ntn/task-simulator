@@ -480,6 +480,7 @@ def run(args: argparse.Namespace) -> int:
             "scheduler": scheduler,
             "scheduler_config": scheduler_config,
             "task_event_sink": run_log.write_task_event,
+            "step_sink": run_log.write_step,
         }
         if args.orbit_model == "tle":
             if args.tle_file is None:
@@ -501,7 +502,6 @@ def run(args: argparse.Namespace) -> int:
 
         raw_steps = []
         for states, task_records_at_step in step_iterator:
-            run_log.write_step(states)
             raw_steps.append((states, task_records_at_step))
 
         if args.orbit_model == "tle":

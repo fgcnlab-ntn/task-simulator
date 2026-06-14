@@ -132,10 +132,11 @@ Each run writes:
 JSON/JSONL files are the structured experiment log. SVG files are quick
 inspection outputs.
 
-`states.jsonl` stores one JSON object per simulation step. `tasks.jsonl` stores
-task lifecycle events such as generation, coverage waiting, assignment,
-completion, and failure. Both files remain valid and readable if a long run
-stops early.
+`states.jsonl` stores one JSON object per simulation step, including the ECI Sun
+direction needed to reproduce TLE snapshot plots without reopening the BSP
+ephemeris. `tasks.jsonl` stores task lifecycle events such as generation,
+coverage waiting, assignment, completion, and failure. Both files remain valid
+and readable if a long run stops early.
 
 See `TASK_CONFIG.md` for the task-oriented config fields.
 

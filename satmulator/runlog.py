@@ -6,7 +6,7 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import TextIO
 
-from .models import SatelliteState
+from .models import SatelliteState, SnapshotContext
 
 
 SCHEMA_VERSION = 1
@@ -80,9 +80,13 @@ def satellite_catalog(states: list[SatelliteState]) -> list[dict[str, object]]:
     ]
 
 
-def state_record(start: dt.datetime, states: list[SatelliteState]) -> dict[str, object]:
+def state_record(
+    start: dt.datetime,
+    states: list[SatelliteState],
+    context: SnapshotContext | None = None,
+) -> dict[str, object]:
     time_s = states[0].time_s
-    return {
+    record: dict[str, object] = {
         "schema_version": SCHEMA_VERSION,
         "time_s": time_s,
         "time_iso": (start + dt.timedelta(seconds=time_s)).isoformat(),
@@ -117,6 +121,13 @@ def state_record(start: dt.datetime, states: list[SatelliteState]) -> dict[str, 
             for state in states
         ],
     }
+    if context is not None:
+        record["snapshot_context"] = {
+            "projection_label": context.projection_label,
+            "sun_eci_unit": context.sun_eci_unit,
+            "sun_xy_unit": context.sun_xy_unit,
+        }
+    return record
 
 
 class RunLog:
@@ -146,11 +157,15 @@ class RunLog:
         }
         write_json(self.run_path, self._manifest)
 
-    def write_step(self, states: list[SatelliteState]) -> None:
+    def write_step(
+        self,
+        states: list[SatelliteState],
+        context: SnapshotContext | None = None,
+    ) -> None:
         if "satellites" not in self._manifest:
             self._manifest["satellites"] = satellite_catalog(states)
             write_json(self.run_path, self._manifest)
-        append_json_line(self._states, state_record(self.start, states))
+        append_json_line(self._states, state_record(self.start, states, context))
 
     def write_task_event(self, event: dict[str, object]) -> None:
         record = {"schema_version": SCHEMA_VERSION, **event}

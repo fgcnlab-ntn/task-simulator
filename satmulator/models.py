@@ -161,3 +161,4 @@ class SatelliteState:
 class SnapshotContext:
     projection_label: str
     sun_xy_unit: tuple[float, float] | None = None
+    sun_eci_unit: tuple[float, float, float] | None = None
