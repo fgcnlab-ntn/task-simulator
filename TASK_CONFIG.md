@@ -32,12 +32,12 @@ model.  The new config keeps that old mode for compatibility and adds a
 Task records include `waiting_time_s`. Waiting for coverage counts toward
 `total_time_s` and the task deadline.
 
-## Data source direction
+## Population data source
 
-The immediate implementation uses a small CSV interface so the simulator is not
-blocked by GeoTIFF processing.  The same `lat,lon,weight` format can later be
-produced from NASA SEDAC GPWv4 population grids, WorldPop, or NASA Black Marble
-nighttime-light data.
+The population-weighted baseline uses WorldPop 2025 R2025A constrained
+population-count products at 1 km resolution for both Taiwan and global
+experiments. They are converted offline into the common `lat,lon,weight`
+format. Exact sources and checksums are recorded in `data/worldpop/README.md`.
 
 ## Compatibility
 

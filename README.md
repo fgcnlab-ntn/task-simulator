@@ -72,6 +72,10 @@ Task-oriented demand-point workload:
 python3 minimal_orbit.py --config configs/demand_points.json
 ```
 
+Population-weighted demand inputs use WorldPop 2025 R2025A constrained 1 km
+population-count products for both Taiwan and global experiments. See
+`data/worldpop/README.md` for the exact sources and checksums.
+
 Regenerate plots from an existing run without rerunning the simulation:
 
 ```bash
