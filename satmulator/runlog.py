@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+from collections.abc import Iterator
 from pathlib import Path
 from typing import TextIO
 
@@ -9,6 +10,7 @@ from .models import SatelliteState
 
 
 SCHEMA_VERSION = 1
+JsonObject = dict[str, object]
 
 
 def utc_now_iso() -> str:
@@ -22,6 +24,48 @@ def write_json(path: Path, value: object) -> None:
 def append_json_line(stream: TextIO, value: object) -> None:
     stream.write(json.dumps(value, separators=(",", ":"), sort_keys=True) + "\n")
     stream.flush()
+
+
+def _validate_record(value: object, *, source: str) -> JsonObject:
+    if not isinstance(value, dict):
+        raise ValueError(f"{source} must contain a JSON object")
+    version = value.get("schema_version")
+    if version != SCHEMA_VERSION:
+        raise ValueError(
+            f"{source} has unsupported schema_version {version!r}; "
+            f"expected {SCHEMA_VERSION}"
+        )
+    return value
+
+
+def load_run(output_dir: Path) -> JsonObject:
+    path = output_dir / "run.json"
+    try:
+        value = json.loads(path.read_text())
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"invalid JSON in {path}: {exc.msg}") from exc
+    return _validate_record(value, source=str(path))
+
+
+def _iter_jsonl(path: Path) -> Iterator[JsonObject]:
+    with path.open() as stream:
+        for line_number, line in enumerate(stream, start=1):
+            source = f"{path}:{line_number}"
+            if not line.strip():
+                raise ValueError(f"{source} must contain a JSON object")
+            try:
+                value = json.loads(line)
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"invalid JSON in {source}: {exc.msg}") from exc
+            yield _validate_record(value, source=source)
+
+
+def iter_state_steps(output_dir: Path) -> Iterator[JsonObject]:
+    return _iter_jsonl(output_dir / "states.jsonl")
+
+
+def iter_task_events(output_dir: Path) -> Iterator[JsonObject]:
+    return _iter_jsonl(output_dir / "tasks.jsonl")
 
 
 def satellite_catalog(states: list[SatelliteState]) -> list[dict[str, object]]:

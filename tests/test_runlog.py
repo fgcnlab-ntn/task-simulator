@@ -12,7 +12,7 @@ from satmulator.models import (
     TaskConfig,
 )
 from satmulator.orbit import iter_circular_states
-from satmulator.runlog import RunLog
+from satmulator.runlog import RunLog, iter_state_steps, iter_task_events, load_run
 from satmulator.scheduler import LocalOnlyScheduler
 
 
@@ -143,6 +143,46 @@ class RunLogTests(unittest.TestCase):
             [event["type"] for event in events],
             ["task_generated", "task_assigned", "task_completed"],
         )
+
+
+class RunLogReaderTests(unittest.TestCase):
+    def test_reads_manifest_state_steps_and_task_events(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            start = dt.datetime(2026, 6, 14, tzinfo=dt.timezone.utc)
+            log = RunLog(output, start, {"test": True})
+            log.write_task_event({"type": "task_generated", "time_s": 0, "task_id": 1})
+            log.write_step([sample_state(0)])
+            log.write_step([sample_state(30)])
+            log.complete([[sample_state(0)], [sample_state(30)]])
+
+            self.assertEqual(load_run(output)["status"], "completed")
+            self.assertEqual(
+                [record["time_s"] for record in iter_state_steps(output)],
+                [0, 30],
+            )
+            self.assertEqual(
+                [record["type"] for record in iter_task_events(output)],
+                ["task_generated"],
+            )
+
+    def test_rejects_unsupported_schema_version(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            (output / "run.json").write_text('{"schema_version": 999}\n')
+
+            with self.assertRaisesRegex(ValueError, "unsupported schema_version 999"):
+                load_run(output)
+
+    def test_reports_invalid_jsonl_line(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            (output / "states.jsonl").write_text(
+                '{"schema_version":1,"time_s":0}\nnot-json\n'
+            )
+
+            with self.assertRaisesRegex(ValueError, r"states\.jsonl:2"):
+                list(iter_state_steps(output))
 
 
 if __name__ == "__main__":
