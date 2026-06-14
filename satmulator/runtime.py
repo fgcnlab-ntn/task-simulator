@@ -3,11 +3,13 @@ from __future__ import annotations
 import datetime as dt
 import random
 from dataclasses import dataclass, field
+from typing import Callable
 
 from .models import BatteryConfig, SatelliteState, SatelliteView, Task
 
 
 Vector3 = tuple[float, float, float]
+TaskEventSink = Callable[[dict[str, object]], None]
 
 
 @dataclass
@@ -116,6 +118,19 @@ class EnvironmentRuntime:
     completed_tasks: list[int] = field(default_factory=list)
     deferred_tasks: list[Task] = field(default_factory=list)
     failed_tasks: list[int] = field(default_factory=list)
+    task_event_sink: TaskEventSink | None = None
 
     def views(self) -> list[SatelliteView]:
         return [sat.view() for sat in self.satellites]
+
+    def emit_task_event(self, event_type: str, task_id: int, **details: object) -> None:
+        if self.task_event_sink is None:
+            return
+        self.task_event_sink(
+            {
+                "type": event_type,
+                "time_s": self.time_s,
+                "task_id": task_id,
+                **details,
+            }
+        )

@@ -22,7 +22,7 @@ from .models import (
     TaskConfig,
     TaskRecord,
 )
-from .runtime import EnvironmentRuntime, SatelliteRuntime
+from .runtime import EnvironmentRuntime, SatelliteRuntime, TaskEventSink
 from .scheduler import Scheduler
 from .workload import generate_step_tasks, validate_task_config
 
@@ -241,7 +241,6 @@ def apply_step(
     for task in expired_tasks:
         waiting_time_s = env.time_s - task.created_time_s
         env.failed_tasks.append(task.task_id)
-
         source_sat = task.source_sat if task.source_sat is not None else -1
         target_sat = source_sat
 
@@ -251,6 +250,13 @@ def apply_step(
         else:
             failed_reason = "no_coverage"
 
+        env.emit_task_event(
+            "task_failed",
+            task.task_id,
+            source_sat=source_sat,
+            reason=failed_reason,
+            waiting_time_s=waiting_time_s,
+        )
         records.append(
             make_task_record(
                 task=task,
@@ -275,7 +281,15 @@ def apply_step(
     for assignment in assignments:
         task = task_by_id[assignment.task_id]
         waiting_time_s = env.time_s - task.created_time_s
-
+        env.emit_task_event(
+            "task_assigned",
+            task.task_id,
+            source_sat=assignment.source_sat,
+            target_sat=assignment.target_sat,
+            mode=assignment.mode,
+            score=assignment.score,
+            waiting_time_s=waiting_time_s,
+        )
         source_stats = stats_by_sat[assignment.source_sat]
         target_stats = stats_by_sat[assignment.target_sat]
 
@@ -284,6 +298,13 @@ def apply_step(
         if assignment.mode == "defer":
             env.deferred_tasks.append(task)
             source_stats.deferred_tasks += 1
+            env.emit_task_event(
+                "task_deferred",
+                task.task_id,
+                source_sat=assignment.source_sat,
+                score=assignment.score,
+                waiting_time_s=waiting_time_s,
+            )
 
             records.append(
                 make_task_record(
@@ -311,6 +332,16 @@ def apply_step(
         if assignment.mode == "fail":
             source_stats.failed_tasks += 1
             env.failed_tasks.append(task.task_id)
+            env.emit_task_event(
+                "task_failed",
+                task.task_id,
+                source_sat=assignment.source_sat,
+                target_sat=assignment.target_sat,
+                mode="fail",
+                reason=assignment.failed_reason or "scheduler_fail",
+                score=assignment.score,
+                waiting_time_s=waiting_time_s,
+            )
 
             records.append(
                 make_task_record(
@@ -386,10 +417,38 @@ def apply_step(
             target_stats.task_energy_j += target_energy_j
             env.completed_tasks.append(task.task_id)
             status = "completed"
+            env.emit_task_event(
+                "task_completed",
+                task.task_id,
+                source_sat=assignment.source_sat,
+                target_sat=assignment.target_sat,
+                mode=assignment.mode,
+                waiting_time_s=waiting_time_s,
+                compute_time_s=time_cost.compute_time_s,
+                transmission_time_s=time_cost.transmission_time_s,
+                total_time_s=total_time_s,
+                energy_j={
+                    "source": source_energy_j,
+                    "target": target_energy_j,
+                    "total": source_energy_j + target_energy_j,
+                },
+                score=assignment.score,
+            )
         else:
             source_stats.failed_tasks += 1
             env.failed_tasks.append(task.task_id)
             status = "failed"
+            env.emit_task_event(
+                "task_failed",
+                task.task_id,
+                source_sat=assignment.source_sat,
+                target_sat=assignment.target_sat,
+                mode=assignment.mode,
+                reason=failed_reason,
+                score=assignment.score,
+                waiting_time_s=waiting_time_s,
+                total_time_s=total_time_s,
+            )
 
         records.append(
             make_task_record(
@@ -464,6 +523,7 @@ def iter_circular_states(
     scheduler: Scheduler,
     scheduler_config: SchedulerConfig,
     walker_phase: int = 0,
+    task_event_sink: TaskEventSink | None = None,
 ) -> Iterable[tuple[list[SatelliteState], list[TaskRecord]]]:
     if satellites <= 0:
         raise ValueError("satellites must be positive")
@@ -482,6 +542,7 @@ def iter_circular_states(
 
     env = EnvironmentRuntime(
         rng=random.Random(task_config.random_seed),
+        task_event_sink=task_event_sink,
         satellites=[
             SatelliteRuntime(
                 sat_id=sat_id,
@@ -583,6 +644,7 @@ def iter_tle_states(
     isl_config: ISLConfig,
     scheduler: Scheduler,
     scheduler_config: SchedulerConfig,
+    task_event_sink: TaskEventSink | None = None,
 ) -> Iterable[tuple[list[SatelliteState], list[TaskRecord]]]:
     if step_s <= 0:
         raise ValueError("step must be positive")
@@ -603,6 +665,7 @@ def iter_tle_states(
 
     env = EnvironmentRuntime(
         rng=random.Random(task_config.random_seed),
+        task_event_sink=task_event_sink,
         satellites=[
             SatelliteRuntime(
                 sat_id=sat_id,

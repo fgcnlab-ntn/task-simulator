@@ -11,7 +11,7 @@ The current model supports:
 - deterministic and demand-point task generation
 - local and nearest-sunlit schedulers
 - one-hop ISL time/energy accounting for offloaded tasks
-- CSV/SVG outputs for quick inspection
+- structured JSON/JSONL logs and SVG outputs for quick inspection
 
 It does not yet model routing, hop count, queueing, link contention, or target
 compute capacity.
@@ -103,7 +103,7 @@ built-in defaults < JSON config < CLI overrides
 The effective merged config is written to:
 
 ```text
-<output>/run_config.json
+<output>/run.json
 ```
 
 ## Default model
@@ -123,11 +123,19 @@ The effective merged config is written to:
 
 Each run writes:
 
-- `states.csv` — per-satellite state per time step
-- `summary.csv` — aggregate sunlight, battery, and task counters
-- `tasks.csv` — per-task assignment, time, energy, and completion result
-- `run_config.json` — effective config
+- `run.json` — structured run status, effective config, and satellite catalog
+- `states.jsonl` — one append-safe satellite-state record per simulation step
+- `tasks.jsonl` — append-safe task lifecycle events
+- `summary.json` — final structured result summary
 - `*.svg` — quick visual checks for orbit, battery, sunlight, and task results
+
+JSON/JSONL files are the structured experiment log. SVG files are quick
+inspection outputs.
+
+`states.jsonl` stores one JSON object per simulation step. `tasks.jsonl` stores
+task lifecycle events such as generation, coverage waiting, assignment,
+completion, and failure. Both files remain valid and readable if a long run
+stops early.
 
 See `TASK_CONFIG.md` for the task-oriented config fields.
 
@@ -141,7 +149,8 @@ See `TASK_CONFIG.md` for the task-oriented config fields.
 - `satmulator/orbit.py` — orbit models and timestep flow
 - `satmulator/scheduler.py` — task assignment schedulers
 - `satmulator/battery.py` — battery update logic
-- `satmulator/output.py` — CSV/SVG writers
+- `satmulator/runlog.py` — streaming JSON/JSONL experiment logs
+- `satmulator/output.py` — SVG writers
 - `satmulator/geometry.py` — geometry helpers
 
 ## Next work

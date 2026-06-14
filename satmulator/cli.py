@@ -16,19 +16,19 @@ from .output import (
     write_battery_timeline_svg,
     write_offload_target_histogram_svg,
     write_snapshot_svg,
-    write_states_csv,
-    write_summary_csv,
     write_summary_svg,
     write_sunlight_timeline_svg,
     write_task_mode_summary_svg,
     write_task_svg,
-    write_tasks_csv,
 )
+from .runlog import RunLog
 from .scheduler import create_scheduler
 from .workload import load_demand_points
 
 
 DEFAULT_CONFIG = {
+    "run_name": "satmulator",
+    "run_description": "",
     "orbit_model": "circular",
     "tle_file": None,
     "sun_position_file": "de440s.bsp",
@@ -85,6 +85,10 @@ DEFAULT_CONFIG = {
 
 
 CONFIG_SECTIONS = {
+    "run": {
+        "name": "run_name",
+        "description": "run_description",
+    },
     "orbit": {
         "orbit_model": "orbit_model",
         "tle_file": "tle_file",
@@ -236,9 +240,6 @@ def flatten_config(config: dict) -> dict:
                 if target is None:
                     raise ValueError(f"unknown config key: {key}.{section_key}")
                 flat[target] = section_value
-        elif key == "run":
-            if not isinstance(value, dict):
-                raise ValueError("config section 'run' must be an object")
         elif key in DEFAULT_CONFIG:
             flat[key] = value
         else:
@@ -377,17 +378,27 @@ def build_configs(
 
 
 def effective_run_config(args: argparse.Namespace) -> dict:
-    return {
-        "orbit": {
+    if args.orbit_model == "tle":
+        orbit_config = {
             "orbit_model": args.orbit_model,
             "tle_file": None if args.tle_file is None else str(args.tle_file),
             "sun_position_file": args.sun_position_file,
+        }
+    else:
+        orbit_config = {
+            "orbit_model": args.orbit_model,
             "satellites": args.satellites,
             "planes": args.planes,
             "altitude_km": args.altitude_km,
             "inclination_deg": args.inclination_deg,
             "walker_phase": args.walker_phase,
+        }
+    return {
+        "run": {
+            "name": args.run_name,
+            "description": args.run_description,
         },
+        "orbit": orbit_config,
         "time": {
             "start_utc": args.start_utc,
             "duration_s": args.duration_s,
@@ -453,86 +464,88 @@ def run(args: argparse.Namespace) -> int:
     start = parse_utc_datetime(args.start_utc)
     validate_args(args)
     args.out.mkdir(parents=True, exist_ok=True)
-    (args.out / "run_config.json").write_text(
-        json.dumps(effective_run_config(args), indent=2, sort_keys=True) + "\n"
-    )
+    run_config = effective_run_config(args)
     battery, task_config, isl_config, scheduler_config = build_configs(args)
     scheduler = create_scheduler(args.scheduler)
+    run_log = RunLog(args.out, start, run_config)
 
-    if args.orbit_model == "tle":
-        if args.tle_file is None:
-            raise ValueError("--tle-file is required when --orbit-model tle")
-        raw_steps = list(
-            iter_tle_states(
+    try:
+        common = {
+            "start": start,
+            "duration_s": args.duration_s,
+            "step_s": args.step_s,
+            "battery": battery,
+            "task_config": task_config,
+            "isl_config": isl_config,
+            "scheduler": scheduler,
+            "scheduler_config": scheduler_config,
+            "task_event_sink": run_log.write_task_event,
+        }
+        if args.orbit_model == "tle":
+            if args.tle_file is None:
+                raise ValueError("--tle-file is required when --orbit-model tle")
+            step_iterator = iter_tle_states(
                 tle_file=args.tle_file,
                 sun_position_file=args.sun_position_file,
-                start=start,
-                duration_s=args.duration_s,
-                step_s=args.step_s,
-                battery=battery,
-                task_config=task_config,
-                scheduler_config=scheduler_config,
-                isl_config=isl_config,
-                scheduler=scheduler,
+                **common,
             )
-        )
-        start_context = tle_snapshot_context(
-            sun_position_file=args.sun_position_file, start=start, time_s=0
-        )
-        end_context = tle_snapshot_context(
-            sun_position_file=args.sun_position_file,
-            start=start,
-            time_s=raw_steps[-1][0][0].time_s,
-        )
-    else:
-        raw_steps = list(
-            iter_circular_states(
-                start=start,
+        else:
+            step_iterator = iter_circular_states(
                 satellites=args.satellites,
                 planes=args.planes,
                 altitude_km=args.altitude_km,
                 inclination_deg=args.inclination_deg,
-                duration_s=args.duration_s,
-                step_s=args.step_s,
-                battery=battery,
-                task_config=task_config,
-                isl_config=isl_config,
-                scheduler=scheduler,
-                scheduler_config=scheduler_config,
                 walker_phase=args.walker_phase,
+                **common,
             )
+
+        raw_steps = []
+        for states, task_records_at_step in step_iterator:
+            run_log.write_step(states)
+            raw_steps.append((states, task_records_at_step))
+
+        if args.orbit_model == "tle":
+            start_context = tle_snapshot_context(
+                sun_position_file=args.sun_position_file, start=start, time_s=0
+            )
+            end_context = tle_snapshot_context(
+                sun_position_file=args.sun_position_file,
+                start=start,
+                time_s=raw_steps[-1][0][0].time_s,
+            )
+        else:
+            start_context = circular_snapshot_context()
+            end_context = circular_snapshot_context()
+
+        task_records = [task for _, tasks in raw_steps for task in tasks]
+        all_steps = [states for states, _ in raw_steps]
+        task_records_by_step = [tasks for _, tasks in raw_steps]
+
+        write_snapshot_svg(
+            args.out / "snapshot_start.svg",
+            all_steps[0],
+            "Orbit snapshot at t=0s",
+            start_context,
         )
-        start_context = circular_snapshot_context()
-        end_context = circular_snapshot_context()
-
-    task_records = [task for _, tasks in raw_steps for task in tasks]
-    all_steps = [states for states, _ in raw_steps]
-    task_records_by_step = [tasks for _, tasks in raw_steps]
-
-    write_states_csv(args.out / "states.csv", start, all_steps)
-    write_summary_csv(args.out / "summary.csv", all_steps, task_records_by_step)
-    write_tasks_csv(args.out / "tasks.csv", task_records)
-    write_snapshot_svg(
-        args.out / "snapshot_start.svg",
-        all_steps[0],
-        "Orbit snapshot at t=0s",
-        start_context,
-    )  # pdf
-    write_snapshot_svg(
-        args.out / "snapshot_end.svg",
-        all_steps[-1],
-        f"Orbit snapshot at t={all_steps[-1][0].time_s}s",
-        end_context,
-    )
-    write_summary_svg(args.out / "sunlight_summary.svg", all_steps)
-    write_battery_svg(args.out / "battery_summary.svg", all_steps)
-    write_task_svg(args.out / "task_summary.svg", all_steps, task_records_by_step)
-    write_sunlight_timeline_svg(args.out / "sunlight_timeline.svg", all_steps)
-    write_battery_timeline_svg(args.out / "battery_timeline.svg", all_steps)
-    write_task_mode_summary_svg(args.out / "task_mode_summary.svg", task_records)
-    write_offload_target_histogram_svg(
-        args.out / "offload_target_histogram.svg", task_records
-    )
+        write_snapshot_svg(
+            args.out / "snapshot_end.svg",
+            all_steps[-1],
+            f"Orbit snapshot at t={all_steps[-1][0].time_s}s",
+            end_context,
+        )
+        write_summary_svg(args.out / "sunlight_summary.svg", all_steps)
+        write_battery_svg(args.out / "battery_summary.svg", all_steps)
+        write_task_svg(args.out / "task_summary.svg", all_steps, task_records_by_step)
+        write_sunlight_timeline_svg(args.out / "sunlight_timeline.svg", all_steps)
+        write_battery_timeline_svg(args.out / "battery_timeline.svg", all_steps)
+        write_task_mode_summary_svg(args.out / "task_mode_summary.svg", task_records)
+        write_offload_target_histogram_svg(
+            args.out / "offload_target_histogram.svg", task_records
+        )
+        run_log.complete(all_steps)
+    except BaseException as exc:
+        run_log.fail(exc)
+        raise
 
     first = all_steps[0]
     last = all_steps[-1]
@@ -555,7 +568,7 @@ def run(args: argparse.Namespace) -> int:
         f"  final battery min/avg: {min(s.battery_pct for s in last):.2f}%/{sum(s.battery_pct for s in last) / len(last):.2f}%"
     )
     print(
-        f"  tasks completed/failed: {sum(1 for t in task_records if t.completed)}/{sum(1 for t in task_records if not t.completed)}"
+        f"  tasks completed/failed: {sum(1 for t in task_records if t.completed)}/{sum(1 for t in task_records if t.status == 'failed')}"
     )
     print(f"  output: {args.out.resolve()}")
     print(

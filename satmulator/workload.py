@@ -184,17 +184,17 @@ def generate_satellite_deterministic_tasks(env: EnvironmentRuntime, task_config:
     tasks: list[Task] = []
     for sat in env.satellites:
         for _ in range(task_config.tasks_per_sat):
-            tasks.append(
-                Task(
-                    task_id=env.next_task_id,
-                    created_time_s=env.time_s,
-                    source_sat=sat.sat_id,
-                    cpu_cycles=task_config.cpu_cycles,
-                    input_bits=task_config.input_bits,
-                    output_bits=task_config.output_bits,
-                    deadline_s=task_config.deadline_s,
-                )
+            task = Task(
+                task_id=env.next_task_id,
+                created_time_s=env.time_s,
+                source_sat=sat.sat_id,
+                cpu_cycles=task_config.cpu_cycles,
+                input_bits=task_config.input_bits,
+                output_bits=task_config.output_bits,
+                deadline_s=task_config.deadline_s,
             )
+            tasks.append(task)
+            emit_generated_task(env, task)
             env.next_task_id += 1
     return tasks
 
@@ -209,27 +209,46 @@ def generate_demand_point_tasks(env: EnvironmentRuntime, task_config: TaskConfig
     tasks: list[Task] = []
     for _ in range(task_count):
         point = weighted_choice(env.rng, task_config.demand_points, demand_weights)
-        tasks.append(
-            Task(
-                task_id=env.next_task_id,
-                created_time_s=env.time_s,
-                source_sat=None,
-                cpu_cycles=weighted_choice(
-                    env.rng, task_config.cpu_cycles_choices, task_config.cpu_cycles_weights
-                ),
-                input_bits=weighted_choice(
-                    env.rng, task_config.input_bits_choices, task_config.input_bits_weights
-                ),
-                output_bits=weighted_choice(
-                    env.rng, task_config.output_bits_choices, task_config.output_bits_weights
-                ),
-                deadline_s=task_config.deadline_s,
-                lat_deg=point.lat_deg,
-                lon_deg=point.lon_deg,
-            )
+        task = Task(
+            task_id=env.next_task_id,
+            created_time_s=env.time_s,
+            source_sat=None,
+            cpu_cycles=weighted_choice(
+                env.rng, task_config.cpu_cycles_choices, task_config.cpu_cycles_weights
+            ),
+            input_bits=weighted_choice(
+                env.rng, task_config.input_bits_choices, task_config.input_bits_weights
+            ),
+            output_bits=weighted_choice(
+                env.rng, task_config.output_bits_choices, task_config.output_bits_weights
+            ),
+            deadline_s=task_config.deadline_s,
+            lat_deg=point.lat_deg,
+            lon_deg=point.lon_deg,
         )
+        tasks.append(task)
+        emit_generated_task(env, task)
         env.next_task_id += 1
     return tasks
+
+
+def emit_generated_task(env: EnvironmentRuntime, task: Task) -> None:
+    env.emit_task_event(
+        "task_generated",
+        task.task_id,
+        source_sat=task.source_sat,
+        location=(
+            None
+            if task.lat_deg is None
+            else {"lat_deg": task.lat_deg, "lon_deg": task.lon_deg}
+        ),
+        workload={
+            "cpu_cycles": task.cpu_cycles,
+            "input_bits": task.input_bits,
+            "output_bits": task.output_bits,
+        },
+        deadline_s=task.deadline_s,
+    )
 
 
 def resolve_pending_tasks(
@@ -252,6 +271,12 @@ def resolve_pending_tasks(
             task_config.min_elevation_deg,
         )
         if source_sat is not None:
+            env.emit_task_event(
+                "task_coverage_acquired",
+                task.task_id,
+                source_sat=source_sat,
+                waiting_time_s=env.time_s - task.created_time_s,
+            )
             ready.append(
                 Task(
                     task_id=task.task_id,
@@ -268,6 +293,11 @@ def resolve_pending_tasks(
         elif env.time_s - task.created_time_s >= task.deadline_s:
             expired.append(task)
         else:
+            env.emit_task_event(
+                "task_waiting_for_coverage",
+                task.task_id,
+                waiting_time_s=env.time_s - task.created_time_s,
+            )
             still_pending.append(task)
     env.pending_tasks = still_pending
     return ready, expired
