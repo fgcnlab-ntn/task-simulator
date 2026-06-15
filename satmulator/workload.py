@@ -3,20 +3,33 @@ from __future__ import annotations
 import csv
 import datetime as dt
 import json
+import math
 import random
 from functools import lru_cache
 from pathlib import Path
 from typing import Iterable, Sequence, TypeVar
 
-from .models import DemandPoint, Task, TaskConfig
+from .models import DemandDistribution, DemandPoint, Task, TaskConfig
 from .runtime import EnvironmentRuntime, SatelliteRuntime
 
 T = TypeVar("T")
 
 
-def load_demand_points(path: Path | None) -> tuple[DemandPoint, ...]:
+def demand_distribution(points: Iterable[DemandPoint]) -> DemandDistribution:
+    loaded = tuple(points)
+    cumulative: list[float] = []
+    total = 0.0
+    for point in loaded:
+        if not math.isfinite(point.weight) or point.weight <= 0.0:
+            raise ValueError("demand distribution weights must be finite and positive")
+        total += point.weight
+        cumulative.append(total)
+    return DemandDistribution(loaded, tuple(cumulative), total)
+
+
+def load_demand_points(path: Path | None) -> DemandDistribution:
     if path is None:
-        return ()
+        return demand_distribution(())
     points: list[DemandPoint] = []
     with path.open(newline="") as f:
         reader = csv.DictReader(f)
@@ -37,13 +50,13 @@ def load_demand_points(path: Path | None) -> tuple[DemandPoint, ...]:
                 points.append(DemandPoint(lat_deg=lat, lon_deg=lon, weight=weight))
     if not points:
         raise ValueError(f"no positive demand points in {path}")
-    return tuple(points)
+    return demand_distribution(points)
 
 
 def demand_points_provenance(path: Path | None) -> dict[str, object] | None:
     if path is None:
         return None
-    points = load_demand_points(path)
+    distribution = load_demand_points(path)
     metadata_path = path.with_suffix(path.suffix + ".metadata.json")
     conversion: dict[str, object] | None = None
     if metadata_path.exists():
@@ -53,8 +66,8 @@ def demand_points_provenance(path: Path | None) -> dict[str, object] | None:
         conversion = value
     return {
         "file": str(path),
-        "points": len(points),
-        "total_weight": sum(point.weight for point in points),
+        "points": len(distribution.points),
+        "total_weight": distribution.total_weight,
         "metadata_file": str(metadata_path) if metadata_path.exists() else None,
         "conversion": conversion,
     }
@@ -96,12 +109,23 @@ def validate_task_config(task_config: TaskConfig) -> None:
     validate_distribution("cpu_cycles", task_config.cpu_cycles_choices, task_config.cpu_cycles_weights)
     validate_distribution("input_bits", task_config.input_bits_choices, task_config.input_bits_weights)
     validate_distribution("output_bits", task_config.output_bits_choices, task_config.output_bits_weights)
-    if task_config.generation_mode == "demand-points" and not task_config.demand_points:
+    if task_config.generation_mode == "demand-points" and not task_config.demand_distribution:
         raise ValueError("demand-points task generation requires a demand_points_file")
 
 
 def weighted_choice(rng: random.Random, choices: Sequence[T], weights: Sequence[float]) -> T:
     return rng.choices(list(choices), weights=list(weights), k=1)[0]
+
+
+def choose_demand_point(
+    rng: random.Random,
+    distribution: DemandDistribution,
+) -> DemandPoint:
+    return rng.choices(
+        distribution.points,
+        cum_weights=distribution.cumulative_weights,
+        k=1,
+    )[0]
 
 
 @lru_cache(maxsize=1)
@@ -226,10 +250,9 @@ def generate_demand_point_tasks(env: EnvironmentRuntime, task_config: TaskConfig
     task_count = weighted_choice(
         env.rng, task_config.tasks_per_step_choices, task_config.tasks_per_step_weights
     )
-    demand_weights = tuple(point.weight for point in task_config.demand_points)
     tasks: list[Task] = []
     for _ in range(task_count):
-        point = weighted_choice(env.rng, task_config.demand_points, demand_weights)
+        point = choose_demand_point(env.rng, task_config.demand_distribution)
         task = Task(
             task_id=env.next_task_id,
             created_time_s=env.time_s,

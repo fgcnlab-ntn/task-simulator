@@ -20,6 +20,16 @@ class DemandPoint:
 
 
 @dataclass(frozen=True)
+class DemandDistribution:
+    points: tuple[DemandPoint, ...]
+    cumulative_weights: tuple[float, ...]
+    total_weight: float
+
+    def __bool__(self) -> bool:
+        return bool(self.points)
+
+
+@dataclass(frozen=True)
 class TaskConfig:
     enabled: bool
     interval_s: int
@@ -40,7 +50,7 @@ class TaskConfig:
     deadline_s: float
     cpu_rate_cycles_s: float
     joule_per_cycle: float
-    demand_points: tuple[DemandPoint, ...]
+    demand_distribution: DemandDistribution
     min_elevation_deg: float
 
 

@@ -15,6 +15,7 @@ from satmulator.models import (
 from satmulator.orbit import iter_circular_states
 from satmulator.runlog import RunLog, iter_state_steps, iter_task_events, load_run
 from satmulator.scheduler import LocalOnlyScheduler
+from satmulator.workload import load_demand_points
 
 
 def sample_state(time_s: int = 0) -> SatelliteState:
@@ -141,7 +142,7 @@ class RunLogTests(unittest.TestCase):
             deadline_s=30.0,
             cpu_rate_cycles_s=1.0,
             joule_per_cycle=0.0,
-            demand_points=(),
+            demand_distribution=load_demand_points(None),
             min_elevation_deg=30.0,
         )
         isl = ISLConfig(1.0, 1.0, 0.0, 0.0)

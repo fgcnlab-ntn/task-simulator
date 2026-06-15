@@ -1,15 +1,19 @@
 import datetime as dt
 import math
+import random
 import unittest
 from types import SimpleNamespace
 
 from satmulator.models import DemandPoint, Task
 from satmulator.runtime import EnvironmentRuntime, SatelliteRuntime
 from satmulator.workload import (
+    choose_demand_point,
+    demand_distribution,
     ground_position_km,
     nearest_satellite_id,
     resolve_pending_tasks,
     satellite_altitude_distance,
+    weighted_choice,
 )
 
 
@@ -19,6 +23,52 @@ class DemandPointCoordinateTests(unittest.TestCase):
             import skyfield  # noqa: F401
         except ImportError:
             self.skipTest("Skyfield is not installed")
+
+    def test_demand_distribution_precomputes_cumulative_weights(self) -> None:
+        points = (
+            DemandPoint(1.0, 2.0, 2.0),
+            DemandPoint(3.0, 4.0, 3.0),
+            DemandPoint(5.0, 6.0, 5.0),
+        )
+        distribution = demand_distribution(points)
+
+        self.assertEqual(distribution.points, points)
+        self.assertEqual(distribution.cumulative_weights, (2.0, 5.0, 10.0))
+        self.assertEqual(distribution.total_weight, 10.0)
+
+    def test_demand_distribution_rejects_invalid_weights(self) -> None:
+        with self.assertRaisesRegex(ValueError, "finite and positive"):
+            demand_distribution((DemandPoint(1.0, 2.0, float("nan")),))
+
+    def test_demand_sampling_reuses_precomputed_distribution(self) -> None:
+        points = (
+            DemandPoint(1.0, 2.0, 1.0),
+            DemandPoint(3.0, 4.0, 9.0),
+        )
+        distribution = demand_distribution(points)
+        rng = random.Random(42)
+
+        sampled = [choose_demand_point(rng, distribution) for _ in range(20)]
+
+        self.assertGreater(sampled.count(points[1]), sampled.count(points[0]))
+
+    def test_demand_sampling_preserves_seeded_results(self) -> None:
+        points = (
+            DemandPoint(1.0, 2.0, 1.0),
+            DemandPoint(3.0, 4.0, 3.0),
+            DemandPoint(5.0, 6.0, 6.0),
+        )
+        distribution = demand_distribution(points)
+        old_rng = random.Random(42)
+        new_rng = random.Random(42)
+
+        old_samples = [
+            weighted_choice(old_rng, points, tuple(point.weight for point in points))
+            for _ in range(20)
+        ]
+        new_samples = [choose_demand_point(new_rng, distribution) for _ in range(20)]
+
+        self.assertEqual(new_samples, old_samples)
 
     def test_ground_position_rotates_with_utc_time(self) -> None:
         point = DemandPoint(lat_deg=0.0, lon_deg=0.0, weight=1.0)

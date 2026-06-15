@@ -346,7 +346,7 @@ def build_configs(
         deadline_s=args.task_deadline_s,
         cpu_rate_cycles_s=args.cpu_rate_cycles_s,
         joule_per_cycle=args.joule_per_cycle,
-        demand_points=load_demand_points(args.task_demand_points_file),
+        demand_distribution=load_demand_points(args.task_demand_points_file),
         min_elevation_deg=args.task_min_elevation_deg,
     )
     isl_config = ISLConfig(
