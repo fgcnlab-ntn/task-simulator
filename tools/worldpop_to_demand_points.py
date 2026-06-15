@@ -156,6 +156,10 @@ def parse_args() -> argparse.Namespace:
         default=1.0,
         help="discard aggregated cells below this population",
     )
+    parser.add_argument(
+        "--source-url",
+        help="canonical URL of the input population raster",
+    )
     return parser.parse_args()
 
 
@@ -175,6 +179,7 @@ def main() -> int:
     input_population = sum(cell.population for cell in bins.values())
     metadata = {
         "source": "WorldPop population-count GeoTIFF",
+        "source_url": args.source_url,
         "source_file": str(args.input),
         "output_file": str(args.output),
         "aggregate_deg": args.aggregate_deg,

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import datetime as dt
+import json
 import random
 from functools import lru_cache
 from pathlib import Path
@@ -37,6 +38,26 @@ def load_demand_points(path: Path | None) -> tuple[DemandPoint, ...]:
     if not points:
         raise ValueError(f"no positive demand points in {path}")
     return tuple(points)
+
+
+def demand_points_provenance(path: Path | None) -> dict[str, object] | None:
+    if path is None:
+        return None
+    points = load_demand_points(path)
+    metadata_path = path.with_suffix(path.suffix + ".metadata.json")
+    conversion: dict[str, object] | None = None
+    if metadata_path.exists():
+        value = json.loads(metadata_path.read_text())
+        if not isinstance(value, dict):
+            raise ValueError(f"demand-point metadata must be an object: {metadata_path}")
+        conversion = value
+    return {
+        "file": str(path),
+        "points": len(points),
+        "total_weight": sum(point.weight for point in points),
+        "metadata_file": str(metadata_path) if metadata_path.exists() else None,
+        "conversion": conversion,
+    }
 
 
 def validate_distribution(name: str, choices: Sequence[object], weights: Sequence[float]) -> None:

@@ -12,8 +12,6 @@ population-count products at the same 1 km resolution.
 - Resolution: 1 km (`0.0083333333` degrees)
 - Source:
   https://data.worldpop.org/GIS/Population/Global_2015_2030/R2025A/2025/0_Mosaicked/v1/1km/constrained/global_pop_2025_CN_1km_R2025A_v1.tif
-- SHA-256:
-  `478d81441d39b0548c6f1a1a1d713ac7a2bf32483671c4fe0864f2d8f16cc56c`
 
 Download:
 
@@ -25,7 +23,15 @@ curl -fL \
 
 The simulator does not read these rasters directly. Convert them into the
 common `lat,lon,weight` demand-point format with
-`tools/worldpop_to_demand_points.py`.
+`tools/worldpop_to_demand_points.py`. Pass the canonical source URL so the
+generated metadata and every experiment log retain it:
+
+```bash
+python3 tools/worldpop_to_demand_points.py \
+  data/worldpop/global_pop_2025_CN_1km_R2025A_v1.tif \
+  data/demand/global_population_2025_1km.csv \
+  --source-url https://data.worldpop.org/GIS/Population/Global_2015_2030/R2025A/2025/0_Mosaicked/v1/1km/constrained/global_pop_2025_CN_1km_R2025A_v1.tif
+```
 
 ## Taiwan 2025, 1 km
 
@@ -35,8 +41,6 @@ common `lat,lon,weight` demand-point format with
 - Resolution: 1 km (`0.0083333333` degrees)
 - Source:
   https://data.worldpop.org/GIS/Population/Global_2015_2030/R2025A/2025/TWN/v1/1km_ua/constrained/twn_pop_2025_CN_1km_R2025A_UA_v1.tif
-- SHA-256:
-  `eae984f0d741db820081f82ea989a743fb2a75c53da30af85a8618aaac682f0e`
 
 Use the official country raster instead of cropping the global raster with a
 rectangle. A Taiwan bounding box also contains parts of coastal China and

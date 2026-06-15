@@ -9,7 +9,7 @@ from .orbit import iter_circular_states, iter_tle_states
 from .plotting import render_run_plots
 from .runlog import RunLog
 from .scheduler import create_scheduler
-from .workload import load_demand_points
+from .workload import demand_points_provenance, load_demand_points
 
 
 DEFAULT_CONFIG = {
@@ -424,6 +424,9 @@ def effective_run_config(args: argparse.Namespace) -> dict:
             "demand_points_file": None
             if args.task_demand_points_file is None
             else str(args.task_demand_points_file),
+            "demand_points_provenance": demand_points_provenance(
+                args.task_demand_points_file
+            ),
             "min_elevation_deg": args.task_min_elevation_deg,
             "deadline_s": args.task_deadline_s,
             "cpu_rate_cycles_s": args.cpu_rate_cycles_s,

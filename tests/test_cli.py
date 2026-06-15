@@ -1,4 +1,5 @@
 import argparse
+import csv
 import json
 import tempfile
 import unittest
@@ -52,6 +53,27 @@ class EffectiveRunConfigTests(unittest.TestCase):
                 "walker_phase": 1,
             },
         )
+
+    def test_run_config_records_demand_point_provenance(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "demand.csv"
+            with path.open("w", newline="") as output:
+                writer = csv.writer(output)
+                writer.writerow(["lat", "lon", "weight"])
+                writer.writerow([25.0, 121.0, 10.0])
+            metadata = {
+                "source_url": "https://example.test/worldpop.tif",
+                "aggregate_deg": 0.05,
+                "output_population": 10.0,
+            }
+            path.with_suffix(".csv.metadata.json").write_text(json.dumps(metadata))
+
+            config = effective_run_config(args_for(task_demand_points_file=path))
+            provenance = config["task"]["demand_points_provenance"]
+
+            self.assertEqual(provenance["points"], 1)
+            self.assertEqual(provenance["total_weight"], 10.0)
+            self.assertEqual(provenance["conversion"], metadata)
 
     def test_run_does_not_write_experiment_csv_files(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

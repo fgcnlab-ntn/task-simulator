@@ -37,7 +37,11 @@ Task records include `waiting_time_s`. Waiting for coverage counts toward
 The population-weighted baseline uses WorldPop 2025 R2025A constrained
 population-count products at 1 km resolution for both Taiwan and global
 experiments. They are converted offline into the common `lat,lon,weight`
-format. Exact sources and checksums are recorded in `data/worldpop/README.md`.
+format. Exact sources are recorded in `data/worldpop/README.md`.
+When a demand CSV has an adjacent `.metadata.json` file, its source URL,
+aggregation resolution, retained population, conversion parameters, and input
+information are copied into `run.json`. The demand point count and total weight
+are always recorded.
 
 ## Compatibility
 
