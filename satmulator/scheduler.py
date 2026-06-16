@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from .isl import ISLGraph, fully_connected_isl_graph, shortest_route
 from .models import (
     Assignment,
     BatteryConfig,
@@ -20,15 +21,22 @@ def distance_km(a: SatelliteView, b: SatelliteView) -> float:
     return (dx * dx + dy * dy + dz * dz) ** 0.5
 
 
-def route_nodes(source_sat: int, target_sat: int) -> tuple[int, ...]:
-    return (source_sat,) if source_sat == target_sat else (source_sat, target_sat)
+def route_or_raise(graph: ISLGraph, source_sat: int, target_sat: int) -> Route:
+    route = shortest_route(graph, source_sat, target_sat)
+    if route is None:
+        raise ValueError(f"no ISL route from {source_sat} to {target_sat}")
+    return route
 
 
 class Scheduler:
     name = "base"
 
     def assign_task(
-        self, *, task: Task, satellite_views: list[SatelliteView]
+        self,
+        *,
+        task: Task,
+        satellite_views: list[SatelliteView],
+        isl_graph: ISLGraph,
     ) -> Assignment:
         raise NotImplementedError
 
@@ -44,8 +52,13 @@ class Scheduler:
         isl_config: ISLConfig,
         scheduler_config: SchedulerConfig,
     ) -> list[Assignment]:
+        graph = fully_connected_isl_graph(satellite_views)
         return [
-            self.assign_task(task=task, satellite_views=satellite_views)
+            self.assign_task(
+                task=task,
+                satellite_views=satellite_views,
+                isl_graph=graph,
+            )
             for task in tasks
         ]
 
@@ -54,11 +67,16 @@ class LocalOnlyScheduler(Scheduler):
     name = "local"
 
     def assign_task(
-        self, *, task: Task, satellite_views: list[SatelliteView]
+        self,
+        *,
+        task: Task,
+        satellite_views: list[SatelliteView],
+        isl_graph: ISLGraph,
     ) -> Assignment:
+        assert task.source_sat is not None
         return Assignment(
             task_id=task.task_id,
-            route=route_nodes(task.source_sat, task.source_sat),
+            route=route_or_raise(isl_graph, task.source_sat, task.source_sat),
             mode=self.name,
         )
 
@@ -67,19 +85,35 @@ class NearestSunlitScheduler(Scheduler):
     name = "nearest-sunlit"
 
     def assign_task(
-        self, *, task: Task, satellite_views: list[SatelliteView]
+        self,
+        *,
+        task: Task,
+        satellite_views: list[SatelliteView],
+        isl_graph: ISLGraph,
     ) -> Assignment:
+        assert task.source_sat is not None
         by_id = {sat.sat_id: sat for sat in satellite_views}
         source = by_id[task.source_sat]
-        sunlit_targets = [sat for sat in satellite_views if sat.sunlit]
         target = source
         mode = "local"
-        if not source.sunlit and sunlit_targets:
-            target = min(sunlit_targets, key=lambda sat: distance_km(source, sat))
-            mode = "offload"
+        route = route_or_raise(isl_graph, source.sat_id, source.sat_id)
+        if not source.sunlit:
+            reachable_sunlit_targets = [
+                sat
+                for sat in satellite_views
+                if sat.sunlit
+                and shortest_route(isl_graph, source.sat_id, sat.sat_id) is not None
+            ]
+            if reachable_sunlit_targets:
+                target = min(
+                    reachable_sunlit_targets,
+                    key=lambda sat: distance_km(source, sat),
+                )
+                route = route_or_raise(isl_graph, source.sat_id, target.sat_id)
+                mode = "offload"
         return Assignment(
             task_id=task.task_id,
-            route=route_nodes(source.sat_id, target.sat_id),
+            route=route,
             mode=mode,
         )
 
@@ -100,29 +134,26 @@ class SlackAwareScheduler(Scheduler):
         scheduler_config: SchedulerConfig,
     ) -> list[Assignment]:
         by_id = {sat.sat_id: sat for sat in satellite_views}
+        graph = fully_connected_isl_graph(satellite_views)
         reserved_energy = {sat.sat_id: 0.0 for sat in satellite_views}
         reserved_load = {sat.sat_id: 0 for sat in satellite_views}
 
-        def cost_for(task: Task, source_sat: int, target_sat: int):
+        def cost_for(task: Task, route):
             return estimate_route_cost(
                 task=task,
-                route=Route(route_nodes(source_sat, target_sat)),
+                route=route,
                 task_config=task_config,
                 isl_config=isl_config,
             )
 
         def best_possible_time(task: Task) -> float:
             assert task.source_sat is not None
-            local_t = cost_for(task, task.source_sat, task.source_sat).total_time_s
-            offload_targets = [
-                sat for sat in satellite_views if sat.sat_id != task.source_sat
-            ]
-            if not offload_targets:
-                return local_t
-            offload_t = cost_for(
-                task, task.source_sat, offload_targets[0].sat_id
-            ).total_time_s
-            return min(local_t, offload_t)
+            times = []
+            for target in satellite_views:
+                route = shortest_route(graph, task.source_sat, target.sat_id)
+                if route is not None:
+                    times.append(cost_for(task, route).total_time_s)
+            return min(times) if times else float("inf")
 
         def task_slack(task: Task) -> float:
             remaining = task.created_time_s + task.deadline_s - time_s
@@ -154,14 +185,17 @@ class SlackAwareScheduler(Scheduler):
                     >= scheduler_config.max_tasks_per_sat_per_slot
                 ):
                     continue
+                route = shortest_route(graph, source.sat_id, target.sat_id)
+                if route is None:
+                    continue
 
                 if mode == "local":
-                    cost = cost_for(task, source.sat_id, source.sat_id)
+                    cost = cost_for(task, route)
                     total_time = cost.total_time_s
                     source_energy = cost.energy_for(source.sat_id)
                     target_energy = 0.0
                 else:
-                    cost = cost_for(task, source.sat_id, target.sat_id)
+                    cost = cost_for(task, route)
                     total_time = cost.total_time_s
                     source_energy = cost.energy_for(source.sat_id)
                     target_energy = cost.energy_for(target.sat_id)
@@ -208,7 +242,7 @@ class SlackAwareScheduler(Scheduler):
                     best_score = score
                     best_assignment = Assignment(
                         task_id=task.task_id,
-                        route=route_nodes(source.sat_id, target.sat_id),
+                        route=route,
                         mode=mode,
                         score=score,
                     )
@@ -242,7 +276,7 @@ class SlackAwareScheduler(Scheduler):
                 assignments.append(
                     Assignment(
                         task_id=task.task_id,
-                        route=route_nodes(source.sat_id, source.sat_id),
+                        route=route_or_raise(graph, source.sat_id, source.sat_id),
                         mode="defer",
                         score=defer_score,
                     )
@@ -251,7 +285,7 @@ class SlackAwareScheduler(Scheduler):
                 assignments.append(
                     Assignment(
                         task_id=task.task_id,
-                        route=route_nodes(source.sat_id, source.sat_id),
+                        route=route_or_raise(graph, source.sat_id, source.sat_id),
                         mode="fail",
                         score=fail_score,
                         failed_reason="no_feasible_candidate",
