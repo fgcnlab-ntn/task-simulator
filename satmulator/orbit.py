@@ -22,6 +22,7 @@ from .models import (
     TaskConfig,
     TaskRecord,
 )
+from .route_cost import estimate_route_cost
 from .runtime import EnvironmentRuntime, SatelliteRuntime, TaskEventSink
 from .scheduler import Scheduler
 from .workload import generate_step_tasks, validate_task_config
@@ -39,84 +40,6 @@ class SatelliteStepStats:
     task_energy_j: float = 0.0
     harvested_j: float = 0.0
     consumed_j: float = 0.0
-
-
-@dataclass(frozen=True)
-class AssignmentEnergyCost:
-    source_energy_j: float
-    target_energy_j: float
-
-    @property
-    def total_energy_j(self) -> float:
-        return self.source_energy_j + self.target_energy_j
-
-
-@dataclass(frozen=True)
-class AssignmentTimeCost:
-    compute_time_s: float
-    transmission_time_s: float
-
-    @property
-    def total_time_s(self) -> float:
-        return self.compute_time_s + self.transmission_time_s
-
-
-def estimate_assignment_energy(
-    *,
-    task: Task,
-    assignment: Assignment,
-    task_config: TaskConfig,
-    isl_config: ISLConfig,
-) -> AssignmentEnergyCost:
-    compute_energy_j = task.cpu_cycles * task_config.joule_per_cycle
-
-    if assignment.mode == "local":
-        return AssignmentEnergyCost(
-            source_energy_j=compute_energy_j,
-            target_energy_j=0.0,
-        )
-
-    if assignment.mode == "offload":
-        return AssignmentEnergyCost(
-            source_energy_j=(
-                task.input_bits * isl_config.isl_tx_energy_per_bit_j
-                + task.output_bits * isl_config.isl_rx_energy_per_bit_j
-            ),
-            target_energy_j=(
-                task.input_bits * isl_config.isl_rx_energy_per_bit_j
-                + compute_energy_j
-                + task.output_bits * isl_config.isl_tx_energy_per_bit_j
-            ),
-        )
-
-    raise ValueError(f"unknown assignment mode: {assignment.mode}")
-
-
-def estimate_assignment_time(
-    *,
-    task: Task,
-    assignment: Assignment,
-    task_config: TaskConfig,
-    isl_config: ISLConfig,
-) -> AssignmentTimeCost:
-    compute_time_s = task.cpu_cycles / task_config.cpu_rate_cycles_s
-
-    if assignment.mode == "local":
-        return AssignmentTimeCost(
-            compute_time_s=compute_time_s,
-            transmission_time_s=0.0,
-        )
-
-    if assignment.mode == "offload":
-        return AssignmentTimeCost(
-            compute_time_s=compute_time_s,
-            transmission_time_s=(
-                task.input_bits / isl_config.isl_forward_rate_bps
-                + task.output_bits / isl_config.isl_return_rate_bps
-            ),
-        )
-
-    raise ValueError(f"unknown assignment mode: {assignment.mode}")
 
 
 def assign_step_tasks(
@@ -371,56 +294,54 @@ def apply_step(
             )
             continue
 
-        # Existing local / offload execution path.
-        time_cost = estimate_assignment_time(
+        # Existing local / one-hop offload are now represented as route costs.
+        cost = estimate_route_cost(
             task=task,
-            assignment=assignment,
-            task_config=task_config,
-            isl_config=isl_config,
-        )
-        cost = estimate_assignment_energy(
-            task=task,
-            assignment=assignment,
+            route=assignment.route,
             task_config=task_config,
             isl_config=isl_config,
         )
 
         failed_reason = ""
         is_completed = True
-        source_energy_j = 0.0
-        target_energy_j = 0.0
+        energy_by_sat: dict[int, float] = {}
 
-        total_time_s = waiting_time_s + time_cost.total_time_s
+        total_time_s = waiting_time_s + cost.total_time_s
 
         if total_time_s > task.deadline_s:
             is_completed = False
             failed_reason = "deadline"
         else:
-            source_required_j = (
-                idle_energy_by_sat[assignment.source_sat]
-                + source_stats.task_energy_j
-                + cost.source_energy_j
-            )
-            target_required_j = (
-                idle_energy_by_sat[assignment.target_sat]
-                + target_stats.task_energy_j
-                + cost.target_energy_j
-            )
-
-            if battery_before[assignment.source_sat] < source_required_j:
+            for sat_id in assignment.route.nodes:
+                required_j = (
+                    idle_energy_by_sat[sat_id]
+                    + stats_by_sat[sat_id].task_energy_j
+                    + cost.energy_for(sat_id)
+                )
+                if battery_before[sat_id] >= required_j:
+                    continue
                 is_completed = False
-                failed_reason = "battery"
-            elif battery_before[assignment.target_sat] < target_required_j:
-                is_completed = False
-                failed_reason = "target_battery"
-            else:
-                source_energy_j = cost.source_energy_j
-                target_energy_j = cost.target_energy_j
+                if sat_id == assignment.source_sat:
+                    failed_reason = "battery"
+                elif sat_id == assignment.target_sat:
+                    failed_reason = "target_battery"
+                else:
+                    failed_reason = "relay_battery"
+                break
+            if is_completed:
+                energy_by_sat = cost.energy_by_sat
 
         if is_completed:
             source_stats.completed_tasks += 1
-            source_stats.task_energy_j += source_energy_j
-            target_stats.task_energy_j += target_energy_j
+            for sat_id, energy_j in energy_by_sat.items():
+                stats_by_sat[sat_id].task_energy_j += energy_j
+            source_energy_j = energy_by_sat.get(assignment.source_sat, 0.0)
+            target_energy_j = (
+                0.0
+                if assignment.target_sat == assignment.source_sat
+                else energy_by_sat.get(assignment.target_sat, 0.0)
+            )
+            total_energy_j = sum(energy_by_sat.values())
             env.completed_tasks.append(task.task_id)
             status = "completed"
             env.emit_task_event(
@@ -431,13 +352,17 @@ def apply_step(
                 route=list(assignment.route.nodes),
                 mode=assignment.mode,
                 waiting_time_s=waiting_time_s,
-                compute_time_s=time_cost.compute_time_s,
-                transmission_time_s=time_cost.transmission_time_s,
+                compute_time_s=cost.compute_time_s,
+                transmission_time_s=cost.transmission_time_s,
                 total_time_s=total_time_s,
                 energy_j={
                     "source": source_energy_j,
                     "target": target_energy_j,
-                    "total": source_energy_j + target_energy_j,
+                    "total": total_energy_j,
+                },
+                energy_by_sat={
+                    str(sat_id): energy_j
+                    for sat_id, energy_j in energy_by_sat.items()
                 },
                 score=assignment.score,
             )
@@ -445,6 +370,9 @@ def apply_step(
             source_stats.failed_tasks += 1
             env.failed_tasks.append(task.task_id)
             status = "failed"
+            source_energy_j = 0.0
+            target_energy_j = 0.0
+            total_energy_j = 0.0
             env.emit_task_event(
                 "task_failed",
                 task.task_id,
@@ -465,17 +393,15 @@ def apply_step(
                 target_sat=assignment.target_sat,
                 mode=assignment.mode,
                 waiting_time_s=waiting_time_s,
-                compute_time_s=time_cost.compute_time_s,
-                transmission_time_s=time_cost.transmission_time_s,
+                compute_time_s=cost.compute_time_s,
+                transmission_time_s=cost.transmission_time_s,
                 total_time_s=total_time_s,
-                energy_j=source_energy_j if is_completed else 0.0,
+                energy_j=source_energy_j,
                 completed=is_completed,
                 failed_reason=failed_reason,
-                source_energy_j=source_energy_j if is_completed else 0.0,
-                target_energy_j=target_energy_j if is_completed else 0.0,
-                total_energy_j=(source_energy_j + target_energy_j)
-                if is_completed
-                else 0.0,
+                source_energy_j=source_energy_j,
+                target_energy_j=target_energy_j,
+                total_energy_j=total_energy_j,
                 status=status,
                 score=assignment.score,
             )

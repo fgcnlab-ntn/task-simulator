@@ -4,11 +4,13 @@ from .models import (
     Assignment,
     BatteryConfig,
     ISLConfig,
+    Route,
     SatelliteView,
     SchedulerConfig,
     Task,
     TaskConfig,
 )
+from .route_cost import estimate_route_cost
 
 
 def distance_km(a: SatelliteView, b: SatelliteView) -> float:
@@ -20,41 +22,6 @@ def distance_km(a: SatelliteView, b: SatelliteView) -> float:
 
 def route_nodes(source_sat: int, target_sat: int) -> tuple[int, ...]:
     return (source_sat,) if source_sat == target_sat else (source_sat, target_sat)
-
-
-def compute_time_s(task: Task, task_config: TaskConfig) -> float:
-    return task.cpu_cycles / task_config.cpu_rate_cycles_s
-
-
-def local_energy_j(task: Task, task_config: TaskConfig) -> float:
-    return task.cpu_cycles * task_config.joule_per_cycle
-
-
-def offload_source_energy_j(task: Task, isl_config: ISLConfig) -> float:
-    return (
-        task.input_bits * isl_config.isl_tx_energy_per_bit_j
-        + task.output_bits * isl_config.isl_rx_energy_per_bit_j
-    )
-
-
-def offload_target_energy_j(
-    task: Task,
-    task_config: TaskConfig,
-    isl_config: ISLConfig,
-) -> float:
-    return (
-        task.input_bits * isl_config.isl_rx_energy_per_bit_j
-        + local_energy_j(task, task_config)
-        + task.output_bits * isl_config.isl_tx_energy_per_bit_j
-    )
-
-
-def offload_time_s(task: Task, task_config: TaskConfig, isl_config: ISLConfig) -> float:
-    return (
-        task.input_bits / isl_config.isl_forward_rate_bps
-        + compute_time_s(task, task_config)
-        + task.output_bits / isl_config.isl_return_rate_bps
-    )
 
 
 class Scheduler:
@@ -136,9 +103,25 @@ class SlackAwareScheduler(Scheduler):
         reserved_energy = {sat.sat_id: 0.0 for sat in satellite_views}
         reserved_load = {sat.sat_id: 0 for sat in satellite_views}
 
+        def cost_for(task: Task, source_sat: int, target_sat: int):
+            return estimate_route_cost(
+                task=task,
+                route=Route(route_nodes(source_sat, target_sat)),
+                task_config=task_config,
+                isl_config=isl_config,
+            )
+
         def best_possible_time(task: Task) -> float:
-            local_t = compute_time_s(task, task_config)
-            offload_t = offload_time_s(task, task_config, isl_config)
+            assert task.source_sat is not None
+            local_t = cost_for(task, task.source_sat, task.source_sat).total_time_s
+            offload_targets = [
+                sat for sat in satellite_views if sat.sat_id != task.source_sat
+            ]
+            if not offload_targets:
+                return local_t
+            offload_t = cost_for(
+                task, task.source_sat, offload_targets[0].sat_id
+            ).total_time_s
             return min(local_t, offload_t)
 
         def task_slack(task: Task) -> float:
@@ -173,15 +156,15 @@ class SlackAwareScheduler(Scheduler):
                     continue
 
                 if mode == "local":
-                    total_time = compute_time_s(task, task_config)
-                    source_energy = local_energy_j(task, task_config)
+                    cost = cost_for(task, source.sat_id, source.sat_id)
+                    total_time = cost.total_time_s
+                    source_energy = cost.energy_for(source.sat_id)
                     target_energy = 0.0
                 else:
-                    total_time = offload_time_s(task, task_config, isl_config)
-                    source_energy = offload_source_energy_j(task, isl_config)
-                    target_energy = offload_target_energy_j(
-                        task, task_config, isl_config
-                    )
+                    cost = cost_for(task, source.sat_id, target.sat_id)
+                    total_time = cost.total_time_s
+                    source_energy = cost.energy_for(source.sat_id)
+                    target_energy = cost.energy_for(target.sat_id)
 
                 if total_time > remaining_deadline:
                     continue
@@ -198,7 +181,7 @@ class SlackAwareScheduler(Scheduler):
                 if target_after < battery.min_safe_j:
                     continue
 
-                energy_score = source_energy + target_energy
+                energy_score = cost.total_energy_j
                 time_score = total_time
                 load_score = reserved_load[target.sat_id]
                 source_battery_pct = 100.0 * source_after / battery.capacity_j
@@ -246,22 +229,14 @@ class SlackAwareScheduler(Scheduler):
             ):
                 assignments.append(best_assignment)
                 reserved_load[best_assignment.target_sat] += 1
-
-                if best_assignment.mode == "local":
-                    reserved_energy[best_assignment.source_sat] += local_energy_j(
-                        task, task_config
-                    )
-                else:
-                    reserved_energy[best_assignment.source_sat] += (
-                        offload_source_energy_j(task, isl_config)
-                    )
-                    reserved_energy[best_assignment.target_sat] += (
-                        offload_target_energy_j(
-                            task,
-                            task_config,
-                            isl_config,
-                        )
-                    )
+                cost = estimate_route_cost(
+                    task=task,
+                    route=best_assignment.route,
+                    task_config=task_config,
+                    isl_config=isl_config,
+                )
+                for sat_id, energy_j in cost.energy_by_sat.items():
+                    reserved_energy[sat_id] += energy_j
 
             elif can_defer and defer_score <= fail_score:
                 assignments.append(
