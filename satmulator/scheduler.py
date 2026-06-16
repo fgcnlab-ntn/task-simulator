@@ -18,6 +18,10 @@ def distance_km(a: SatelliteView, b: SatelliteView) -> float:
     return (dx * dx + dy * dy + dz * dz) ** 0.5
 
 
+def route_nodes(source_sat: int, target_sat: int) -> tuple[int, ...]:
+    return (source_sat,) if source_sat == target_sat else (source_sat, target_sat)
+
+
 def compute_time_s(task: Task, task_config: TaskConfig) -> float:
     return task.cpu_cycles / task_config.cpu_rate_cycles_s
 
@@ -87,8 +91,7 @@ class LocalOnlyScheduler(Scheduler):
     ) -> Assignment:
         return Assignment(
             task_id=task.task_id,
-            source_sat=task.source_sat,
-            target_sat=task.source_sat,
+            route=route_nodes(task.source_sat, task.source_sat),
             mode=self.name,
         )
 
@@ -109,8 +112,7 @@ class NearestSunlitScheduler(Scheduler):
             mode = "offload"
         return Assignment(
             task_id=task.task_id,
-            source_sat=task.source_sat,
-            target_sat=target.sat_id,
+            route=route_nodes(source.sat_id, target.sat_id),
             mode=mode,
         )
 
@@ -223,8 +225,7 @@ class SlackAwareScheduler(Scheduler):
                     best_score = score
                     best_assignment = Assignment(
                         task_id=task.task_id,
-                        source_sat=source.sat_id,
-                        target_sat=target.sat_id,
+                        route=route_nodes(source.sat_id, target.sat_id),
                         mode=mode,
                         score=score,
                     )
@@ -266,8 +267,7 @@ class SlackAwareScheduler(Scheduler):
                 assignments.append(
                     Assignment(
                         task_id=task.task_id,
-                        source_sat=source.sat_id,
-                        target_sat=source.sat_id,
+                        route=route_nodes(source.sat_id, source.sat_id),
                         mode="defer",
                         score=defer_score,
                     )
@@ -276,8 +276,7 @@ class SlackAwareScheduler(Scheduler):
                 assignments.append(
                     Assignment(
                         task_id=task.task_id,
-                        source_sat=source.sat_id,
-                        target_sat=source.sat_id,
+                        route=route_nodes(source.sat_id, source.sat_id),
                         mode="fail",
                         score=fail_score,
                         failed_reason="no_feasible_candidate",

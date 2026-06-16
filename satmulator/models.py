@@ -118,13 +118,72 @@ class TaskRecord:
 
 
 @dataclass(frozen=True)
+class Route:
+    nodes: tuple[int, ...]
+
+    def __post_init__(self) -> None:
+        if not self.nodes:
+            raise ValueError("route must contain at least one satellite")
+        if any(not isinstance(node, int) or node < 0 for node in self.nodes):
+            raise ValueError("route nodes must be non-negative satellite ids")
+
+    @property
+    def source_sat(self) -> int:
+        return self.nodes[0]
+
+    @property
+    def target_sat(self) -> int:
+        return self.nodes[-1]
+
+    @property
+    def hop_count(self) -> int:
+        return len(self.nodes) - 1
+
+
+@dataclass(frozen=True, init=False)
 class Assignment:
     task_id: int
-    source_sat: int
-    target_sat: int
+    route: Route
     mode: str
     score: float = 0.0
     failed_reason: str = ""
+
+    def __init__(
+        self,
+        *,
+        task_id: int,
+        route: Route | tuple[int, ...] | None = None,
+        mode: str,
+        score: float = 0.0,
+        failed_reason: str = "",
+        source_sat: int | None = None,
+        target_sat: int | None = None,
+    ) -> None:
+        if route is None:
+            if source_sat is None:
+                raise ValueError("assignment requires a route or source_sat")
+            target = source_sat if target_sat is None else target_sat
+            nodes = (source_sat,) if target == source_sat else (source_sat, target)
+            route = Route(nodes)
+        elif not isinstance(route, Route):
+            route = Route(tuple(route))
+        object.__setattr__(self, "task_id", task_id)
+        object.__setattr__(self, "route", route)
+        object.__setattr__(self, "mode", mode)
+        object.__setattr__(self, "score", score)
+        object.__setattr__(self, "failed_reason", failed_reason)
+
+    @property
+    def source_sat(self) -> int:
+        return self.route.source_sat
+
+    @property
+    def target_sat(self) -> int:
+        return self.route.target_sat
+
+    @property
+    def hop_count(self) -> int:
+        return self.route.hop_count
 
 
 @dataclass(frozen=True)
