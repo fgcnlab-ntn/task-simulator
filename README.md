@@ -11,10 +11,10 @@ The current model supports:
 - deterministic and demand-point task generation
 - local and nearest-sunlit schedulers
 - fully-connected or range-limited ISL routing with per-hop time/energy accounting
+- target load limits in CPU cycles per slot
 - structured JSON/JSONL logs and SVG outputs for quick inspection
 
-It does not yet model Earth-blocked ISLs, queueing, link contention, or target
-compute capacity.
+It does not yet model queueing, link contention, or thermal throttling dynamics.
 
 ## Install
 
@@ -127,6 +127,7 @@ The effective merged config is written to:
 - demand-point mode: task locations and workload sizes sampled from configured distributions
 - default legacy task size 1e9 CPU cycles, 1e7 input bits, 1e6 output bits
 - default fully-connected ISL: 10 Mbps forward/return, 1e-7 J/bit TX, 5e-8 J/bit RX
+- default scheduler target load limit: 4e9 CPU cycles per slot
 - scheduler: `local`
 
 Range-limited ISL routing can be enabled with:
@@ -176,8 +177,7 @@ See `TASK_CONFIG.md` for the task-oriented config fields.
 
 ## Next work
 
-1. target-side compute capacity / load accounting
-2. queueing and task finish time
-3. Earth-blocked and constellation-specific ISL topology
+1. queueing and task finish time
+2. thermal throttling dynamics
+3. constellation-specific ISL topology
 4. workload read/write for controlled experiments
-5. JSONL logging for long runs

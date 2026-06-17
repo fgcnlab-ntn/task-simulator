@@ -67,7 +67,7 @@ class ISLConfig:
 @dataclass(frozen=True)
 class SchedulerConfig:
     name: str
-    max_tasks_per_sat_per_slot: int = 4
+    load_max_cycles_per_slot: float = 4.0e9
     defer_penalty: float = 3.0
     fail_penalty: float = 1000.0
     time_weight: float = 1.0

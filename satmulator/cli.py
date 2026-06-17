@@ -62,7 +62,7 @@ DEFAULT_CONFIG = {
     "isl_topology": "fully-connected",
     "isl_max_range_km": None,
     "out": "output/minimal_orbit",
-    "scheduler_max_tasks_per_sat_per_slot": 4,
+    "scheduler_load_max_cycles_per_slot": 4.0e9,
     "scheduler_defer_penalty": 3.0,
     "scheduler_fail_penalty": 1000.0,
     "scheduler_time_weight": 1.0,
@@ -130,7 +130,7 @@ CONFIG_SECTIONS = {
     },
     "scheduler": {
         "name": "scheduler",
-        "max_tasks_per_sat_per_slot": "scheduler_max_tasks_per_sat_per_slot",
+        "load_max_cycles_per_slot": "scheduler_load_max_cycles_per_slot",
         "defer_penalty": "scheduler_defer_penalty",
         "fail_penalty": "scheduler_fail_penalty",
         "time_weight": "scheduler_time_weight",
@@ -189,7 +189,7 @@ def parse_args() -> argparse.Namespace:
         help="disable task generation and execution",
     )
     p.add_argument("--scheduler", choices=("local", "nearest-sunlit", "slack-aware"))
-    p.add_argument("--scheduler-max-tasks-per-sat-per-slot", type=int)
+    p.add_argument("--scheduler-load-max-cycles-per-slot", type=float)
     p.add_argument("--scheduler-defer-penalty", type=float)
     p.add_argument("--scheduler-fail-penalty", type=float)
     p.add_argument("--scheduler-time-weight", type=float)
@@ -322,8 +322,8 @@ def validate_args(args: argparse.Namespace) -> None:
         raise ValueError(
             "--isl-max-range-km must be positive for range-limited topology"
         )
-    if args.scheduler_max_tasks_per_sat_per_slot <= 0:
-        raise ValueError("--scheduler-max-tasks-per-sat-per-slot must be positive")
+    if args.scheduler_load_max_cycles_per_slot <= 0:
+        raise ValueError("--scheduler-load-max-cycles-per-slot must be positive")
     if args.scheduler_fail_penalty < 0 or args.scheduler_defer_penalty < 0:
         raise ValueError("scheduler penalties must be non-negative")
     if not 0 <= args.scheduler_low_battery_threshold_pct <= 100:
@@ -375,7 +375,7 @@ def build_configs(
     )
     scheduler_config = SchedulerConfig(
         name=args.scheduler,
-        max_tasks_per_sat_per_slot=args.scheduler_max_tasks_per_sat_per_slot,
+        load_max_cycles_per_slot=args.scheduler_load_max_cycles_per_slot,
         defer_penalty=args.scheduler_defer_penalty,
         fail_penalty=args.scheduler_fail_penalty,
         time_weight=args.scheduler_time_weight,
@@ -460,7 +460,7 @@ def effective_run_config(args: argparse.Namespace) -> dict:
         },
         "scheduler": {
             "name": args.scheduler,
-            "max_tasks_per_sat_per_slot": args.scheduler_max_tasks_per_sat_per_slot,
+            "load_max_cycles_per_slot": args.scheduler_load_max_cycles_per_slot,
             "defer_penalty": args.scheduler_defer_penalty,
             "fail_penalty": args.scheduler_fail_penalty,
             "time_weight": args.scheduler_time_weight,

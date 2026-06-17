@@ -137,7 +137,7 @@ class SlackAwareScheduler(Scheduler):
     ) -> list[Assignment]:
         by_id = {sat.sat_id: sat for sat in satellite_views}
         reserved_energy = {sat.sat_id: 0.0 for sat in satellite_views}
-        reserved_load = {sat.sat_id: 0 for sat in satellite_views}
+        reserved_load_cycles = {sat.sat_id: 0.0 for sat in satellite_views}
 
         def cost_for(task: Task, route):
             return estimate_route_cost(
@@ -181,10 +181,10 @@ class SlackAwareScheduler(Scheduler):
             for target in satellite_views:
                 mode = "local" if target.sat_id == source.sat_id else "offload"
 
-                if (
-                    reserved_load[target.sat_id]
-                    >= scheduler_config.max_tasks_per_sat_per_slot
-                ):
+                projected_load_cycles = (
+                    reserved_load_cycles[target.sat_id] + task.cpu_cycles
+                )
+                if projected_load_cycles > scheduler_config.load_max_cycles_per_slot:
                     continue
                 route = shortest_route(isl_graph, source.sat_id, target.sat_id)
                 if route is None:
@@ -219,7 +219,9 @@ class SlackAwareScheduler(Scheduler):
 
                 energy_score = cost.total_energy_j
                 time_score = total_time
-                load_score = reserved_load[target.sat_id]
+                load_score = (
+                    projected_load_cycles / scheduler_config.load_max_cycles_per_slot
+                )
                 battery_risk = max(
                     0.0,
                     scheduler_config.low_battery_threshold_pct
@@ -262,7 +264,7 @@ class SlackAwareScheduler(Scheduler):
                 and best_score <= fail_score
             ):
                 assignments.append(best_assignment)
-                reserved_load[best_assignment.target_sat] += 1
+                reserved_load_cycles[best_assignment.target_sat] += task.cpu_cycles
                 cost = estimate_route_cost(
                     task=task,
                     route=best_assignment.route,
