@@ -2,6 +2,7 @@ import datetime as dt
 import json
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
 from satmulator.models import (
@@ -87,6 +88,54 @@ class RunLogTests(unittest.TestCase):
             self.assertEqual([record["time_s"] for record in records], [0, 30])
             self.assertNotIn("battery_pct", records[0]["satellites"][0])
             self.assertEqual(json.loads((output / "run.json").read_text())["status"], "completed")
+
+    def test_records_eclipse_energy_per_step_and_total_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            start = dt.datetime(2026, 6, 14, tzinfo=dt.timezone.utc)
+            log = RunLog(output, start, {})
+            first_step = [
+                replace(
+                    sample_state(0),
+                    sunlit=False,
+                    consumed_j=2.0,
+                    task_energy_j=3.0,
+                ),
+                replace(
+                    sample_state(0),
+                    sat_id=1,
+                    sunlit=True,
+                    consumed_j=10.0,
+                    task_energy_j=20.0,
+                ),
+            ]
+            second_step = [
+                replace(
+                    sample_state(30),
+                    sunlit=False,
+                    consumed_j=5.0,
+                    task_energy_j=7.0,
+                )
+            ]
+
+            log.write_step(first_step)
+            log.write_step(second_step)
+            log.complete()
+
+            records = list(iter_state_steps(output))
+            self.assertEqual(
+                records[0]["energy_summary"]["eclipse"],
+                {"idle_j": 2.0, "task_j": 3.0, "total_j": 5.0},
+            )
+            self.assertEqual(
+                records[1]["energy_summary"]["eclipse"],
+                {"idle_j": 5.0, "task_j": 7.0, "total_j": 12.0},
+            )
+            summary = json.loads((output / "summary.json").read_text())
+            self.assertEqual(
+                summary["energy"]["eclipse"],
+                {"idle_j": 7.0, "task_j": 10.0, "total_j": 17.0},
+            )
 
     def test_task_summary_counts_pending_from_lifecycle_events(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

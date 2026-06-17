@@ -80,6 +80,21 @@ def satellite_catalog(states: list[SatelliteState]) -> list[dict[str, object]]:
     ]
 
 
+def eclipse_energy_summary(states: list[SatelliteState]) -> dict[str, float]:
+    idle_j = 0.0
+    task_j = 0.0
+    for state in states:
+        if state.sunlit:
+            continue
+        idle_j += state.consumed_j
+        task_j += state.task_energy_j
+    return {
+        "idle_j": idle_j,
+        "task_j": task_j,
+        "total_j": idle_j + task_j,
+    }
+
+
 def state_record(
     start: dt.datetime,
     states: list[SatelliteState],
@@ -90,6 +105,9 @@ def state_record(
         "schema_version": SCHEMA_VERSION,
         "time_s": time_s,
         "time_iso": (start + dt.timedelta(seconds=time_s)).isoformat(),
+        "energy_summary": {
+            "eclipse": eclipse_energy_summary(states),
+        },
         "satellites": [
             {
                 "id": state.sat_id,
@@ -150,6 +168,8 @@ class RunLog:
         self._completed = 0
         self._failed = 0
         self._steps = 0
+        self._eclipse_idle_j = 0.0
+        self._eclipse_task_j = 0.0
         self._final_states: list[SatelliteState] | None = None
         self._manifest: dict[str, object] = {
             "schema_version": SCHEMA_VERSION,
@@ -168,6 +188,9 @@ class RunLog:
             self._manifest["satellites"] = satellite_catalog(states)
             write_json(self.run_path, self._manifest)
         append_json_line(self._states, state_record(self.start, states, context))
+        eclipse_energy = eclipse_energy_summary(states)
+        self._eclipse_idle_j += eclipse_energy["idle_j"]
+        self._eclipse_task_j += eclipse_energy["task_j"]
         self._steps += 1
         self._final_states = states
 
@@ -193,9 +216,17 @@ class RunLog:
         if all_steps is not None:
             final_states = all_steps[-1]
             steps = len(all_steps)
+            eclipse_idle_j = 0.0
+            eclipse_task_j = 0.0
+            for states in all_steps:
+                eclipse_energy = eclipse_energy_summary(states)
+                eclipse_idle_j += eclipse_energy["idle_j"]
+                eclipse_task_j += eclipse_energy["task_j"]
         elif self._final_states is not None:
             final_states = self._final_states
             steps = self._steps
+            eclipse_idle_j = self._eclipse_idle_j
+            eclipse_task_j = self._eclipse_task_j
         else:
             raise ValueError("cannot complete a run with no state records")
         summary = {
@@ -212,6 +243,13 @@ class RunLog:
             "final_battery_j": {
                 "minimum": min(state.battery_j for state in final_states),
                 "average": sum(state.battery_j for state in final_states) / len(final_states),
+            },
+            "energy": {
+                "eclipse": {
+                    "idle_j": eclipse_idle_j,
+                    "task_j": eclipse_task_j,
+                    "total_j": eclipse_idle_j + eclipse_task_j,
+                },
             },
         }
         write_json(self.summary_path, summary)
