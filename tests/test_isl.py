@@ -4,6 +4,7 @@ from satmulator.isl import (
     ISLGraph,
     build_isl_graph,
     fully_connected_isl_graph,
+    has_line_of_sight,
     range_limited_isl_graph,
     shortest_route,
 )
@@ -21,6 +22,22 @@ def view(sat_id: int, *, sunlit: bool = False, x: float = 0.0) -> SatelliteView:
     )
 
 
+def point_view(
+    sat_id: int,
+    *,
+    x: float,
+    y: float = 0.0,
+    z: float = 0.0,
+) -> SatelliteView:
+    return SatelliteView(
+        sat_id=sat_id,
+        x_km=x,
+        y_km=y,
+        z_km=z,
+        sunlit=False,
+    )
+
+
 class ISLGraphTests(unittest.TestCase):
     def test_fully_connected_graph_has_every_other_satellite(self) -> None:
         graph = fully_connected_isl_graph([view(2), view(0), view(1)])
@@ -31,7 +48,7 @@ class ISLGraphTests(unittest.TestCase):
 
     def test_range_limited_graph_connects_only_nearby_satellites(self) -> None:
         graph = range_limited_isl_graph(
-            [view(0, x=0.0), view(1, x=3.0), view(2, x=10.0)],
+            [view(0, x=10000.0), view(1, x=10003.0), view(2, x=10010.0)],
             max_range_km=5.0,
         )
 
@@ -39,9 +56,30 @@ class ISLGraphTests(unittest.TestCase):
         self.assertEqual(graph.neighbors(1), (0,))
         self.assertEqual(graph.neighbors(2), ())
 
+    def test_line_of_sight_blocks_links_through_earth(self) -> None:
+        first = point_view(0, x=7000.0)
+        second = point_view(1, x=-7000.0)
+
+        self.assertFalse(has_line_of_sight(first, second))
+
+    def test_line_of_sight_allows_links_above_earth_limb(self) -> None:
+        first = point_view(0, x=10000.0, y=0.0)
+        second = point_view(1, x=0.0, y=10000.0)
+
+        self.assertTrue(has_line_of_sight(first, second))
+
+    def test_range_limited_graph_rejects_earth_blocked_links(self) -> None:
+        graph = range_limited_isl_graph(
+            [point_view(0, x=7000.0), point_view(1, x=-7000.0)],
+            max_range_km=20000.0,
+        )
+
+        self.assertEqual(graph.neighbors(0), ())
+        self.assertEqual(graph.neighbors(1), ())
+
     def test_build_isl_graph_uses_configured_topology(self) -> None:
         graph = build_isl_graph(
-            [view(0, x=0.0), view(1, x=3.0), view(2, x=10.0)],
+            [view(0, x=10000.0), view(1, x=10003.0), view(2, x=10010.0)],
             ISLConfig(1.0, 1.0, 0.0, 0.0, topology="range-limited", max_range_km=5.0),
         )
 

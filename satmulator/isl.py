@@ -4,6 +4,7 @@ from collections import deque
 from dataclasses import dataclass
 from typing import Iterable
 
+from .constants import EARTH_RADIUS_KM
 from .models import ISLConfig, Route, SatelliteView
 
 
@@ -32,6 +33,35 @@ def distance_km(a: SatelliteView, b: SatelliteView) -> float:
     return (dx * dx + dy * dy + dz * dz) ** 0.5
 
 
+def has_line_of_sight(
+    a: SatelliteView,
+    b: SatelliteView,
+    earth_radius_km: float = EARTH_RADIUS_KM,
+) -> bool:
+    """Return true when the segment between satellites clears Earth."""
+
+    ax, ay, az = a.x_km, a.y_km, a.z_km
+    bx, by, bz = b.x_km, b.y_km, b.z_km
+    dx = bx - ax
+    dy = by - ay
+    dz = bz - az
+    length_sq = dx * dx + dy * dy + dz * dz
+    if length_sq == 0.0:
+        return True
+
+    closest_t = -(ax * dx + ay * dy + az * dz) / length_sq
+    closest_t = max(0.0, min(1.0, closest_t))
+    closest_x = ax + closest_t * dx
+    closest_y = ay + closest_t * dy
+    closest_z = az + closest_t * dz
+    closest_distance_sq = (
+        closest_x * closest_x
+        + closest_y * closest_y
+        + closest_z * closest_z
+    )
+    return closest_distance_sq > earth_radius_km * earth_radius_km
+
+
 def range_limited_isl_graph(
     satellites: Iterable[SatelliteView],
     max_range_km: float,
@@ -41,6 +71,8 @@ def range_limited_isl_graph(
     for index, first in enumerate(sat_list):
         for second in sat_list[index + 1 :]:
             if distance_km(first, second) > max_range_km:
+                continue
+            if not has_line_of_sight(first, second):
                 continue
             adjacency[first.sat_id].append(second.sat_id)
             adjacency[second.sat_id].append(first.sat_id)
