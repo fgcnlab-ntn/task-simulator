@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .isl import ISLGraph, fully_connected_isl_graph, shortest_route
+from .isl import ISLGraph, shortest_route
 from .models import (
     Assignment,
     BatteryConfig,
@@ -50,14 +50,14 @@ class Scheduler:
         battery: BatteryConfig,
         task_config: TaskConfig,
         isl_config: ISLConfig,
+        isl_graph: ISLGraph,
         scheduler_config: SchedulerConfig,
     ) -> list[Assignment]:
-        graph = fully_connected_isl_graph(satellite_views)
         return [
             self.assign_task(
                 task=task,
                 satellite_views=satellite_views,
-                isl_graph=graph,
+                isl_graph=isl_graph,
             )
             for task in tasks
         ]
@@ -131,10 +131,10 @@ class SlackAwareScheduler(Scheduler):
         battery: BatteryConfig,
         task_config: TaskConfig,
         isl_config: ISLConfig,
+        isl_graph: ISLGraph,
         scheduler_config: SchedulerConfig,
     ) -> list[Assignment]:
         by_id = {sat.sat_id: sat for sat in satellite_views}
-        graph = fully_connected_isl_graph(satellite_views)
         reserved_energy = {sat.sat_id: 0.0 for sat in satellite_views}
         reserved_load = {sat.sat_id: 0 for sat in satellite_views}
 
@@ -150,7 +150,7 @@ class SlackAwareScheduler(Scheduler):
             assert task.source_sat is not None
             times = []
             for target in satellite_views:
-                route = shortest_route(graph, task.source_sat, target.sat_id)
+                route = shortest_route(isl_graph, task.source_sat, target.sat_id)
                 if route is not None:
                     times.append(cost_for(task, route).total_time_s)
             return min(times) if times else float("inf")
@@ -185,7 +185,7 @@ class SlackAwareScheduler(Scheduler):
                     >= scheduler_config.max_tasks_per_sat_per_slot
                 ):
                     continue
-                route = shortest_route(graph, source.sat_id, target.sat_id)
+                route = shortest_route(isl_graph, source.sat_id, target.sat_id)
                 if route is None:
                     continue
 
@@ -276,7 +276,7 @@ class SlackAwareScheduler(Scheduler):
                 assignments.append(
                     Assignment(
                         task_id=task.task_id,
-                        route=route_or_raise(graph, source.sat_id, source.sat_id),
+                        route=route_or_raise(isl_graph, source.sat_id, source.sat_id),
                         mode="defer",
                         score=defer_score,
                     )
@@ -285,7 +285,7 @@ class SlackAwareScheduler(Scheduler):
                 assignments.append(
                     Assignment(
                         task_id=task.task_id,
-                        route=route_or_raise(graph, source.sat_id, source.sat_id),
+                        route=route_or_raise(isl_graph, source.sat_id, source.sat_id),
                         mode="fail",
                         score=fail_score,
                         failed_reason="no_feasible_candidate",

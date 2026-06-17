@@ -10,6 +10,7 @@ from typing import Callable, Iterable
 from .battery import apply_battery_step, validate_battery_config
 from .constants import EARTH_MU_KM3_S2, EARTH_RADIUS_KM
 from .geometry import circular_state, is_sunlit_cylindrical_shadow, vector_unit, xy_unit
+from .isl import build_isl_graph
 from .models import (
     Assignment,
     BatteryConfig,
@@ -52,6 +53,7 @@ def assign_step_tasks(
     battery: BatteryConfig,
     task_config: TaskConfig,
     isl_config: ISLConfig,
+    isl_graph,
     scheduler_config: SchedulerConfig,
 ) -> list[Assignment]:
     if any(task.source_sat is None for task in tasks):
@@ -65,6 +67,7 @@ def assign_step_tasks(
         battery=battery,
         task_config=task_config,
         isl_config=isl_config,
+        isl_graph=isl_graph,
         scheduler_config=scheduler_config,
     )
 
@@ -520,15 +523,17 @@ def iter_circular_states(
         tasks = deferred_tasks + new_tasks
         expired_tasks = expired_tasks + expired_deferred_tasks
 
+        satellite_views = env.views()
         assignments = assign_step_tasks(
             scheduler=scheduler,
             tasks=tasks,
-            satellite_views=env.views(),
+            satellite_views=satellite_views,
             time_s=env.time_s,
             step_s=step_s,
             battery=battery,
             task_config=task_config,
             isl_config=isl_config,
+            isl_graph=build_isl_graph(satellite_views, isl_config),
             scheduler_config=scheduler_config,
         )
 
@@ -648,15 +653,17 @@ def iter_tle_states(
         tasks = deferred_tasks + new_tasks
         expired_tasks = expired_tasks + expired_deferred_tasks
 
+        satellite_views = env.views()
         assignments = assign_step_tasks(
             scheduler=scheduler,
             tasks=tasks,
-            satellite_views=env.views(),
+            satellite_views=satellite_views,
             time_s=env.time_s,
             step_s=step_s,
             battery=battery,
             task_config=task_config,
             isl_config=isl_config,
+            isl_graph=build_isl_graph(satellite_views, isl_config),
             scheduler_config=scheduler_config,
         )
 

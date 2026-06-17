@@ -60,6 +60,8 @@ class ISLConfig:
     isl_return_rate_bps: float
     isl_tx_energy_per_bit_j: float
     isl_rx_energy_per_bit_j: float
+    topology: str = "fully-connected"
+    max_range_km: float | None = None
 
 
 @dataclass(frozen=True)

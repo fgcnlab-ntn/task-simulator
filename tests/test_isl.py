@@ -1,7 +1,13 @@
 import unittest
 
-from satmulator.isl import ISLGraph, fully_connected_isl_graph, shortest_route
-from satmulator.models import SatelliteView, Task
+from satmulator.isl import (
+    ISLGraph,
+    build_isl_graph,
+    fully_connected_isl_graph,
+    range_limited_isl_graph,
+    shortest_route,
+)
+from satmulator.models import ISLConfig, SatelliteView, Task
 from satmulator.scheduler import NearestSunlitScheduler
 
 
@@ -22,6 +28,32 @@ class ISLGraphTests(unittest.TestCase):
         self.assertEqual(graph.neighbors(0), (1, 2))
         self.assertEqual(graph.neighbors(1), (0, 2))
         self.assertEqual(graph.neighbors(2), (0, 1))
+
+    def test_range_limited_graph_connects_only_nearby_satellites(self) -> None:
+        graph = range_limited_isl_graph(
+            [view(0, x=0.0), view(1, x=3.0), view(2, x=10.0)],
+            max_range_km=5.0,
+        )
+
+        self.assertEqual(graph.neighbors(0), (1,))
+        self.assertEqual(graph.neighbors(1), (0,))
+        self.assertEqual(graph.neighbors(2), ())
+
+    def test_build_isl_graph_uses_configured_topology(self) -> None:
+        graph = build_isl_graph(
+            [view(0, x=0.0), view(1, x=3.0), view(2, x=10.0)],
+            ISLConfig(1.0, 1.0, 0.0, 0.0, topology="range-limited", max_range_km=5.0),
+        )
+
+        self.assertEqual(graph.neighbors(0), (1,))
+        self.assertEqual(graph.neighbors(2), ())
+
+    def test_range_limited_topology_requires_positive_range(self) -> None:
+        with self.assertRaisesRegex(ValueError, "positive max_range_km"):
+            build_isl_graph(
+                [view(0), view(1)],
+                ISLConfig(1.0, 1.0, 0.0, 0.0, topology="range-limited"),
+            )
 
     def test_shortest_route_returns_direct_route_when_available(self) -> None:
         graph = ISLGraph({0: (1, 2), 1: (0,), 2: (0,)})

@@ -57,6 +57,8 @@ DEFAULT_CONFIG = {
     "isl_return_rate_bps": 1.0e7,
     "isl_tx_energy_per_bit_j": 1.0e-7,
     "isl_rx_energy_per_bit_j": 5.0e-8,
+    "isl_topology": "fully-connected",
+    "isl_max_range_km": None,
     "out": "output/minimal_orbit",
     "scheduler_max_tasks_per_sat_per_slot": 4,
     "scheduler_defer_penalty": 3.0,
@@ -121,6 +123,8 @@ CONFIG_SECTIONS = {
         "isl_return_rate_bps": "isl_return_rate_bps",
         "isl_tx_energy_per_bit_j": "isl_tx_energy_per_bit_j",
         "isl_rx_energy_per_bit_j": "isl_rx_energy_per_bit_j",
+        "topology": "isl_topology",
+        "max_range_km": "isl_max_range_km",
     },
     "scheduler": {
         "name": "scheduler",
@@ -210,6 +214,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--isl-return-rate-bps", type=float)
     p.add_argument("--isl-tx-energy-per-bit-j", type=float)
     p.add_argument("--isl-rx-energy-per-bit-j", type=float)
+    p.add_argument("--isl-topology", choices=("fully-connected", "range-limited"))
+    p.add_argument("--isl-max-range-km", type=float)
     p.add_argument("--out", type=Path)
     p.add_argument(
         "--plot-run",
@@ -306,6 +312,12 @@ def validate_args(args: argparse.Namespace) -> None:
         raise ValueError(
             "--isl-tx-energy-per-bit-j and --isl-rx-energy-per-bit-j must be non-negative"
         )
+    if args.isl_topology not in {"fully-connected", "range-limited"}:
+        raise ValueError("--isl-topology must be fully-connected or range-limited")
+    if args.isl_topology == "range-limited" and (
+        args.isl_max_range_km is None or args.isl_max_range_km <= 0.0
+    ):
+        raise ValueError("--isl-max-range-km must be positive for range-limited topology")
     if args.scheduler_max_tasks_per_sat_per_slot <= 0:
         raise ValueError("--scheduler-max-tasks-per-sat-per-slot must be positive")
     if args.scheduler_fail_penalty < 0 or args.scheduler_defer_penalty < 0:
@@ -354,6 +366,8 @@ def build_configs(
         isl_return_rate_bps=args.isl_return_rate_bps,
         isl_tx_energy_per_bit_j=args.isl_tx_energy_per_bit_j,
         isl_rx_energy_per_bit_j=args.isl_rx_energy_per_bit_j,
+        topology=args.isl_topology,
+        max_range_km=args.isl_max_range_km,
     )
     scheduler_config = SchedulerConfig(
         name=args.scheduler,
@@ -437,6 +451,8 @@ def effective_run_config(args: argparse.Namespace) -> dict:
             "isl_return_rate_bps": args.isl_return_rate_bps,
             "isl_tx_energy_per_bit_j": args.isl_tx_energy_per_bit_j,
             "isl_rx_energy_per_bit_j": args.isl_rx_energy_per_bit_j,
+            "topology": args.isl_topology,
+            "max_range_km": args.isl_max_range_km,
         },
         "scheduler": {
             "name": args.scheduler,

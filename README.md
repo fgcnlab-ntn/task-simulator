@@ -10,10 +10,10 @@ The current model supports:
 - per-satellite battery state
 - deterministic and demand-point task generation
 - local and nearest-sunlit schedulers
-- one-hop ISL time/energy accounting for offloaded tasks
+- fully-connected or range-limited ISL routing with per-hop time/energy accounting
 - structured JSON/JSONL logs and SVG outputs for quick inspection
 
-It does not yet model routing, hop count, queueing, link contention, or target
+It does not yet model Earth-blocked ISLs, queueing, link contention, or target
 compute capacity.
 
 ## Install
@@ -126,8 +126,17 @@ The effective merged config is written to:
 - default legacy mode: one task per satellite every 300 s
 - demand-point mode: task locations and workload sizes sampled from configured distributions
 - default legacy task size 1e9 CPU cycles, 1e7 input bits, 1e6 output bits
-- one-hop ISL: 10 Mbps forward/return, 1e-7 J/bit TX, 5e-8 J/bit RX
+- default fully-connected ISL: 10 Mbps forward/return, 1e-7 J/bit TX, 5e-8 J/bit RX
 - scheduler: `local`
+
+Range-limited ISL routing can be enabled with:
+
+```bash
+python3 minimal_orbit.py \
+  --config configs/nearest_sunlit.json \
+  --isl-topology range-limited \
+  --isl-max-range-km 5000
+```
 
 ## Outputs
 
@@ -169,6 +178,6 @@ See `TASK_CONFIG.md` for the task-oriented config fields.
 
 1. target-side compute capacity / load accounting
 2. queueing and task finish time
-3. hop-count and routing model
+3. Earth-blocked and constellation-specific ISL topology
 4. workload read/write for controlled experiments
 5. JSONL logging for long runs
