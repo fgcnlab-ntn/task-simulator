@@ -27,8 +27,31 @@ def apply_battery_step(
     harvested_j = battery.harvest_w * step_s if sunlit else 0.0
     if not update:
         return battery_now, 0.0, 0.0
-    battery_now = min(
-        battery.capacity_j,
-        max(0.0, battery_now - consumed_j - task_energy_j + harvested_j),
+    battery_now = max(
+        0.0,
+        projected_battery_after_step(
+            battery_now=battery_now,
+            sunlit=sunlit,
+            step_s=step_s,
+            battery=battery,
+            task_energy_j=task_energy_j,
+            update=update,
+        ),
     )
     return battery_now, harvested_j, consumed_j
+
+
+def projected_battery_after_step(
+    *,
+    battery_now: float,
+    sunlit: bool,
+    step_s: int,
+    battery: BatteryConfig,
+    task_energy_j: float,
+    update: bool,
+) -> float:
+    if not update:
+        return battery_now
+    consumed_j = battery.idle_w * step_s
+    harvested_j = battery.harvest_w * step_s if sunlit else 0.0
+    return min(battery.capacity_j, battery_now - consumed_j - task_energy_j + harvested_j)

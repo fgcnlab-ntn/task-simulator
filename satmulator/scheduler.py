@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from .battery import projected_battery_after_step
 from .isl import ISLGraph, shortest_route
 from .models import (
     Assignment,
@@ -189,41 +190,40 @@ class SlackAwareScheduler(Scheduler):
                 if route is None:
                     continue
 
-                if mode == "local":
-                    cost = cost_for(task, route)
-                    total_time = cost.total_time_s
-                    source_energy = cost.energy_for(source.sat_id)
-                    target_energy = 0.0
-                else:
-                    cost = cost_for(task, route)
-                    total_time = cost.total_time_s
-                    source_energy = cost.energy_for(source.sat_id)
-                    target_energy = cost.energy_for(target.sat_id)
+                cost = cost_for(task, route)
+                total_time = cost.total_time_s
 
                 if total_time > remaining_deadline:
                     continue
 
-                source_after = (
-                    source.battery_j - reserved_energy[source.sat_id] - source_energy
-                )
-                target_after = (
-                    target.battery_j - reserved_energy[target.sat_id] - target_energy
-                )
-
-                if source_after < battery.min_safe_j:
-                    continue
-                if target_after < battery.min_safe_j:
+                projected_battery_pct: list[float] = []
+                violates_dod = False
+                for sat_id in route.nodes:
+                    sat = by_id[sat_id]
+                    projected = projected_battery_after_step(
+                        battery_now=sat.battery_j,
+                        sunlit=sat.sunlit,
+                        step_s=step_s,
+                        battery=battery,
+                        task_energy_j=(
+                            reserved_energy[sat_id] + cost.energy_for(sat_id)
+                        ),
+                        update=time_s > 0,
+                    )
+                    if projected < battery.min_safe_j:
+                        violates_dod = True
+                        break
+                    projected_battery_pct.append(100.0 * projected / battery.capacity_j)
+                if violates_dod:
                     continue
 
                 energy_score = cost.total_energy_j
                 time_score = total_time
                 load_score = reserved_load[target.sat_id]
-                source_battery_pct = 100.0 * source_after / battery.capacity_j
-                target_battery_pct = 100.0 * target_after / battery.capacity_j
                 battery_risk = max(
                     0.0,
                     scheduler_config.low_battery_threshold_pct
-                    - min(source_battery_pct, target_battery_pct),
+                    - min(projected_battery_pct),
                 )
 
                 eclipse_penalty = 0.0

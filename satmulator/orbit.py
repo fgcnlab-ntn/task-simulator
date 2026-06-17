@@ -7,7 +7,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable
 
-from .battery import apply_battery_step, validate_battery_config
+from .battery import (
+    apply_battery_step,
+    projected_battery_after_step,
+    validate_battery_config,
+)
 from .constants import EARTH_MU_KM3_S2, EARTH_RADIUS_KM
 from .geometry import circular_state, is_sunlit_cylindrical_shadow, vector_unit, xy_unit
 from .isl import build_isl_graph
@@ -100,12 +104,8 @@ def apply_step(
     stats_by_sat = {sat.sat_id: SatelliteStepStats() for sat in env.satellites}
     records: list[TaskRecord] = []
     task_by_id = {task.task_id: task for task in tasks}
+    sat_by_id = {sat.sat_id: sat for sat in env.satellites}
     battery_before = {sat.sat_id: sat.battery_j for sat in env.satellites}
-
-    idle_energy_by_sat = {
-        sat.sat_id: battery.idle_w * step_s if env.time_s > 0 else 0.0
-        for sat in env.satellites
-    }
 
     def remaining_deadline_s(task: Task) -> float:
         return task.created_time_s + task.deadline_s - env.time_s
@@ -316,12 +316,18 @@ def apply_step(
             failed_reason = "deadline"
         else:
             for sat_id in assignment.route.nodes:
-                required_j = (
-                    idle_energy_by_sat[sat_id]
-                    + stats_by_sat[sat_id].task_energy_j
-                    + cost.energy_for(sat_id)
+                projected_task_energy_j = (
+                    stats_by_sat[sat_id].task_energy_j + cost.energy_for(sat_id)
                 )
-                if battery_before[sat_id] >= required_j:
+                projected_battery_j = projected_battery_after_step(
+                    battery_now=battery_before[sat_id],
+                    sunlit=sat_by_id[sat_id].sunlit,
+                    step_s=step_s,
+                    battery=battery,
+                    task_energy_j=projected_task_energy_j,
+                    update=env.time_s > 0,
+                )
+                if projected_battery_j >= battery.min_safe_j:
                     continue
                 is_completed = False
                 if sat_id == assignment.source_sat:
