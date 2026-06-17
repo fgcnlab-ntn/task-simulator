@@ -3,6 +3,8 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import sys
+import time
 from pathlib import Path
 from .models import BatteryConfig, ISLConfig, SchedulerConfig, TaskConfig
 from .orbit import iter_circular_states, iter_tle_states
@@ -317,7 +319,9 @@ def validate_args(args: argparse.Namespace) -> None:
     if args.isl_topology == "range-limited" and (
         args.isl_max_range_km is None or args.isl_max_range_km <= 0.0
     ):
-        raise ValueError("--isl-max-range-km must be positive for range-limited topology")
+        raise ValueError(
+            "--isl-max-range-km must be positive for range-limited topology"
+        )
     if args.scheduler_max_tasks_per_sat_per_slot <= 0:
         raise ValueError("--scheduler-max-tasks-per-sat-per-slot must be positive")
     if args.scheduler_fail_penalty < 0 or args.scheduler_defer_penalty < 0:
@@ -494,6 +498,7 @@ def run(args: argparse.Namespace) -> int:
             "task_event_sink": run_log.write_task_event,
             "step_sink": run_log.write_step,
         }
+
         if args.orbit_model == "tle":
             if args.tle_file is None:
                 raise ValueError("--tle-file is required when --orbit-model tle")
@@ -515,44 +520,93 @@ def run(args: argparse.Namespace) -> int:
         first = None
         last = None
         steps = 0
+
+        total_steps = args.duration_s // args.step_s + 1
+        progress_started = time.monotonic()
+        last_progress_print = 0.0
+        bar_width = 40
+
+        def fmt_seconds(seconds: float) -> str:
+            seconds = int(max(0, seconds))
+            h = seconds // 3600
+            m = (seconds % 3600) // 60
+            s = seconds % 60
+            if h:
+                return f"{h:02d}:{m:02d}:{s:02d}"
+            return f"{m:02d}:{s:02d}"
+
         for states, _ in step_iterator:
             if first is None:
                 first = states
             last = states
             steps += 1
+
+            now = time.monotonic()
+            if now - last_progress_print >= 1.0 or steps == total_steps:
+                elapsed = now - progress_started
+                rate = steps / elapsed if elapsed > 0 else 0.0
+                remaining_steps = max(0, total_steps - steps)
+                eta = remaining_steps / rate if rate > 0 else 0.0
+                pct = steps / total_steps
+
+                filled = int(bar_width * pct)
+                bar = "#" * filled + "-" * (bar_width - filled)
+
+                sys.stderr.write(
+                    "\r"
+                    f"Simulating: [{bar}] "
+                    f"{steps}/{total_steps} "
+                    f"({pct * 100:5.1f}%) "
+                    f"elapsed {fmt_seconds(elapsed)} "
+                    f"eta {fmt_seconds(eta)}"
+                )
+                sys.stderr.flush()
+                last_progress_print = now
+
+        sys.stderr.write("\n")
         run_log.complete()
+
     except BaseException as exc:
         run_log.fail(exc)
         raise
 
     assert first is not None and last is not None
+
     render_run_plots(args.out)
     summary = json.loads((args.out / "summary.json").read_text())
     task_summary = summary["tasks"]
+
     print("Minimal orbit simulation complete")
     print(f"  orbit model: {args.orbit_model}")
     print(f"  scheduler: {scheduler.name}")
     print(f"  satellites: {len(first)}")
     if args.orbit_model == "circular":
         print(f"  planes: {args.planes}")
+    print(f"  steps: {steps}, duration: {args.duration_s}s, step: {args.step_s}s")
     print(
-        f"  steps: {steps}, duration: {args.duration_s}s, step: {args.step_s}s"
+        f"  t=0 sunlit/eclipse: "
+        f"{sum(s.sunlit for s in first)}/{len(first) - sum(s.sunlit for s in first)}"
     )
     print(
-        f"  t=0 sunlit/eclipse: {sum(s.sunlit for s in first)}/{len(first) - sum(s.sunlit for s in first)}"
+        f"  final sunlit/eclipse: "
+        f"{sum(s.sunlit for s in last)}/{len(last) - sum(s.sunlit for s in last)}"
     )
     print(
-        f"  final sunlit/eclipse: {sum(s.sunlit for s in last)}/{len(last) - sum(s.sunlit for s in last)}"
+        f"  final battery min/avg: "
+        f"{min(s.battery_pct for s in last):.2f}%/"
+        f"{sum(s.battery_pct for s in last) / len(last):.2f}%"
     )
     print(
-        f"  final battery min/avg: {min(s.battery_pct for s in last):.2f}%/{sum(s.battery_pct for s in last) / len(last):.2f}%"
-    )
-    print(
-        f"  tasks completed/failed: {task_summary['completed']}/{task_summary['failed']}"
+        "  tasks completed/deferred/failed/pending: "
+        f"{task_summary['completed']}/"
+        f"{task_summary.get('deferred', 0)}/"
+        f"{task_summary['failed']}/"
+        f"{task_summary.get('pending', 0)}"
     )
     print(f"  output: {args.out.resolve()}")
     print(
-        "  open snapshot_start.svg, snapshot_end.svg, sunlight_summary.svg, battery_summary.svg, or task_summary.svg to see results"
+        "  open snapshot_start.svg, snapshot_end.svg, sunlight_summary.svg, "
+        "battery_summary.svg, or task_summary.svg to see results"
     )
     return 0
 
