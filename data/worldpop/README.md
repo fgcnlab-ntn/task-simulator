@@ -23,8 +23,11 @@ curl -fL \
 
 The simulator does not read these rasters directly. Convert them into the
 common `lat,lon,weight` demand-point format with
-`tools/worldpop_to_demand_points.py`. Pass the canonical source URL so the
-generated metadata and every experiment log retain it:
+`tools/worldpop_to_demand_points.py`. By default, conversion aggregates source
+pixels into `0.1` degree latitude/longitude cells and uses each cell center as
+the demand-point coordinate; `weight` is the summed population in that cell.
+Pass the canonical source URL so the generated metadata and every experiment
+log retain it:
 
 ```bash
 python3 tools/worldpop_to_demand_points.py \

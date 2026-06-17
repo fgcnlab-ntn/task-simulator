@@ -14,34 +14,35 @@ from typing import Iterable
 
 @dataclass
 class PopulationBin:
+    center_lat: float
+    center_lon: float
     population: float = 0.0
-    representative_population: float = 0.0
-    representative_lat: float = 0.0
-    representative_lon: float = 0.0
 
     def add(self, lat: float, lon: float, population: float) -> None:
-        lat = float(lat)
-        lon = float(lon)
         population = float(population)
         self.population += population
-        if population > self.representative_population:
-            self.representative_population = population
-            self.representative_lat = lat
-            self.representative_lon = lon
 
     @property
     def lat(self) -> float:
-        return self.representative_lat
+        return self.center_lat
 
     @property
     def lon(self) -> float:
-        return self.representative_lon
+        return self.center_lon
 
 
 def bin_key(lat: float, lon: float, aggregate_deg: float) -> tuple[int, int]:
     return (
         math.floor((lat + 90.0) / aggregate_deg),
         math.floor((lon + 180.0) / aggregate_deg),
+    )
+
+
+def bin_center(key: tuple[int, int], aggregate_deg: float) -> tuple[float, float]:
+    lat_index, lon_index = key
+    return (
+        -90.0 + (lat_index + 0.5) * aggregate_deg,
+        -180.0 + (lon_index + 0.5) * aggregate_deg,
     )
 
 
@@ -53,7 +54,12 @@ def aggregate_points(
     for lat, lon, population in points:
         if not math.isfinite(population) or population <= 0.0:
             continue
-        cell = bins.setdefault(bin_key(lat, lon, aggregate_deg), PopulationBin())
+        key = bin_key(lat, lon, aggregate_deg)
+        center_lat, center_lon = bin_center(key, aggregate_deg)
+        cell = bins.setdefault(
+            key,
+            PopulationBin(center_lat=center_lat, center_lon=center_lon),
+        )
         cell.add(lat, lon, population)
     return bins
 
@@ -142,8 +148,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--aggregate-deg",
         type=float,
-        default=0.01,
-        help="latitude/longitude aggregation size; 0.01 degrees is roughly 1 km",
+        default=0.1,
+        help="latitude/longitude aggregation size; 0.1 degrees is roughly 11 km",
     )
     parser.add_argument(
         "--bbox",
@@ -189,7 +195,7 @@ def main() -> int:
         "output_population": output_population,
         "discarded_population": input_population - output_population,
         "demand_points": point_count,
-        "coordinate": "highest-population source pixel in each aggregated cell",
+        "coordinate": "center of each aggregated latitude/longitude cell",
     }
     metadata_path = args.output.with_suffix(args.output.suffix + ".metadata.json")
     metadata_path.write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n")

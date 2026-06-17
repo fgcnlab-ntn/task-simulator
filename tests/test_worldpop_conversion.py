@@ -15,7 +15,7 @@ SPEC.loader.exec_module(worldpop)
 
 
 class WorldPopConversionTests(unittest.TestCase):
-    def test_aggregation_preserves_population_and_uses_populated_source_point(self) -> None:
+    def test_aggregation_preserves_population_and_uses_cell_center(self) -> None:
         bins = worldpop.aggregate_points(
             [
                 (25.00, 121.00, 10.0),
@@ -29,8 +29,8 @@ class WorldPopConversionTests(unittest.TestCase):
         self.assertEqual(len(bins), 2)
         first = bins[worldpop.bin_key(25.00, 121.00, 0.1)]
         self.assertEqual(first.population, 40.0)
-        self.assertAlmostEqual(first.lat, 25.08)
-        self.assertAlmostEqual(first.lon, 121.08)
+        self.assertAlmostEqual(first.lat, 25.05)
+        self.assertAlmostEqual(first.lon, 121.05)
         self.assertEqual(sum(cell.population for cell in bins.values()), 45.0)
 
     def test_write_csv_filters_small_bins_and_reports_preserved_population(self) -> None:
