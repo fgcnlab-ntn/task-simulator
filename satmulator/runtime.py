@@ -61,6 +61,8 @@ class SatelliteRuntime:
             sunlit=self.sunlit,
             battery_j=self.battery_j,
             load=self.load,
+            plane=self.plane,
+            slot=self.slot,
         )
 
     def snapshot(

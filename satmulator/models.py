@@ -197,6 +197,8 @@ class SatelliteView:
     sunlit: bool
     battery_j: float = 0.0
     load: float = 0.0
+    plane: int | None = None
+    slot: int | None = None
 
 
 @dataclass(frozen=True)
