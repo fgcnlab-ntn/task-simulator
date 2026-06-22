@@ -59,8 +59,8 @@ DEFAULT_CONFIG = {
     "isl_return_rate_bps": 1.0e7,
     "isl_tx_energy_per_bit_j": 1.0e-7,
     "isl_rx_energy_per_bit_j": 5.0e-8,
-    "isl_topology": "fully-connected",
-    "isl_max_range_km": None,
+    "isl_topology": "grid",
+    "isl_max_range_km": 5000.0,
     "out": "output/minimal_orbit",
     "scheduler_load_max_cycles_per_slot": 4.0e9,
     "scheduler_defer_penalty": 3.0,
@@ -216,7 +216,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--isl-return-rate-bps", type=float)
     p.add_argument("--isl-tx-energy-per-bit-j", type=float)
     p.add_argument("--isl-rx-energy-per-bit-j", type=float)
-    p.add_argument("--isl-topology", choices=("fully-connected", "range-limited"))
+    p.add_argument("--isl-topology", choices=("fully-connected", "grid"))
     p.add_argument("--isl-max-range-km", type=float)
     p.add_argument("--out", type=Path)
     p.add_argument(
@@ -314,13 +314,16 @@ def validate_args(args: argparse.Namespace) -> None:
         raise ValueError(
             "--isl-tx-energy-per-bit-j and --isl-rx-energy-per-bit-j must be non-negative"
         )
-    if args.isl_topology not in {"fully-connected", "range-limited"}:
-        raise ValueError("--isl-topology must be fully-connected or range-limited")
-    if args.isl_topology == "range-limited" and (
+    if args.isl_topology not in {"fully-connected", "grid"}:
+        raise ValueError("--isl-topology must be fully-connected or grid")
+    if args.isl_topology == "grid" and (
         args.isl_max_range_km is None or args.isl_max_range_km <= 0.0
     ):
+        raise ValueError("--isl-max-range-km must be positive for grid topology")
+    if args.orbit_model == "tle" and args.isl_topology == "grid":
         raise ValueError(
-            "--isl-max-range-km must be positive for range-limited topology"
+            "grid ISL topology requires plane/slot metadata unavailable in TLE mode; "
+            "use --isl-topology fully-connected"
         )
     if args.scheduler_load_max_cycles_per_slot <= 0:
         raise ValueError("--scheduler-load-max-cycles-per-slot must be positive")

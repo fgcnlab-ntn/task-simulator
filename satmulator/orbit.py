@@ -14,7 +14,7 @@ from .battery import (
 )
 from .constants import EARTH_MU_KM3_S2, EARTH_RADIUS_KM
 from .geometry import circular_state, is_sunlit_cylindrical_shadow, vector_unit, xy_unit
-from .isl import build_isl_graph
+from .isl import build_constellation_layout, build_isl_graph
 from .models import (
     Assignment,
     BatteryConfig,
@@ -498,6 +498,11 @@ def iter_circular_states(
             for sat_id in range(satellites)
         ],
     )
+    constellation_layout = build_constellation_layout(
+        env.views(),
+        isl_config,
+        walker_phase=walker_phase,
+    )
 
     for time_s in range(0, duration_s + 1, step_s):
         env.time_s = time_s
@@ -539,7 +544,11 @@ def iter_circular_states(
             battery=battery,
             task_config=task_config,
             isl_config=isl_config,
-            isl_graph=build_isl_graph(satellite_views, isl_config),
+            isl_graph=build_isl_graph(
+                satellite_views,
+                isl_config,
+                layout=constellation_layout,
+            ),
             scheduler_config=scheduler_config,
         )
 
@@ -626,6 +635,7 @@ def iter_tle_states(
             for sat_id, sat in enumerate(satellites)
         ],
     )
+    constellation_layout = build_constellation_layout(env.views(), isl_config)
 
     for time_s in range(0, duration_s + 1, step_s):
         env.time_s = time_s
@@ -669,7 +679,11 @@ def iter_tle_states(
             battery=battery,
             task_config=task_config,
             isl_config=isl_config,
-            isl_graph=build_isl_graph(satellite_views, isl_config),
+            isl_graph=build_isl_graph(
+                satellite_views,
+                isl_config,
+                layout=constellation_layout,
+            ),
             scheduler_config=scheduler_config,
         )
 

@@ -5,7 +5,13 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from satmulator.cli import DEFAULT_CONFIG, effective_run_config, load_json_config, run
+from satmulator.cli import (
+    DEFAULT_CONFIG,
+    effective_run_config,
+    load_json_config,
+    run,
+    validate_args,
+)
 
 
 def args_for(**overrides: object) -> argparse.Namespace:
@@ -15,6 +21,10 @@ def args_for(**overrides: object) -> argparse.Namespace:
 
 
 class EffectiveRunConfigTests(unittest.TestCase):
+    def test_grid_is_the_default_isl_topology(self) -> None:
+        self.assertEqual(DEFAULT_CONFIG["isl_topology"], "grid")
+        self.assertEqual(DEFAULT_CONFIG["isl_max_range_km"], 5000.0)
+
     def test_loads_json_config(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "config.json"
@@ -101,6 +111,14 @@ class EffectiveRunConfigTests(unittest.TestCase):
                 state["snapshot_context"]["sun_eci_unit"],
                 [1.0, 0.0, 0.0],
             )
+
+    def test_tle_requires_explicit_non_grid_topology(self) -> None:
+        with self.assertRaisesRegex(ValueError, "unavailable in TLE mode"):
+            validate_args(args_for(orbit_model="tle"))
+
+        validate_args(
+            args_for(orbit_model="tle", isl_topology="fully-connected")
+        )
 
 
 if __name__ == "__main__":

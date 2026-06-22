@@ -10,7 +10,7 @@ The current model supports:
 - per-satellite battery state
 - deterministic and demand-point task generation
 - local and nearest-sunlit schedulers
-- fully-connected or range-limited ISL routing with per-hop time/energy accounting
+- four-neighbor grid or fully-connected ISL routing with per-hop accounting
 - target load limits in CPU cycles per slot
 - structured JSON/JSONL logs and SVG outputs for quick inspection
 
@@ -126,18 +126,27 @@ The effective merged config is written to:
 - default legacy mode: one task per satellite every 300 s
 - demand-point mode: task locations and workload sizes sampled from configured distributions
 - default legacy task size 1e9 CPU cycles, 1e7 input bits, 1e6 output bits
-- default fully-connected ISL: 10 Mbps forward/return, 1e-7 J/bit TX, 5e-8 J/bit RX
+- default four-neighbor grid ISL with a 5000 km link range and Earth-obstruction filtering
+- default ISL cost: 10 Mbps forward/return, 1e-7 J/bit TX, 5e-8 J/bit RX
 - default scheduler target load limit: 4e9 CPU cycles per slot
 - scheduler: `local`
 
-Range-limited ISL routing can be enabled with:
+The grid builds a fixed candidate layout once: two in-plane links and two
+cross-plane links per satellite. The plane seam is shifted by the configured
+Walker phase. At each simulation step, only range and Earth line-of-sight are
+reevaluated to determine which candidate links are active. Diagonal satellites
+therefore require at least two hops. Fully-connected routing remains available
+for smoke tests:
 
 ```bash
 python3 minimal_orbit.py \
   --config configs/nearest_sunlit.json \
-  --isl-topology range-limited \
-  --isl-max-range-km 5000
+  --isl-topology fully-connected
 ```
+
+TLE input does not carry reliable plane/slot assignments, so TLE runs must use
+`--isl-topology fully-connected` until explicit constellation layout metadata is
+provided.
 
 ## Outputs
 
@@ -179,5 +188,5 @@ See `TASK_CONFIG.md` for the task-oriented config fields.
 
 1. queueing and task finish time
 2. thermal throttling dynamics
-3. constellation-specific ISL topology
+3. TLE constellation layout metadata
 4. workload read/write for controlled experiments
