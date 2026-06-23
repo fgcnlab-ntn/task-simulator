@@ -177,6 +177,8 @@ class SlackAwareScheduler(Scheduler):
 
             best_assignment: Assignment | None = None
             best_score = float("inf")
+            best_cost = None
+            best_target_sat: int | None = None
 
             for target in satellite_views:
                 mode = "local" if target.sat_id == source.sat_id else "offload"
@@ -198,6 +200,7 @@ class SlackAwareScheduler(Scheduler):
 
                 projected_battery_pct: list[float] = []
                 violates_dod = False
+
                 for sat_id in route.nodes:
                     sat = by_id[sat_id]
                     projected = projected_battery_after_step(
@@ -217,7 +220,13 @@ class SlackAwareScheduler(Scheduler):
                 if violates_dod:
                     continue
 
-                energy_score = cost.total_energy_j
+                eclipse_side_energy = 0.0
+                for sat_id, energy_j in cost.energy_by_sat.items():
+                    sat = by_id[sat_id]
+                    if not sat.sunlit:
+                        eclipse_side_energy += energy_j
+
+                total_energy = cost.total_energy_j
                 time_score = total_time
                 load_score = (
                     projected_load_cycles / scheduler_config.load_max_cycles_per_slot
@@ -234,7 +243,8 @@ class SlackAwareScheduler(Scheduler):
 
                 score = (
                     scheduler_config.time_weight * time_score
-                    + scheduler_config.energy_weight * energy_score
+                    + scheduler_config.energy_weight * eclipse_side_energy
+                    + 0.05 * total_energy
                     + scheduler_config.load_weight * load_score
                     + scheduler_config.battery_weight * battery_risk
                     + eclipse_penalty
@@ -248,6 +258,8 @@ class SlackAwareScheduler(Scheduler):
                         mode=mode,
                         score=score,
                     )
+                    best_cost = cost
+                    best_target_sat = target.sat_id
 
             can_defer = remaining_deadline > step_s
             defer_score = float("inf")
@@ -264,6 +276,8 @@ class SlackAwareScheduler(Scheduler):
                 and best_score <= fail_score
             ):
                 assignments.append(best_assignment)
+                assert best_cost is not None
+                assert best_target_sat is not None
                 reserved_load_cycles[best_assignment.target_sat] += task.cpu_cycles
                 cost = estimate_route_cost(
                     task=task,
