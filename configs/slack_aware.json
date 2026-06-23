@@ -47,7 +47,7 @@
   "scheduler": {
     "name": "slack-aware",
     "load_max_cycles_per_slot": 4000000000.0,
-    "defer_penalty": 3.0,
+    "defer_penalty": 100.0,
     "fail_penalty": 1000.0,
     "time_weight": 1.0,
     "energy_weight": 2.0,

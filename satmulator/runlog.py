@@ -167,6 +167,7 @@ class RunLog:
         self._terminal_ids: set[int] = set()
         self._completed = 0
         self._failed = 0
+        self._deferred = 0
         self._steps = 0
         self._eclipse_idle_j = 0.0
         self._eclipse_task_j = 0.0
@@ -210,6 +211,8 @@ class RunLog:
             elif event_type == "task_failed":
                 self._terminal_ids.add(task_id)
                 self._failed += 1
+            elif event_type == "task_deferred":
+                self._deferred += 1
         append_json_line(self._tasks, record)
 
     def complete(self, all_steps: list[list[SatelliteState]] | None = None) -> None:
@@ -237,12 +240,14 @@ class RunLog:
             "tasks": {
                 "generated": len(self._generated_ids),
                 "completed": self._completed,
+                "deferred": self._deferred,
                 "failed": self._failed,
                 "pending": len(self._generated_ids - self._terminal_ids),
             },
             "final_battery_j": {
                 "minimum": min(state.battery_j for state in final_states),
-                "average": sum(state.battery_j for state in final_states) / len(final_states),
+                "average": sum(state.battery_j for state in final_states)
+                / len(final_states),
             },
             "energy": {
                 "eclipse": {
