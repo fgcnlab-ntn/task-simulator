@@ -254,13 +254,59 @@ def load_json_config(path: Path) -> dict:
     return flatten_config(data)
 
 
+def load_standalone_json_config(path: Path) -> dict:
+    with path.open() as f:
+        data = json.load(f)
+    if not isinstance(data, dict):
+        raise ValueError("top-level JSON config must be an object")
+
+    expected_sections = set(CONFIG_SECTIONS)
+    actual_sections = set(data)
+    if actual_sections != expected_sections:
+        missing = sorted(expected_sections - actual_sections)
+        extra = sorted(actual_sections - expected_sections)
+        details = []
+        if missing:
+            details.append(f"missing sections: {', '.join(missing)}")
+        if extra:
+            details.append(f"unknown sections: {', '.join(extra)}")
+        raise ValueError(
+            "standalone config must define every section ("
+            + "; ".join(details)
+            + ")"
+        )
+
+    for section, mapping in CONFIG_SECTIONS.items():
+        value = data[section]
+        if not isinstance(value, dict):
+            raise ValueError(f"config section {section!r} must be an object")
+        expected_keys = set(mapping)
+        actual_keys = set(value)
+        if actual_keys != expected_keys:
+            missing = sorted(expected_keys - actual_keys)
+            extra = sorted(actual_keys - expected_keys)
+            details = []
+            if missing:
+                details.append(f"missing keys: {', '.join(missing)}")
+            if extra:
+                details.append(f"unknown keys: {', '.join(extra)}")
+            raise ValueError(
+                f"standalone config section {section!r} must define every key ("
+                + "; ".join(details)
+                + ")"
+            )
+
+    return flatten_config(data)
+
+
 def resolve_config(cli_args: argparse.Namespace) -> argparse.Namespace:
     cli_values = vars(cli_args).copy()
     config_path = cli_values.pop("config", None)
     plot_run = cli_values.pop("plot_run", None)
-    values = DEFAULT_CONFIG.copy()
     if config_path is not None:
-        values.update(load_json_config(config_path))
+        values = load_standalone_json_config(config_path)
+    else:
+        values = DEFAULT_CONFIG.copy()
     values.update(
         {key: value for key, value in cli_values.items() if value is not None}
     )

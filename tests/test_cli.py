@@ -6,9 +6,11 @@ import unittest
 from pathlib import Path
 
 from satmulator.cli import (
+    CONFIG_SECTIONS,
     DEFAULT_CONFIG,
     effective_run_config,
     load_json_config,
+    load_standalone_json_config,
     run,
     validate_args,
 )
@@ -31,6 +33,25 @@ class EffectiveRunConfigTests(unittest.TestCase):
             path.write_text('{"time": {"duration_s": 60}}')
 
             self.assertEqual(load_json_config(path), {"duration_s": 60})
+
+
+    def test_standalone_config_rejects_partial_specs(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "partial.json"
+            path.write_text('{"time": {"duration_s": 60}}')
+
+            with self.assertRaisesRegex(ValueError, "standalone config"):
+                load_standalone_json_config(path)
+
+    def test_bundled_configs_are_complete_standalone_specs(self) -> None:
+        required_sections = set(CONFIG_SECTIONS)
+        for path in sorted(Path("configs").glob("*.json")):
+            with self.subTest(config=str(path)):
+                config = json.loads(path.read_text())
+                self.assertEqual(set(config), required_sections)
+                for section, mapping in CONFIG_SECTIONS.items():
+                    self.assertEqual(set(config[section]), set(mapping))
+                validate_args(args_for(**load_standalone_json_config(path)))
 
     def test_tle_orbit_config_omits_circular_only_fields(self) -> None:
         config = effective_run_config(

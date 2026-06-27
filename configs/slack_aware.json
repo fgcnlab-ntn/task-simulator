@@ -6,7 +6,7 @@
   "orbit": {
     "orbit_model": "circular",
     "tle_file": null,
-    "sun_position_file": "de421.bsp",
+    "sun_position_file": "de440s.bsp",
     "satellites": 1584,
     "planes": 72,
     "altitude_km": 550.0,
@@ -28,19 +28,65 @@
   "task": {
     "enabled": true,
     "interval_s": 300,
+    "generation_mode": "satellite-deterministic",
+    "random_seed": 42,
     "tasks_per_sat": 1,
+    "tasks_per_step_choices": [
+      0,
+      5,
+      10,
+      20
+    ],
+    "tasks_per_step_weights": [
+      0.2,
+      0.4,
+      0.2,
+      0.2
+    ],
     "cpu_cycles": 1000000000.0,
+    "cpu_cycles_choices": [
+      100000000.0,
+      1000000000.0,
+      5000000000.0
+    ],
+    "cpu_cycles_weights": [
+      0.6,
+      0.3,
+      0.1
+    ],
     "input_bits": 10000000.0,
+    "input_bits_choices": [
+      1000000.0,
+      10000000.0,
+      100000000.0
+    ],
+    "input_bits_weights": [
+      0.6,
+      0.3,
+      0.1
+    ],
     "output_bits": 1000000.0,
+    "output_bits_choices": [
+      100000.0,
+      1000000.0,
+      10000000.0
+    ],
+    "output_bits_weights": [
+      0.6,
+      0.3,
+      0.1
+    ],
+    "demand_points_file": null,
+    "min_elevation_deg": 30.0,
     "deadline_s": 120.0,
     "cpu_rate_cycles_s": 100000000.0,
-    "joule_per_cycle": 0.00000001
+    "joule_per_cycle": 1e-08
   },
   "isl": {
     "isl_forward_rate_bps": 10000000.0,
     "isl_return_rate_bps": 10000000.0,
-    "isl_tx_energy_per_bit_j": 0.0000001,
-    "isl_rx_energy_per_bit_j": 0.00000005,
+    "isl_tx_energy_per_bit_j": 1e-07,
+    "isl_rx_energy_per_bit_j": 5e-08,
     "topology": "grid",
     "max_range_km": 5000.0
   },

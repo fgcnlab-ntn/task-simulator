@@ -46,7 +46,7 @@ For offline TLE runs, provide a local path:
 
 ```bash
 python3 minimal_orbit.py \
-  --config configs/default.json \
+  --config configs/template.json \
   --orbit-model tle \
   --tle-file tle/stations.tle \
   --sun-position-file /path/to/de440s.bsp
@@ -57,7 +57,7 @@ python3 minimal_orbit.py \
 Use JSON config files for reproducible runs:
 
 ```bash
-python3 minimal_orbit.py --config configs/default.json
+python3 minimal_orbit.py --config configs/template.json
 ```
 
 Nearest-sunlit offloading:
@@ -86,7 +86,7 @@ CLI flags override config values:
 
 ```bash
 python3 minimal_orbit.py \
-  --config configs/default.json \
+  --config configs/template.json \
   --scheduler nearest-sunlit \
   --duration-s 600 \
   --out output/debug
@@ -96,7 +96,7 @@ TLE run:
 
 ```bash
 python3 minimal_orbit.py \
-  --config configs/default.json \
+  --config configs/template.json \
   --orbit-model tle \
   --tle-file tle/stations.tle \
   --duration-s 1800 \
@@ -104,10 +104,11 @@ python3 minimal_orbit.py \
   --out output/tle_stations
 ```
 
-Config precedence:
+Config behavior:
 
 ```text
-built-in defaults < JSON config < CLI overrides
+no --config: built-in defaults
+--config: complete standalone JSON config < CLI overrides
 ```
 
 The effective merged config is written to:
@@ -116,11 +117,11 @@ The effective merged config is written to:
 <output>/run.json
 ```
 
-## Default model
+## Template model
 
-`configs/default.json` defines the default smoke scenario:
+`configs/template.json` is a complete, standalone Starlink-like template scenario:
 
-- 66 satellites, 6 planes, 550 km altitude, 53° inclination
+- 1584 satellites, 72 planes, 550 km altitude, 53.05° inclination
 - start time `2026-05-22T12:00:00Z`, duration 1800 s, step 30 s
 - battery capacity 100000 J, initial 80%, safe minimum 20%
 - default legacy mode: one task per satellite every 300 s
@@ -172,7 +173,7 @@ See `TASK_CONFIG.md` for the task-oriented config fields.
 ## Code structure
 
 - `minimal_orbit.py` — CLI wrapper
-- `configs/` — JSON configs
+- `configs/` — complete standalone JSON configs; `template.json` is the copyable baseline
 - `satmulator/cli.py` — config parsing and run orchestration
 - `satmulator/runtime.py` — mutable satellite/environment state
 - `satmulator/models.py` — configs, tasks, assignments, snapshots

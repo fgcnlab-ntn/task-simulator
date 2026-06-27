@@ -1,7 +1,7 @@
 {
   "run": {
-    "name": "default",
-    "description": "Default circular local smoke simulation"
+    "name": "template",
+    "description": "Template Starlink 1584 Walker-like simulation config"
   },
   "orbit": {
     "orbit_model": "circular",
@@ -28,11 +28,22 @@
   "task": {
     "enabled": true,
     "interval_s": 300,
-    "min_elevation_deg": 30.0,
+    "generation_mode": "satellite-deterministic",
+    "random_seed": 42,
     "tasks_per_sat": 1,
+    "tasks_per_step_choices": [0, 5, 10, 20],
+    "tasks_per_step_weights": [0.2, 0.4, 0.2, 0.2],
     "cpu_cycles": 1000000000.0,
+    "cpu_cycles_choices": [100000000.0, 1000000000.0, 5000000000.0],
+    "cpu_cycles_weights": [0.6, 0.3, 0.1],
     "input_bits": 10000000.0,
+    "input_bits_choices": [1000000.0, 10000000.0, 100000000.0],
+    "input_bits_weights": [0.6, 0.3, 0.1],
     "output_bits": 1000000.0,
+    "output_bits_choices": [100000.0, 1000000.0, 10000000.0],
+    "output_bits_weights": [0.6, 0.3, 0.1],
+    "demand_points_file": null,
+    "min_elevation_deg": 30.0,
     "deadline_s": 120.0,
     "cpu_rate_cycles_s": 100000000.0,
     "joule_per_cycle": 0.00000001
@@ -46,9 +57,18 @@
     "max_range_km": 5000.0
   },
   "scheduler": {
-    "name": "local"
+    "name": "local",
+    "load_max_cycles_per_slot": 4000000000.0,
+    "defer_penalty": 3.0,
+    "fail_penalty": 1000.0,
+    "time_weight": 1.0,
+    "energy_weight": 2.0,
+    "battery_weight": 5.0,
+    "load_weight": 0.1,
+    "eclipse_local_penalty": 2.0,
+    "low_battery_threshold_pct": 35.0
   },
   "output": {
-    "path": "output/minimal_orbit"
+    "path": "output/template"
   }
 }
