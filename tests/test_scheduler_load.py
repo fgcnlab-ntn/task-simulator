@@ -3,6 +3,7 @@ import unittest
 from satmulator.isl import fully_connected_isl_graph
 from satmulator.models import (
     BatteryConfig,
+    ComputeConfig,
     DemandDistribution,
     ISLConfig,
     SatelliteView,
@@ -22,9 +23,6 @@ def task_config() -> TaskConfig:
         tasks_per_sat=1,
         tasks_per_step_choices=(1,),
         tasks_per_step_weights=(1.0,),
-        cpu_cycles=1.0,
-        cpu_cycles_choices=(1.0,),
-        cpu_cycles_weights=(1.0,),
         input_bits=0.0,
         input_bits_choices=(0.0,),
         input_bits_weights=(1.0,),
@@ -32,17 +30,15 @@ def task_config() -> TaskConfig:
         output_bits_choices=(0.0,),
         output_bits_weights=(1.0,),
         deadline_s=30.0,
-        cpu_rate_cycles_s=1.0,
-        joule_per_cycle=0.0,
         demand_distribution=DemandDistribution((), (), 0.0),
         min_elevation_deg=30.0,
     )
 
 
-def scheduler_config(load_max_cycles_per_slot: float) -> SchedulerConfig:
+def scheduler_config(cpu_utilization_limit: float) -> SchedulerConfig:
     return SchedulerConfig(
         name="slack-aware",
-        load_max_cycles_per_slot=load_max_cycles_per_slot,
+        cpu_utilization_limit=cpu_utilization_limit,
         time_weight=0.0,
         energy_weight=0.0,
         battery_weight=0.0,
@@ -59,15 +55,15 @@ class SchedulerLoadTests(unittest.TestCase):
         ]
         self.graph = fully_connected_isl_graph(self.views)
         self.battery = BatteryConfig(1000.0, 1000.0, 0.0, 0.0, 0.0)
+        self.compute = ComputeConfig(1.0, 1.0, 0.0)
         self.isl = ISLConfig(1.0, 0.0)
 
-    def task(self, task_id: int, cpu_cycles: float) -> Task:
+    def task(self, task_id: int, input_bits: float) -> Task:
         return Task(
             task_id=task_id,
             created_time_s=30,
             source_sat=0,
-            cpu_cycles=cpu_cycles,
-            input_bits=0.0,
+            input_bits=input_bits,
             output_bits=0.0,
             deadline_s=30.0,
         )
@@ -79,10 +75,11 @@ class SchedulerLoadTests(unittest.TestCase):
             time_s=30,
             step_s=30,
             battery=self.battery,
+            compute_config=self.compute,
             task_config=task_config(),
             isl_config=self.isl,
             isl_graph=self.graph,
-            scheduler_config=scheduler_config(10.0),
+            scheduler_config=scheduler_config(1.0 / 3.0),
         )
 
         self.assertEqual([assignment.target_sat for assignment in assignments], [1, 1])
@@ -94,10 +91,11 @@ class SchedulerLoadTests(unittest.TestCase):
             time_s=30,
             step_s=30,
             battery=self.battery,
+            compute_config=self.compute,
             task_config=task_config(),
             isl_config=self.isl,
             isl_graph=self.graph,
-            scheduler_config=scheduler_config(10.0),
+            scheduler_config=scheduler_config(1.0 / 3.0),
         )
 
         self.assertEqual([assignment.target_sat for assignment in assignments], [1, 0])
@@ -109,10 +107,11 @@ class SchedulerLoadTests(unittest.TestCase):
             time_s=30,
             step_s=30,
             battery=self.battery,
+            compute_config=self.compute,
             task_config=task_config(),
             isl_config=self.isl,
             isl_graph=self.graph,
-            scheduler_config=scheduler_config(10.0),
+            scheduler_config=scheduler_config(1.0 / 3.0),
         )
 
         self.assertEqual(assignments[0].mode, "fail")

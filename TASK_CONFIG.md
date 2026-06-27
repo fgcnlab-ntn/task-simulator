@@ -22,12 +22,36 @@ model.  The new config keeps that old mode for compatibility and adds a
   selecting a serving satellite. Defaults to 30 degrees. Tasks wait while no
   satellite meets the threshold and fail with `no_coverage` when their deadline
   expires.
-- `cpu_cycles_choices`, `cpu_cycles_weights`: discrete CPU demand distribution.
 - `input_bits_choices`, `input_bits_weights`: discrete input data distribution.
 - `output_bits_choices`, `output_bits_weights`: discrete output data distribution.
 - `deadline_s`: task deadline.
-- `cpu_rate_cycles_s`: compute rate used by the time model.
-- `joule_per_cycle`: compute energy coefficient.
+
+## Compute fields
+
+- `cycles_per_input_bit`: conversion from input data size to compute cycles.
+  The simulator uses `compute_cycles = input_bits * cycles_per_input_bit`.
+- `cpu_frequency_hz`: satellite CPU frequency used by the compute time model.
+- `cpu_power_w`: active satellite CPU power used by the compute energy model.
+
+Compute time and energy are derived:
+
+```text
+compute_time_s = compute_cycles / cpu_frequency_hz
+compute_energy_j = compute_time_s * cpu_power_w
+```
+
+## Scheduler compute capacity
+
+- `cpu_utilization_limit`: fraction of one CPU slot that the scheduler may
+  reserve for tasks. The slot capacity is derived from the compute model:
+
+```text
+max_cycles_per_slot = cpu_frequency_hz * step_s * cpu_utilization_limit
+```
+
+The default is `1.0`, meaning the modeled CPU may be fully reserved for compute
+work during a step. Use a lower value such as `0.8` only when you want explicit
+headroom for unmodeled platform work or thermal throttling.
 
 Task records include `waiting_time_s`. Waiting for coverage counts toward
 `total_time_s` and the task deadline.

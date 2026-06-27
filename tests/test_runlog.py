@@ -7,6 +7,7 @@ from pathlib import Path
 
 from satmulator.models import (
     BatteryConfig,
+    ComputeConfig,
     ISLConfig,
     SatelliteState,
     SnapshotContext,
@@ -177,6 +178,7 @@ class RunLogTests(unittest.TestCase):
     def test_simulator_emits_task_lifecycle_without_changing_step_results(self) -> None:
         events: list[dict[str, object]] = []
         battery = BatteryConfig(1000.0, 1000.0, 0.0, 0.0, 0.0)
+        compute = ComputeConfig(1.0, 1.0, 0.0)
         task = TaskConfig(
             enabled=True,
             interval_s=30,
@@ -185,9 +187,6 @@ class RunLogTests(unittest.TestCase):
             tasks_per_sat=1,
             tasks_per_step_choices=(1,),
             tasks_per_step_weights=(1.0,),
-            cpu_cycles=1.0,
-            cpu_cycles_choices=(1.0,),
-            cpu_cycles_weights=(1.0,),
             input_bits=0.0,
             input_bits_choices=(0.0,),
             input_bits_weights=(1.0,),
@@ -195,8 +194,6 @@ class RunLogTests(unittest.TestCase):
             output_bits_choices=(0.0,),
             output_bits_weights=(1.0,),
             deadline_s=30.0,
-            cpu_rate_cycles_s=1.0,
-            joule_per_cycle=0.0,
             demand_distribution=load_demand_points(None),
             min_elevation_deg=30.0,
         )
@@ -211,6 +208,7 @@ class RunLogTests(unittest.TestCase):
                 duration_s=30,
                 step_s=30,
                 battery=battery,
+                compute_config=compute,
                 task_config=task,
                 isl_config=isl,
                 scheduler=LocalOnlyScheduler(),

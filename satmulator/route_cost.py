@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .models import ISLConfig, Route, Task, TaskConfig
+from .models import ComputeConfig, ISLConfig, Route, Task
 
 
 @dataclass(frozen=True)
@@ -37,11 +37,15 @@ def transmission_energy_j(bits: float, isl_config: ISLConfig) -> float:
     return isl_config.tx_power_w * transfer_time_s(bits, isl_config)
 
 
+def compute_cycles(task: Task, compute_config: ComputeConfig) -> float:
+    return task.input_bits * compute_config.cycles_per_input_bit
+
+
 def estimate_route_cost(
     *,
     task: Task,
     route: Route,
-    task_config: TaskConfig,
+    compute_config: ComputeConfig,
     isl_config: ISLConfig,
 ) -> RouteCost:
     """Estimate execution cost for a task over a route.
@@ -52,8 +56,9 @@ def estimate_route_cost(
     historical one-hop model.
     """
 
-    compute_time_s = task.cpu_cycles / task_config.cpu_rate_cycles_s
-    compute_energy_j = task.cpu_cycles * task_config.joule_per_cycle
+    cycles = compute_cycles(task, compute_config)
+    compute_time_s = cycles / compute_config.cpu_frequency_hz
+    compute_energy_j = compute_time_s * compute_config.cpu_power_w
     energy_by_sat: dict[int, float] = {}
 
     add_energy(energy_by_sat, route.target_sat, compute_energy_j)

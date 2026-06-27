@@ -31,7 +31,7 @@ class PlottingTests(unittest.TestCase):
                     "source_sat": 0,
                     "location": None,
                     "workload": {
-                        "cpu_cycles": 1.0,
+                        "compute_cycles": 1.0,
                         "input_bits": 0.0,
                         "output_bits": 0.0,
                     },

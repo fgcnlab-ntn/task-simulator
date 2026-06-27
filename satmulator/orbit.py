@@ -18,6 +18,7 @@ from .isl import build_constellation_layout, build_isl_graph
 from .models import (
     Assignment,
     BatteryConfig,
+    ComputeConfig,
     ISLConfig,
     SatelliteState,
     SatelliteView,
@@ -27,13 +28,22 @@ from .models import (
     TaskConfig,
     TaskRecord,
 )
-from .route_cost import estimate_route_cost
+from .route_cost import compute_cycles, estimate_route_cost
 from .runtime import EnvironmentRuntime, SatelliteRuntime, TaskEventSink
 from .scheduler import Scheduler
 from .workload import generate_step_tasks, validate_task_config
 
 
 StepSink = Callable[[list[SatelliteState], SnapshotContext], None]
+
+
+def validate_compute_config(compute: ComputeConfig) -> None:
+    if compute.cycles_per_input_bit <= 0:
+        raise ValueError("compute cycles per input bit must be positive")
+    if compute.cpu_frequency_hz <= 0:
+        raise ValueError("CPU frequency must be positive")
+    if compute.cpu_power_w < 0:
+        raise ValueError("CPU power must be non-negative")
 
 
 @dataclass
@@ -55,6 +65,7 @@ def assign_step_tasks(
     time_s: int,
     step_s: int,
     battery: BatteryConfig,
+    compute_config: ComputeConfig,
     task_config: TaskConfig,
     isl_config: ISLConfig,
     isl_graph,
@@ -69,6 +80,7 @@ def assign_step_tasks(
         time_s=time_s,
         step_s=step_s,
         battery=battery,
+        compute_config=compute_config,
         task_config=task_config,
         isl_config=isl_config,
         isl_graph=isl_graph,
@@ -95,6 +107,7 @@ def apply_step(
     env: EnvironmentRuntime,
     step_s: int,
     battery: BatteryConfig,
+    compute_config: ComputeConfig,
     task_config: TaskConfig,
     isl_config: ISLConfig,
     tasks: list[Task],
@@ -137,7 +150,7 @@ def apply_step(
             mode=mode,
             lat_deg=task.lat_deg,
             lon_deg=task.lon_deg,
-            cpu_cycles=task.cpu_cycles,
+            compute_cycles=compute_cycles(task, compute_config),
             input_bits=task.input_bits,
             output_bits=task.output_bits,
             deadline_s=task.deadline_s,
@@ -301,7 +314,7 @@ def apply_step(
         cost = estimate_route_cost(
             task=task,
             route=assignment.route,
-            task_config=task_config,
+            compute_config=compute_config,
             isl_config=isl_config,
         )
 
@@ -461,6 +474,7 @@ def iter_circular_states(
     duration_s: int,
     step_s: int,
     battery: BatteryConfig,
+    compute_config: ComputeConfig,
     task_config: TaskConfig,
     isl_config: ISLConfig,
     scheduler: Scheduler,
@@ -477,6 +491,7 @@ def iter_circular_states(
         raise ValueError("step must be positive")
 
     validate_battery_config(battery)
+    validate_compute_config(compute_config)
     validate_task_config(task_config)
 
     sats_per_plane = satellites // planes
@@ -528,7 +543,7 @@ def iter_circular_states(
                     sunlit=sunlit,
                 )
 
-        new_tasks, expired_tasks = generate_step_tasks(env, task_config)
+        new_tasks, expired_tasks = generate_step_tasks(env, task_config, compute_config)
         deferred_tasks, expired_deferred_tasks = pop_deferred_tasks(env)
 
         tasks = deferred_tasks + new_tasks
@@ -542,6 +557,7 @@ def iter_circular_states(
             time_s=env.time_s,
             step_s=step_s,
             battery=battery,
+            compute_config=compute_config,
             task_config=task_config,
             isl_config=isl_config,
             isl_graph=build_isl_graph(
@@ -556,6 +572,7 @@ def iter_circular_states(
             env=env,
             step_s=step_s,
             battery=battery,
+            compute_config=compute_config,
             task_config=task_config,
             isl_config=isl_config,
             tasks=tasks,
@@ -597,6 +614,7 @@ def iter_tle_states(
     duration_s: int,
     step_s: int,
     battery: BatteryConfig,
+    compute_config: ComputeConfig,
     task_config: TaskConfig,
     isl_config: ISLConfig,
     scheduler: Scheduler,
@@ -608,6 +626,7 @@ def iter_tle_states(
         raise ValueError("step must be positive")
 
     validate_battery_config(battery)
+    validate_compute_config(compute_config)
     validate_task_config(task_config)
 
     try:
@@ -663,7 +682,7 @@ def iter_tle_states(
                 sunlit=sunlit,
             )
 
-        new_tasks, expired_tasks = generate_step_tasks(env, task_config)
+        new_tasks, expired_tasks = generate_step_tasks(env, task_config, compute_config)
         deferred_tasks, expired_deferred_tasks = pop_deferred_tasks(env)
 
         tasks = deferred_tasks + new_tasks
@@ -677,6 +696,7 @@ def iter_tle_states(
             time_s=env.time_s,
             step_s=step_s,
             battery=battery,
+            compute_config=compute_config,
             task_config=task_config,
             isl_config=isl_config,
             isl_graph=build_isl_graph(
@@ -691,6 +711,7 @@ def iter_tle_states(
             env=env,
             step_s=step_s,
             battery=battery,
+            compute_config=compute_config,
             task_config=task_config,
             isl_config=isl_config,
             tasks=tasks,

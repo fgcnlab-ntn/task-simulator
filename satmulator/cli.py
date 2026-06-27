@@ -6,7 +6,7 @@ import json
 import sys
 import time
 from pathlib import Path
-from .models import BatteryConfig, ISLConfig, SchedulerConfig, TaskConfig
+from .models import BatteryConfig, ComputeConfig, ISLConfig, SchedulerConfig, TaskConfig
 from .orbit import iter_circular_states, iter_tle_states
 from .plotting import render_run_plots
 from .runlog import RunLog
@@ -41,9 +41,6 @@ DEFAULT_CONFIG = {
     "tasks_per_sat": 1,
     "tasks_per_step_choices": [0, 5, 10, 20],
     "tasks_per_step_weights": [0.2, 0.4, 0.2, 0.2],
-    "task_cpu_cycles": 1.0e9,
-    "task_cpu_cycles_choices": [1.0e8, 1.0e9, 5.0e9],
-    "task_cpu_cycles_weights": [0.6, 0.3, 0.1],
     "task_input_bits": 1.0e7,
     "task_input_bits_choices": [1.0e6, 1.0e7, 1.0e8],
     "task_input_bits_weights": [0.6, 0.3, 0.1],
@@ -53,14 +50,15 @@ DEFAULT_CONFIG = {
     "task_demand_points_file": None,
     "task_min_elevation_deg": 30.0,
     "task_deadline_s": 120.0,
-    "cpu_rate_cycles_s": 1.0e8,
-    "joule_per_cycle": 1.0e-8,
+    "compute_cycles_per_input_bit": 737.5,
+    "satellite_cpu_frequency_hz": 1.0e9,
+    "satellite_cpu_power_w": 10.0,
     "isl_rate_bps": 1.0e9,
     "isl_tx_power_w": 10.0,
     "isl_topology": "grid",
     "isl_max_range_km": 5000.0,
     "out": "output/minimal_orbit",
-    "scheduler_load_max_cycles_per_slot": 4.0e9,
+    "scheduler_cpu_utilization_limit": 1.0,
     "scheduler_defer_penalty": 3.0,
     "scheduler_fail_penalty": 1000.0,
     "scheduler_time_weight": 1.0,
@@ -103,9 +101,6 @@ CONFIG_SECTIONS = {
         "tasks_per_sat": "tasks_per_sat",
         "tasks_per_step_choices": "tasks_per_step_choices",
         "tasks_per_step_weights": "tasks_per_step_weights",
-        "cpu_cycles": "task_cpu_cycles",
-        "cpu_cycles_choices": "task_cpu_cycles_choices",
-        "cpu_cycles_weights": "task_cpu_cycles_weights",
         "input_bits": "task_input_bits",
         "input_bits_choices": "task_input_bits_choices",
         "input_bits_weights": "task_input_bits_weights",
@@ -115,8 +110,11 @@ CONFIG_SECTIONS = {
         "demand_points_file": "task_demand_points_file",
         "min_elevation_deg": "task_min_elevation_deg",
         "deadline_s": "task_deadline_s",
-        "cpu_rate_cycles_s": "cpu_rate_cycles_s",
-        "joule_per_cycle": "joule_per_cycle",
+    },
+    "compute": {
+        "cycles_per_input_bit": "compute_cycles_per_input_bit",
+        "cpu_frequency_hz": "satellite_cpu_frequency_hz",
+        "cpu_power_w": "satellite_cpu_power_w",
     },
     "isl": {
         "rate_bps": "isl_rate_bps",
@@ -126,7 +124,7 @@ CONFIG_SECTIONS = {
     },
     "scheduler": {
         "name": "scheduler",
-        "load_max_cycles_per_slot": "scheduler_load_max_cycles_per_slot",
+        "cpu_utilization_limit": "scheduler_cpu_utilization_limit",
         "defer_penalty": "scheduler_defer_penalty",
         "fail_penalty": "scheduler_fail_penalty",
         "time_weight": "scheduler_time_weight",
@@ -282,16 +280,16 @@ def validate_args(args: argparse.Namespace) -> None:
         raise ValueError("task.interval_s must be positive")
     if args.tasks_per_sat < 0:
         raise ValueError("task.tasks_per_sat must be non-negative")
-    if args.task_cpu_cycles <= 0:
-        raise ValueError("task.cpu_cycles must be positive")
     if args.task_deadline_s <= 0:
         raise ValueError("task.deadline_s must be positive")
     if not 0.0 <= args.task_min_elevation_deg <= 90.0:
         raise ValueError("task.min_elevation_deg must be within [0, 90]")
-    if args.cpu_rate_cycles_s <= 0:
-        raise ValueError("task.cpu_rate_cycles_s must be positive")
-    if args.joule_per_cycle < 0:
-        raise ValueError("task.joule_per_cycle must be non-negative")
+    if args.compute_cycles_per_input_bit <= 0:
+        raise ValueError("compute.cycles_per_input_bit must be positive")
+    if args.satellite_cpu_frequency_hz <= 0:
+        raise ValueError("compute.cpu_frequency_hz must be positive")
+    if args.satellite_cpu_power_w < 0:
+        raise ValueError("compute.cpu_power_w must be non-negative")
     if args.isl_rate_bps <= 0:
         raise ValueError("isl.rate_bps must be positive")
     if args.isl_tx_power_w < 0:
@@ -307,8 +305,8 @@ def validate_args(args: argparse.Namespace) -> None:
             "grid ISL topology requires plane/slot metadata unavailable in TLE mode; "
             'use isl.topology: "fully-connected"'
         )
-    if args.scheduler_load_max_cycles_per_slot <= 0:
-        raise ValueError("scheduler.load_max_cycles_per_slot must be positive")
+    if not 0.0 < args.scheduler_cpu_utilization_limit <= 1.0:
+        raise ValueError("scheduler.cpu_utilization_limit must be within (0, 1]")
     if args.scheduler_fail_penalty < 0 or args.scheduler_defer_penalty < 0:
         raise ValueError("scheduler penalties must be non-negative")
     if not 0 <= args.scheduler_low_battery_threshold_pct <= 100:
@@ -319,7 +317,7 @@ def validate_args(args: argparse.Namespace) -> None:
 
 def build_configs(
     args: argparse.Namespace,
-) -> tuple[BatteryConfig, TaskConfig, ISLConfig, SchedulerConfig]:
+) -> tuple[BatteryConfig, ComputeConfig, TaskConfig, ISLConfig, SchedulerConfig]:
     battery = BatteryConfig(
         capacity_j=args.battery_capacity_j,
         initial_j=args.battery_capacity_j * args.battery_initial_pct / 100.0,
@@ -335,9 +333,6 @@ def build_configs(
         tasks_per_sat=args.tasks_per_sat,
         tasks_per_step_choices=tuple(args.tasks_per_step_choices),
         tasks_per_step_weights=tuple(args.tasks_per_step_weights),
-        cpu_cycles=args.task_cpu_cycles,
-        cpu_cycles_choices=tuple(args.task_cpu_cycles_choices),
-        cpu_cycles_weights=tuple(args.task_cpu_cycles_weights),
         input_bits=args.task_input_bits,
         input_bits_choices=tuple(args.task_input_bits_choices),
         input_bits_weights=tuple(args.task_input_bits_weights),
@@ -345,10 +340,13 @@ def build_configs(
         output_bits_choices=tuple(args.task_output_bits_choices),
         output_bits_weights=tuple(args.task_output_bits_weights),
         deadline_s=args.task_deadline_s,
-        cpu_rate_cycles_s=args.cpu_rate_cycles_s,
-        joule_per_cycle=args.joule_per_cycle,
         demand_distribution=load_demand_points(args.task_demand_points_file),
         min_elevation_deg=args.task_min_elevation_deg,
+    )
+    compute_config = ComputeConfig(
+        cycles_per_input_bit=args.compute_cycles_per_input_bit,
+        cpu_frequency_hz=args.satellite_cpu_frequency_hz,
+        cpu_power_w=args.satellite_cpu_power_w,
     )
     isl_config = ISLConfig(
         rate_bps=args.isl_rate_bps,
@@ -358,7 +356,7 @@ def build_configs(
     )
     scheduler_config = SchedulerConfig(
         name=args.scheduler,
-        load_max_cycles_per_slot=args.scheduler_load_max_cycles_per_slot,
+        cpu_utilization_limit=args.scheduler_cpu_utilization_limit,
         defer_penalty=args.scheduler_defer_penalty,
         fail_penalty=args.scheduler_fail_penalty,
         time_weight=args.scheduler_time_weight,
@@ -368,7 +366,7 @@ def build_configs(
         eclipse_local_penalty=args.scheduler_eclipse_local_penalty,
         low_battery_threshold_pct=args.scheduler_low_battery_threshold_pct,
     )
-    return battery, task_config, isl_config, scheduler_config
+    return battery, compute_config, task_config, isl_config, scheduler_config
 
 
 def effective_run_config(args: argparse.Namespace) -> dict:
@@ -413,9 +411,6 @@ def effective_run_config(args: argparse.Namespace) -> dict:
             "tasks_per_sat": args.tasks_per_sat,
             "tasks_per_step_choices": args.tasks_per_step_choices,
             "tasks_per_step_weights": args.tasks_per_step_weights,
-            "cpu_cycles": args.task_cpu_cycles,
-            "cpu_cycles_choices": args.task_cpu_cycles_choices,
-            "cpu_cycles_weights": args.task_cpu_cycles_weights,
             "input_bits": args.task_input_bits,
             "input_bits_choices": args.task_input_bits_choices,
             "input_bits_weights": args.task_input_bits_weights,
@@ -430,8 +425,11 @@ def effective_run_config(args: argparse.Namespace) -> dict:
             ),
             "min_elevation_deg": args.task_min_elevation_deg,
             "deadline_s": args.task_deadline_s,
-            "cpu_rate_cycles_s": args.cpu_rate_cycles_s,
-            "joule_per_cycle": args.joule_per_cycle,
+        },
+        "compute": {
+            "cycles_per_input_bit": args.compute_cycles_per_input_bit,
+            "cpu_frequency_hz": args.satellite_cpu_frequency_hz,
+            "cpu_power_w": args.satellite_cpu_power_w,
         },
         "isl": {
             "rate_bps": args.isl_rate_bps,
@@ -441,7 +439,7 @@ def effective_run_config(args: argparse.Namespace) -> dict:
         },
         "scheduler": {
             "name": args.scheduler,
-            "load_max_cycles_per_slot": args.scheduler_load_max_cycles_per_slot,
+            "cpu_utilization_limit": args.scheduler_cpu_utilization_limit,
             "defer_penalty": args.scheduler_defer_penalty,
             "fail_penalty": args.scheduler_fail_penalty,
             "time_weight": args.scheduler_time_weight,
@@ -462,7 +460,7 @@ def run(args: argparse.Namespace) -> int:
     validate_args(args)
     args.out.mkdir(parents=True, exist_ok=True)
     run_config = effective_run_config(args)
-    battery, task_config, isl_config, scheduler_config = build_configs(args)
+    battery, compute_config, task_config, isl_config, scheduler_config = build_configs(args)
     scheduler = create_scheduler(args.scheduler)
     run_log = RunLog(args.out, start, run_config)
 
@@ -472,6 +470,7 @@ def run(args: argparse.Namespace) -> int:
             "duration_s": args.duration_s,
             "step_s": args.step_s,
             "battery": battery,
+            "compute_config": compute_config,
             "task_config": task_config,
             "isl_config": isl_config,
             "scheduler": scheduler,

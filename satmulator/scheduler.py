@@ -5,6 +5,7 @@ from .isl import ISLGraph, shortest_route
 from .models import (
     Assignment,
     BatteryConfig,
+    ComputeConfig,
     ISLConfig,
     Route,
     SatelliteView,
@@ -12,7 +13,7 @@ from .models import (
     Task,
     TaskConfig,
 )
-from .route_cost import estimate_route_cost
+from .route_cost import compute_cycles, estimate_route_cost
 
 
 def distance_km(a: SatelliteView, b: SatelliteView) -> float:
@@ -49,6 +50,7 @@ class Scheduler:
         time_s: int,
         step_s: int,
         battery: BatteryConfig,
+        compute_config: ComputeConfig,
         task_config: TaskConfig,
         isl_config: ISLConfig,
         isl_graph: ISLGraph,
@@ -130,6 +132,7 @@ class SlackAwareScheduler(Scheduler):
         time_s: int,
         step_s: int,
         battery: BatteryConfig,
+        compute_config: ComputeConfig,
         task_config: TaskConfig,
         isl_config: ISLConfig,
         isl_graph: ISLGraph,
@@ -138,12 +141,19 @@ class SlackAwareScheduler(Scheduler):
         by_id = {sat.sat_id: sat for sat in satellite_views}
         reserved_energy = {sat.sat_id: 0.0 for sat in satellite_views}
         reserved_load_cycles = {sat.sat_id: 0.0 for sat in satellite_views}
+        if not 0.0 < scheduler_config.cpu_utilization_limit <= 1.0:
+            raise ValueError("scheduler CPU utilization limit must be within (0, 1]")
+        max_load_cycles_per_slot = (
+            compute_config.cpu_frequency_hz
+            * step_s
+            * scheduler_config.cpu_utilization_limit
+        )
 
         def cost_for(task: Task, route):
             return estimate_route_cost(
                 task=task,
                 route=route,
-                task_config=task_config,
+                compute_config=compute_config,
                 isl_config=isl_config,
             )
 
@@ -183,10 +193,9 @@ class SlackAwareScheduler(Scheduler):
             for target in satellite_views:
                 mode = "local" if target.sat_id == source.sat_id else "offload"
 
-                projected_load_cycles = (
-                    reserved_load_cycles[target.sat_id] + task.cpu_cycles
-                )
-                if projected_load_cycles > scheduler_config.load_max_cycles_per_slot:
+                task_cycles = compute_cycles(task, compute_config)
+                projected_load_cycles = reserved_load_cycles[target.sat_id] + task_cycles
+                if projected_load_cycles > max_load_cycles_per_slot:
                     continue
                 route = shortest_route(isl_graph, source.sat_id, target.sat_id)
                 if route is None:
@@ -228,9 +237,7 @@ class SlackAwareScheduler(Scheduler):
 
                 total_energy = cost.total_energy_j
                 time_score = total_time
-                load_score = (
-                    projected_load_cycles / scheduler_config.load_max_cycles_per_slot
-                )
+                load_score = projected_load_cycles / max_load_cycles_per_slot
                 battery_risk = max(
                     0.0,
                     scheduler_config.low_battery_threshold_pct
@@ -278,11 +285,13 @@ class SlackAwareScheduler(Scheduler):
                 assignments.append(best_assignment)
                 assert best_cost is not None
                 assert best_target_sat is not None
-                reserved_load_cycles[best_assignment.target_sat] += task.cpu_cycles
+                reserved_load_cycles[best_assignment.target_sat] += compute_cycles(
+                    task, compute_config
+                )
                 cost = estimate_route_cost(
                     task=task,
                     route=best_assignment.route,
-                    task_config=task_config,
+                    compute_config=compute_config,
                     isl_config=isl_config,
                 )
                 for sat_id, energy_j in cost.energy_by_sat.items():

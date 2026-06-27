@@ -4,6 +4,7 @@ from satmulator.isl import fully_connected_isl_graph
 from satmulator.models import (
     Assignment,
     BatteryConfig,
+    ComputeConfig,
     DemandDistribution,
     ISLConfig,
     Route,
@@ -17,7 +18,7 @@ from satmulator.runtime import EnvironmentRuntime, SatelliteRuntime
 from satmulator.scheduler import SlackAwareScheduler
 
 
-def task_config(*, joule_per_cycle: float = 1.0) -> TaskConfig:
+def task_config() -> TaskConfig:
     return TaskConfig(
         enabled=True,
         interval_s=30,
@@ -26,9 +27,6 @@ def task_config(*, joule_per_cycle: float = 1.0) -> TaskConfig:
         tasks_per_sat=1,
         tasks_per_step_choices=(1,),
         tasks_per_step_weights=(1.0,),
-        cpu_cycles=10.0,
-        cpu_cycles_choices=(10.0,),
-        cpu_cycles_weights=(1.0,),
         input_bits=0.0,
         input_bits_choices=(0.0,),
         input_bits_weights=(1.0,),
@@ -36,10 +34,16 @@ def task_config(*, joule_per_cycle: float = 1.0) -> TaskConfig:
         output_bits_choices=(0.0,),
         output_bits_weights=(1.0,),
         deadline_s=30.0,
-        cpu_rate_cycles_s=1.0,
-        joule_per_cycle=joule_per_cycle,
         demand_distribution=DemandDistribution((), (), 0.0),
         min_elevation_deg=30.0,
+)
+
+
+def compute_config() -> ComputeConfig:
+    return ComputeConfig(
+        cycles_per_input_bit=1.0,
+        cpu_frequency_hz=1.0,
+        cpu_power_w=1.0,
     )
 
 
@@ -56,8 +60,7 @@ class BatteryDoDTests(unittest.TestCase):
             task_id=1,
             created_time_s=30,
             source_sat=0,
-            cpu_cycles=10.0,
-            input_bits=0.0,
+            input_bits=10.0,
             output_bits=0.0,
             deadline_s=30.0,
         )
@@ -79,6 +82,7 @@ class BatteryDoDTests(unittest.TestCase):
             env=env,
             step_s=30,
             battery=battery,
+            compute_config=compute_config(),
             task_config=task_config(),
             isl_config=ISLConfig(1.0, 0.0),
             tasks=[task],
@@ -122,8 +126,7 @@ class BatteryDoDTests(unittest.TestCase):
             task_id=1,
             created_time_s=30,
             source_sat=0,
-            cpu_cycles=10.0,
-            input_bits=0.0,
+            input_bits=10.0,
             output_bits=0.0,
             deadline_s=30.0,
         )
@@ -134,6 +137,7 @@ class BatteryDoDTests(unittest.TestCase):
             time_s=30,
             step_s=30,
             battery=battery,
+            compute_config=compute_config(),
             task_config=task_config(),
             isl_config=ISLConfig(1.0, 0.0),
             isl_graph=fully_connected_isl_graph(views),

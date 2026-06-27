@@ -143,7 +143,7 @@ class DemandPointCoordinateTests(unittest.TestCase):
         point = DemandPoint(lat_deg=0.0, lon_deg=0.0, weight=1.0)
         time_utc = dt.datetime(2026, 6, 7, 12, tzinfo=dt.timezone.utc)
         hidden = SatelliteRuntime(0, "hidden", 0, 0, 1.0, pos_km=(0.0, 0.0, 0.0))
-        task = Task(0, 0, None, 1.0, 0.0, 0.0, 120.0, point.lat_deg, point.lon_deg)
+        task = Task(0, 0, None, 1.0, 0.0, 120.0, point.lat_deg, point.lon_deg)
         env = EnvironmentRuntime(
             satellites=[hidden],
             time_s=60,

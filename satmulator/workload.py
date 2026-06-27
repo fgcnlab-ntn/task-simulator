@@ -9,7 +9,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Iterable, Sequence, TypeVar
 
-from .models import DemandDistribution, DemandPoint, Task, TaskConfig
+from .models import ComputeConfig, DemandDistribution, DemandPoint, Task, TaskConfig
+from .route_cost import compute_cycles
 from .runtime import EnvironmentRuntime, SatelliteRuntime
 
 T = TypeVar("T")
@@ -89,16 +90,10 @@ def validate_task_config(task_config: TaskConfig) -> None:
         raise ValueError("task interval must be positive")
     if task_config.tasks_per_sat < 0:
         raise ValueError("tasks per satellite must be non-negative")
-    if task_config.cpu_cycles <= 0:
-        raise ValueError("task CPU cycles must be positive")
     if task_config.input_bits < 0 or task_config.output_bits < 0:
         raise ValueError("task input/output bits must be non-negative")
     if task_config.deadline_s <= 0:
         raise ValueError("task deadline must be positive")
-    if task_config.cpu_rate_cycles_s <= 0:
-        raise ValueError("CPU rate must be positive")
-    if task_config.joule_per_cycle < 0:
-        raise ValueError("joule per cycle must be non-negative")
     if not 0.0 <= task_config.min_elevation_deg <= 90.0:
         raise ValueError("minimum elevation must be within [0, 90]")
     if task_config.generation_mode not in {"satellite-deterministic", "demand-points"}:
@@ -106,7 +101,6 @@ def validate_task_config(task_config: TaskConfig) -> None:
     validate_distribution(
         "tasks_per_step", task_config.tasks_per_step_choices, task_config.tasks_per_step_weights
     )
-    validate_distribution("cpu_cycles", task_config.cpu_cycles_choices, task_config.cpu_cycles_weights)
     validate_distribution("input_bits", task_config.input_bits_choices, task_config.input_bits_weights)
     validate_distribution("output_bits", task_config.output_bits_choices, task_config.output_bits_weights)
     if task_config.generation_mode == "demand-points" and not task_config.demand_distribution:
@@ -211,21 +205,26 @@ def nearest_satellite_id(
 def generate_step_tasks(
     env: EnvironmentRuntime,
     task_config: TaskConfig,
+    compute_config: ComputeConfig,
 ) -> tuple[list[Task], list[Task]]:
     if not task_config.enabled:
         return [], []
     if task_config.generation_mode == "satellite-deterministic":
         if env.time_s <= 0 or env.time_s % task_config.interval_s != 0:
             return [], []
-        return generate_satellite_deterministic_tasks(env, task_config), []
+        return generate_satellite_deterministic_tasks(env, task_config, compute_config), []
     if task_config.generation_mode == "demand-points":
         if env.time_s > 0 and env.time_s % task_config.interval_s == 0:
-            env.pending_tasks.extend(generate_demand_point_tasks(env, task_config))
+            env.pending_tasks.extend(generate_demand_point_tasks(env, task_config, compute_config))
         return resolve_pending_tasks(env, task_config)
     raise ValueError(f"unknown task generation mode: {task_config.generation_mode}")
 
 
-def generate_satellite_deterministic_tasks(env: EnvironmentRuntime, task_config: TaskConfig) -> list[Task]:
+def generate_satellite_deterministic_tasks(
+    env: EnvironmentRuntime,
+    task_config: TaskConfig,
+    compute_config: ComputeConfig,
+) -> list[Task]:
     tasks: list[Task] = []
     for sat in env.satellites:
         for _ in range(task_config.tasks_per_sat):
@@ -233,18 +232,21 @@ def generate_satellite_deterministic_tasks(env: EnvironmentRuntime, task_config:
                 task_id=env.next_task_id,
                 created_time_s=env.time_s,
                 source_sat=sat.sat_id,
-                cpu_cycles=task_config.cpu_cycles,
                 input_bits=task_config.input_bits,
                 output_bits=task_config.output_bits,
                 deadline_s=task_config.deadline_s,
             )
             tasks.append(task)
-            emit_generated_task(env, task)
+            emit_generated_task(env, task, compute_config)
             env.next_task_id += 1
     return tasks
 
 
-def generate_demand_point_tasks(env: EnvironmentRuntime, task_config: TaskConfig) -> list[Task]:
+def generate_demand_point_tasks(
+    env: EnvironmentRuntime,
+    task_config: TaskConfig,
+    compute_config: ComputeConfig,
+) -> list[Task]:
     if env.time_utc is None:
         raise ValueError("demand-point task generation requires an absolute UTC simulation time")
     task_count = weighted_choice(
@@ -257,9 +259,6 @@ def generate_demand_point_tasks(env: EnvironmentRuntime, task_config: TaskConfig
             task_id=env.next_task_id,
             created_time_s=env.time_s,
             source_sat=None,
-            cpu_cycles=weighted_choice(
-                env.rng, task_config.cpu_cycles_choices, task_config.cpu_cycles_weights
-            ),
             input_bits=weighted_choice(
                 env.rng, task_config.input_bits_choices, task_config.input_bits_weights
             ),
@@ -271,12 +270,16 @@ def generate_demand_point_tasks(env: EnvironmentRuntime, task_config: TaskConfig
             lon_deg=point.lon_deg,
         )
         tasks.append(task)
-        emit_generated_task(env, task)
+        emit_generated_task(env, task, compute_config)
         env.next_task_id += 1
     return tasks
 
 
-def emit_generated_task(env: EnvironmentRuntime, task: Task) -> None:
+def emit_generated_task(
+    env: EnvironmentRuntime,
+    task: Task,
+    compute_config: ComputeConfig,
+) -> None:
     env.emit_task_event(
         "task_generated",
         task.task_id,
@@ -287,7 +290,7 @@ def emit_generated_task(env: EnvironmentRuntime, task: Task) -> None:
             else {"lat_deg": task.lat_deg, "lon_deg": task.lon_deg}
         ),
         workload={
-            "cpu_cycles": task.cpu_cycles,
+            "compute_cycles": compute_cycles(task, compute_config),
             "input_bits": task.input_bits,
             "output_bits": task.output_bits,
         },
@@ -326,7 +329,6 @@ def resolve_pending_tasks(
                     task_id=task.task_id,
                     created_time_s=task.created_time_s,
                     source_sat=source_sat,
-                    cpu_cycles=task.cpu_cycles,
                     input_bits=task.input_bits,
                     output_bits=task.output_bits,
                     deadline_s=task.deadline_s,

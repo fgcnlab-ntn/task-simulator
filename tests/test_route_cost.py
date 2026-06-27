@@ -1,6 +1,6 @@
 import unittest
 
-from satmulator.models import DemandDistribution, ISLConfig, Route, Task, TaskConfig
+from satmulator.models import ComputeConfig, DemandDistribution, ISLConfig, Route, Task, TaskConfig
 from satmulator.route_cost import estimate_route_cost
 
 
@@ -13,9 +13,6 @@ def task_config() -> TaskConfig:
         tasks_per_sat=1,
         tasks_per_step_choices=(1,),
         tasks_per_step_weights=(1.0,),
-        cpu_cycles=1000.0,
-        cpu_cycles_choices=(1000.0,),
-        cpu_cycles_weights=(1.0,),
         input_bits=100.0,
         input_bits_choices=(100.0,),
         input_bits_weights=(1.0,),
@@ -23,8 +20,6 @@ def task_config() -> TaskConfig:
         output_bits_choices=(10.0,),
         output_bits_weights=(1.0,),
         deadline_s=30.0,
-        cpu_rate_cycles_s=100.0,
-        joule_per_cycle=0.5,
         demand_distribution=DemandDistribution((), (), 0.0),
         min_elevation_deg=30.0,
     )
@@ -35,7 +30,6 @@ def task() -> Task:
         task_id=1,
         created_time_s=0,
         source_sat=0,
-        cpu_cycles=1000.0,
         input_bits=100.0,
         output_bits=10.0,
         deadline_s=30.0,
@@ -46,6 +40,11 @@ class RouteCostTests(unittest.TestCase):
     def setUp(self) -> None:
         self.task = task()
         self.task_config = task_config()
+        self.compute = ComputeConfig(
+            cycles_per_input_bit=10.0,
+            cpu_frequency_hz=100.0,
+            cpu_power_w=50.0,
+        )
         self.isl = ISLConfig(
             rate_bps=10.0,
             tx_power_w=2.0,
@@ -55,7 +54,7 @@ class RouteCostTests(unittest.TestCase):
         cost = estimate_route_cost(
             task=self.task,
             route=Route((0,)),
-            task_config=self.task_config,
+            compute_config=self.compute,
             isl_config=self.isl,
         )
 
@@ -68,7 +67,7 @@ class RouteCostTests(unittest.TestCase):
         cost = estimate_route_cost(
             task=self.task,
             route=Route((0, 1)),
-            task_config=self.task_config,
+            compute_config=self.compute,
             isl_config=self.isl,
         )
 
@@ -81,7 +80,7 @@ class RouteCostTests(unittest.TestCase):
         cost = estimate_route_cost(
             task=self.task,
             route=Route((0, 2, 1)),
-            task_config=self.task_config,
+            compute_config=self.compute,
             isl_config=self.isl,
         )
 

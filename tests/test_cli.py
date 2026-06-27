@@ -91,7 +91,17 @@ class EffectiveRunConfigTests(unittest.TestCase):
                 self.assertEqual(set(config), required_sections)
                 for section, mapping in CONFIG_SECTIONS.items():
                     self.assertEqual(set(config[section]), set(mapping))
-                validate_args(args_for(**load_standalone_json_config(path)))
+                args = args_for(**load_standalone_json_config(path))
+                validate_args(args)
+                task_cycles = (
+                    args.task_input_bits * args.compute_cycles_per_input_bit
+                )
+                slot_capacity = (
+                    args.satellite_cpu_frequency_hz
+                    * args.step_s
+                    * args.scheduler_cpu_utilization_limit
+                )
+                self.assertLessEqual(task_cycles, slot_capacity)
 
     def test_tle_orbit_config_omits_circular_only_fields(self) -> None:
         config = effective_run_config(

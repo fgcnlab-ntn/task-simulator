@@ -188,7 +188,7 @@ def task_record_from_lifecycle(lifecycle: TaskLifecycle) -> TaskRecord:
         mode=lifecycle.mode or "unassigned",
         lat_deg=None if location is None else _number(location.get("lat_deg"), "task lat_deg"),
         lon_deg=None if location is None else _number(location.get("lon_deg"), "task lon_deg"),
-        cpu_cycles=_number(workload.get("cpu_cycles", 0.0), "cpu_cycles"),
+        compute_cycles=_number(workload.get("compute_cycles", 0.0), "compute_cycles"),
         input_bits=_number(workload.get("input_bits", 0.0), "input_bits"),
         output_bits=_number(workload.get("output_bits", 0.0), "output_bits"),
         deadline_s=_number(generated.get("deadline_s", 0.0), "deadline_s"),

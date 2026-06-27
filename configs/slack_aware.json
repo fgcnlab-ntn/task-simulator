@@ -43,17 +43,6 @@
       0.2,
       0.2
     ],
-    "cpu_cycles": 1000000000.0,
-    "cpu_cycles_choices": [
-      100000000.0,
-      1000000000.0,
-      5000000000.0
-    ],
-    "cpu_cycles_weights": [
-      0.6,
-      0.3,
-      0.1
-    ],
     "input_bits": 10000000.0,
     "input_bits_choices": [
       1000000.0,
@@ -78,9 +67,12 @@
     ],
     "demand_points_file": null,
     "min_elevation_deg": 30.0,
-    "deadline_s": 120.0,
-    "cpu_rate_cycles_s": 100000000.0,
-    "joule_per_cycle": 1e-08
+    "deadline_s": 120.0
+  },
+  "compute": {
+    "cycles_per_input_bit": 737.5,
+    "cpu_frequency_hz": 1000000000.0,
+    "cpu_power_w": 10.0
   },
   "isl": {
     "rate_bps": 1000000000.0,
@@ -90,7 +82,7 @@
   },
   "scheduler": {
     "name": "slack-aware",
-    "load_max_cycles_per_slot": 4000000000.0,
+    "cpu_utilization_limit": 1.0,
     "defer_penalty": 100.0,
     "fail_penalty": 1000.0,
     "time_weight": 1.0,

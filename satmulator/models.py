@@ -38,9 +38,6 @@ class TaskConfig:
     tasks_per_sat: int
     tasks_per_step_choices: tuple[int, ...]
     tasks_per_step_weights: tuple[float, ...]
-    cpu_cycles: float
-    cpu_cycles_choices: tuple[float, ...]
-    cpu_cycles_weights: tuple[float, ...]
     input_bits: float
     input_bits_choices: tuple[float, ...]
     input_bits_weights: tuple[float, ...]
@@ -48,10 +45,15 @@ class TaskConfig:
     output_bits_choices: tuple[float, ...]
     output_bits_weights: tuple[float, ...]
     deadline_s: float
-    cpu_rate_cycles_s: float
-    joule_per_cycle: float
     demand_distribution: DemandDistribution
     min_elevation_deg: float
+
+
+@dataclass(frozen=True)
+class ComputeConfig:
+    cycles_per_input_bit: float
+    cpu_frequency_hz: float
+    cpu_power_w: float
 
 
 @dataclass(frozen=True)
@@ -65,7 +67,7 @@ class ISLConfig:
 @dataclass(frozen=True)
 class SchedulerConfig:
     name: str
-    load_max_cycles_per_slot: float = 4.0e9
+    cpu_utilization_limit: float = 1.0
     defer_penalty: float = 3.0
     fail_penalty: float = 1000.0
     time_weight: float = 1.0
@@ -81,7 +83,6 @@ class Task:
     task_id: int
     created_time_s: int
     source_sat: int | None
-    cpu_cycles: float
     input_bits: float
     output_bits: float
     deadline_s: float
@@ -98,7 +99,7 @@ class TaskRecord:
     mode: str
     lat_deg: float | None
     lon_deg: float | None
-    cpu_cycles: float
+    compute_cycles: float
     input_bits: float
     output_bits: float
     deadline_s: float
