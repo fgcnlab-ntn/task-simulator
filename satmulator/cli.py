@@ -30,7 +30,7 @@ DEFAULT_CONFIG = {
     "walker_phase": 1,
     "battery_capacity_j": 100000.0,
     "battery_initial_pct": 80.0,
-    "battery_min_safe_pct": 20.0,
+    "battery_min_safe_pct": 70.0,
     "harvest_w": 80.0,
     "idle_w": 40.0,
     "task_enable": True,

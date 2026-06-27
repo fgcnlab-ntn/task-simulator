@@ -112,7 +112,7 @@ The effective merged config is written to:
 
 - 1584 satellites, 72 planes, 550 km altitude, 53.05° inclination
 - start time `2026-05-22T12:00:00Z`, duration 1800 s, step 30 s
-- battery capacity 100000 J, initial 80%, safe minimum 20%
+- battery capacity 100000 J, initial 80%, safe minimum 70%
 - default legacy mode: one task per satellite every 300 s
 - demand-point mode: task locations and workload sizes sampled from configured distributions
 - default legacy task size 1e9 CPU cycles, 1e7 input bits, 1e6 output bits
