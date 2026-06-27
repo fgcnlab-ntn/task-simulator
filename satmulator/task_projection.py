@@ -46,10 +46,12 @@ def project_task_lifecycles(events: Iterable[JsonObject]) -> list[TaskLifecycle]
         task_id = event.get("task_id")
         event_type = event.get("type")
         time_s = event.get("time_s")
+        if not isinstance(event_type, str):
+            raise ValueError("event requires a string type")
+        if not event_type.startswith("task_"):
+            continue
         if not isinstance(task_id, int):
             raise ValueError("task event requires an integer task_id")
-        if not isinstance(event_type, str):
-            raise ValueError(f"task {task_id} event requires a string type")
         if not isinstance(time_s, int):
             raise ValueError(f"task {task_id} event requires an integer time_s")
 

@@ -208,7 +208,6 @@ class SlackAwareScheduler(Scheduler):
                     continue
 
                 projected_battery_pct: list[float] = []
-                violates_dod = False
 
                 for sat_id in route.nodes:
                     sat = by_id[sat_id]
@@ -222,12 +221,7 @@ class SlackAwareScheduler(Scheduler):
                         ),
                         update=time_s > 0,
                     )
-                    if projected < battery.min_safe_j:
-                        violates_dod = True
-                        break
                     projected_battery_pct.append(100.0 * projected / battery.capacity_j)
-                if violates_dod:
-                    continue
 
                 eclipse_side_energy = 0.0
                 for sat_id, energy_j in cost.energy_by_sat.items():

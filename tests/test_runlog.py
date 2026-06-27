@@ -138,6 +138,56 @@ class RunLogTests(unittest.TestCase):
                 {"idle_j": 7.0, "task_j": 10.0, "total_j": 17.0},
             )
 
+    def test_records_unique_battery_breaches(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            start = dt.datetime(2026, 6, 14, tzinfo=dt.timezone.utc)
+            log = RunLog(
+                output,
+                start,
+                {"battery": {"min_safe_pct": 70.0}},
+            )
+            safe = sample_state(0)
+            breached = replace(
+                sample_state(30),
+                battery_j=60.0,
+                battery_pct=60.0,
+                safe_battery=False,
+                sunlit=False,
+            )
+
+            log.write_step([safe])
+            log.write_step([breached])
+            log.write_step([replace(breached, time_s=60)])
+            log.complete()
+
+            records = list(iter_state_steps(output))
+            self.assertEqual(records[1]["battery_violation_summary"]["new_breaches"], 1)
+            self.assertEqual(
+                records[1]["battery_violation_summary"]["new_eclipse_breaches"], 1
+            )
+            self.assertEqual(records[2]["battery_violation_summary"]["new_breaches"], 0)
+            events = [
+                event
+                for event in iter_task_events(output)
+                if event["type"].startswith("battery_")
+            ]
+            self.assertEqual(
+                [event["type"] for event in events],
+                ["battery_breach", "battery_eclipse_breach"],
+            )
+            summary = json.loads((output / "summary.json").read_text())
+            self.assertEqual(
+                summary["battery_violations"]["unique_breached_satellites"],
+                1,
+            )
+            self.assertEqual(
+                summary["battery_violations"][
+                    "unique_eclipse_breached_satellites"
+                ],
+                1,
+            )
+
     def test_task_summary_counts_pending_from_lifecycle_events(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory)

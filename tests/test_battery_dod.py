@@ -48,7 +48,7 @@ def compute_config() -> ComputeConfig:
 
 
 class BatteryDoDTests(unittest.TestCase):
-    def test_apply_step_rejects_task_that_would_cross_dod_limit(self) -> None:
+    def test_apply_step_executes_task_that_crosses_dod_limit(self) -> None:
         battery = BatteryConfig(
             capacity_j=100.0,
             initial_j=25.0,
@@ -91,12 +91,12 @@ class BatteryDoDTests(unittest.TestCase):
             ],
         )
 
-        self.assertEqual(records[0].status, "failed")
-        self.assertEqual(records[0].failed_reason, "battery")
-        self.assertEqual(states[0].battery_j, 25.0)
-        self.assertTrue(states[0].safe_battery)
+        self.assertEqual(records[0].status, "completed")
+        self.assertEqual(records[0].failed_reason, "")
+        self.assertEqual(states[0].battery_j, 15.0)
+        self.assertFalse(states[0].safe_battery)
 
-    def test_slack_aware_skips_candidate_that_would_cross_dod_limit(self) -> None:
+    def test_slack_aware_does_not_treat_dod_as_hard_limit(self) -> None:
         battery = BatteryConfig(
             capacity_j=100.0,
             initial_j=100.0,
@@ -151,8 +151,8 @@ class BatteryDoDTests(unittest.TestCase):
             ),
         )
 
-        self.assertEqual(assignments[0].route.nodes, (0,))
-        self.assertEqual(assignments[0].mode, "local")
+        self.assertEqual(assignments[0].route.nodes, (0, 1))
+        self.assertEqual(assignments[0].mode, "offload")
 
 
 if __name__ == "__main__":

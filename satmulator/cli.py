@@ -555,6 +555,7 @@ def run(args: argparse.Namespace) -> int:
     render_run_plots(args.out)
     summary = json.loads((args.out / "summary.json").read_text())
     task_summary = summary["tasks"]
+    battery_violations = summary.get("battery_violations", {})
 
     print("Minimal orbit simulation complete")
     print(f"  orbit model: {args.orbit_model}")
@@ -582,6 +583,11 @@ def run(args: argparse.Namespace) -> int:
         f"{task_summary.get('deferred', 0)}/"
         f"{task_summary['failed']}/"
         f"{task_summary.get('pending', 0)}"
+    )
+    print(
+        "  battery breaches total/eclipse: "
+        f"{battery_violations.get('unique_breached_satellites', 0)}/"
+        f"{battery_violations.get('unique_eclipse_breached_satellites', 0)}"
     )
     print(f"  output: {args.out.resolve()}")
     print(

@@ -9,7 +9,6 @@ from typing import Callable, Iterable
 
 from .battery import (
     apply_battery_step,
-    projected_battery_after_step,
     validate_battery_config,
 )
 from .constants import EARTH_MU_KM3_S2, EARTH_RADIUS_KM
@@ -117,8 +116,6 @@ def apply_step(
     stats_by_sat = {sat.sat_id: SatelliteStepStats() for sat in env.satellites}
     records: list[TaskRecord] = []
     task_by_id = {task.task_id: task for task in tasks}
-    sat_by_id = {sat.sat_id: sat for sat in env.satellites}
-    battery_before = {sat.sat_id: sat.battery_j for sat in env.satellites}
 
     def remaining_deadline_s(task: Task) -> float:
         return task.created_time_s + task.deadline_s - env.time_s
@@ -328,30 +325,7 @@ def apply_step(
             is_completed = False
             failed_reason = "deadline"
         else:
-            for sat_id in assignment.route.nodes:
-                projected_task_energy_j = (
-                    stats_by_sat[sat_id].task_energy_j + cost.energy_for(sat_id)
-                )
-                projected_battery_j = projected_battery_after_step(
-                    battery_now=battery_before[sat_id],
-                    sunlit=sat_by_id[sat_id].sunlit,
-                    step_s=step_s,
-                    battery=battery,
-                    task_energy_j=projected_task_energy_j,
-                    update=env.time_s > 0,
-                )
-                if projected_battery_j >= battery.min_safe_j:
-                    continue
-                is_completed = False
-                if sat_id == assignment.source_sat:
-                    failed_reason = "battery"
-                elif sat_id == assignment.target_sat:
-                    failed_reason = "target_battery"
-                else:
-                    failed_reason = "relay_battery"
-                break
-            if is_completed:
-                energy_by_sat = cost.energy_by_sat
+            energy_by_sat = cost.energy_by_sat
 
         if is_completed:
             source_stats.completed_tasks += 1

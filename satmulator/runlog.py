@@ -99,14 +99,39 @@ def state_record(
     start: dt.datetime,
     states: list[SatelliteState],
     context: SnapshotContext | None = None,
+    new_breach_ids: set[int] | None = None,
+    new_eclipse_breach_ids: set[int] | None = None,
 ) -> dict[str, object]:
     time_s = states[0].time_s
+    new_breach_ids = set() if new_breach_ids is None else new_breach_ids
+    new_eclipse_breach_ids = (
+        set() if new_eclipse_breach_ids is None else new_eclipse_breach_ids
+    )
+    below_min_safe = [state for state in states if not state.safe_battery]
+    eclipse_states = [state for state in states if not state.sunlit]
+    eclipse_below_min_safe = [
+        state for state in eclipse_states if not state.safe_battery
+    ]
     record: dict[str, object] = {
         "schema_version": SCHEMA_VERSION,
         "time_s": time_s,
         "time_iso": (start + dt.timedelta(seconds=time_s)).isoformat(),
         "energy_summary": {
             "eclipse": eclipse_energy_summary(states),
+        },
+        "battery_violation_summary": {
+            "below_min_safe": len(below_min_safe),
+            "below_min_safe_ratio": len(below_min_safe) / len(states),
+            "eclipse_below_min_safe": len(eclipse_below_min_safe),
+            "eclipse_below_min_safe_ratio": len(eclipse_below_min_safe)
+            / len(states),
+            "eclipse_below_min_safe_among_eclipse_ratio": (
+                0.0
+                if not eclipse_states
+                else len(eclipse_below_min_safe) / len(eclipse_states)
+            ),
+            "new_breaches": len(new_breach_ids),
+            "new_eclipse_breaches": len(new_eclipse_breach_ids),
         },
         "satellites": [
             {
@@ -128,6 +153,12 @@ def state_record(
                     "harvested": state.harvested_j,
                     "consumed": state.consumed_j,
                     "tasks": state.task_energy_j,
+                },
+                "battery_status": {
+                    "below_min_safe": not state.safe_battery,
+                    "first_breach": state.sat_id in new_breach_ids,
+                    "first_eclipse_breach": state.sat_id
+                    in new_eclipse_breach_ids,
                 },
                 "task_counts": {
                     "generated": state.generated_tasks,
@@ -172,6 +203,12 @@ class RunLog:
         self._eclipse_idle_j = 0.0
         self._eclipse_task_j = 0.0
         self._final_states: list[SatelliteState] | None = None
+        self._breached_sat_ids: set[int] = set()
+        self._eclipse_breached_sat_ids: set[int] = set()
+        self._first_breach_time_s: int | None = None
+        self._last_breach_time_s: int | None = None
+        self._first_eclipse_breach_time_s: int | None = None
+        self._last_eclipse_breach_time_s: int | None = None
         self._manifest: dict[str, object] = {
             "schema_version": SCHEMA_VERSION,
             "status": "running",
@@ -188,12 +225,96 @@ class RunLog:
         if "satellites" not in self._manifest:
             self._manifest["satellites"] = satellite_catalog(states)
             write_json(self.run_path, self._manifest)
-        append_json_line(self._states, state_record(self.start, states, context))
+        below_min_safe = {
+            state.sat_id for state in states if not state.safe_battery
+        }
+        eclipse_below_min_safe = {
+            state.sat_id
+            for state in states
+            if not state.sunlit and not state.safe_battery
+        }
+        new_breach_ids = below_min_safe - self._breached_sat_ids
+        new_eclipse_breach_ids = (
+            eclipse_below_min_safe - self._eclipse_breached_sat_ids
+        )
+
+        if new_breach_ids:
+            self._first_breach_time_s = (
+                states[0].time_s
+                if self._first_breach_time_s is None
+                else self._first_breach_time_s
+            )
+            self._last_breach_time_s = states[0].time_s
+        if new_eclipse_breach_ids:
+            self._first_eclipse_breach_time_s = (
+                states[0].time_s
+                if self._first_eclipse_breach_time_s is None
+                else self._first_eclipse_breach_time_s
+            )
+            self._last_eclipse_breach_time_s = states[0].time_s
+
+        self._breached_sat_ids.update(new_breach_ids)
+        self._eclipse_breached_sat_ids.update(new_eclipse_breach_ids)
+
+        append_json_line(
+            self._states,
+            state_record(
+                self.start,
+                states,
+                context,
+                new_breach_ids,
+                new_eclipse_breach_ids,
+            ),
+        )
+        self._write_battery_breach_events(states, new_breach_ids, eclipse=False)
+        self._write_battery_breach_events(
+            states, new_eclipse_breach_ids, eclipse=True
+        )
         eclipse_energy = eclipse_energy_summary(states)
         self._eclipse_idle_j += eclipse_energy["idle_j"]
         self._eclipse_task_j += eclipse_energy["task_j"]
         self._steps += 1
         self._final_states = states
+
+    def _write_battery_breach_events(
+        self,
+        states: list[SatelliteState],
+        breached_ids: set[int],
+        *,
+        eclipse: bool,
+    ) -> None:
+        if not breached_ids:
+            return
+        by_id = {state.sat_id: state for state in states}
+        event_type = "battery_eclipse_breach" if eclipse else "battery_breach"
+        for sat_id in sorted(breached_ids):
+            state = by_id[sat_id]
+            append_json_line(
+                self._tasks,
+                {
+                    "schema_version": SCHEMA_VERSION,
+                    "type": event_type,
+                    "time_s": state.time_s,
+                    "time_iso": (
+                        self.start + dt.timedelta(seconds=state.time_s)
+                    ).isoformat(),
+                    "sat_id": sat_id,
+                    "battery_j": state.battery_j,
+                    "battery_pct": state.battery_pct,
+                    "min_safe_pct": self._min_safe_pct(),
+                    "sunlit": state.sunlit,
+                },
+            )
+
+    def _min_safe_pct(self) -> float | None:
+        config = self._manifest.get("config")
+        if not isinstance(config, dict):
+            return None
+        battery = config.get("battery")
+        if not isinstance(battery, dict):
+            return None
+        value = battery.get("min_safe_pct")
+        return float(value) if isinstance(value, (int, float)) else None
 
     def write_task_event(self, event: dict[str, object]) -> None:
         record = {"schema_version": SCHEMA_VERSION, **event}
@@ -255,6 +376,22 @@ class RunLog:
                     "task_j": eclipse_task_j,
                     "total_j": eclipse_idle_j + eclipse_task_j,
                 },
+            },
+            "battery_violations": {
+                "unique_breached_satellites": len(self._breached_sat_ids),
+                "unique_breached_ratio": len(self._breached_sat_ids)
+                / len(final_states),
+                "unique_eclipse_breached_satellites": len(
+                    self._eclipse_breached_sat_ids
+                ),
+                "unique_eclipse_breached_ratio": len(
+                    self._eclipse_breached_sat_ids
+                )
+                / len(final_states),
+                "first_breach_time_s": self._first_breach_time_s,
+                "last_breach_time_s": self._last_breach_time_s,
+                "first_eclipse_breach_time_s": self._first_eclipse_breach_time_s,
+                "last_eclipse_breach_time_s": self._last_eclipse_breach_time_s,
             },
         }
         write_json(self.summary_path, summary)
