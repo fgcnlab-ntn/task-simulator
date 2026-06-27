@@ -150,10 +150,16 @@ class RunLogTests(unittest.TestCase):
             log.complete([[sample_state(30)]])
 
             summary = json.loads((output / "summary.json").read_text())
-            self.assertEqual(
-                summary["tasks"],
-                {"generated": 2, "completed": 1, "failed": 0, "pending": 1},
-            )
+        self.assertEqual(
+            summary["tasks"],
+            {
+                "generated": 2,
+                "completed": 1,
+                "deferred": 0,
+                "failed": 0,
+                "pending": 1,
+            },
+        )
 
     def test_failed_run_keeps_parseable_jsonl_and_error(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -194,7 +200,7 @@ class RunLogTests(unittest.TestCase):
             demand_distribution=load_demand_points(None),
             min_elevation_deg=30.0,
         )
-        isl = ISLConfig(1.0, 1.0, 0.0, 0.0)
+        isl = ISLConfig(1.0, 0.0)
 
         steps = list(
             iter_circular_states(

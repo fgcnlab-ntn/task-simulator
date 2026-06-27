@@ -55,10 +55,8 @@ DEFAULT_CONFIG = {
     "task_deadline_s": 120.0,
     "cpu_rate_cycles_s": 1.0e8,
     "joule_per_cycle": 1.0e-8,
-    "isl_forward_rate_bps": 1.0e7,
-    "isl_return_rate_bps": 1.0e7,
-    "isl_tx_energy_per_bit_j": 1.0e-7,
-    "isl_rx_energy_per_bit_j": 5.0e-8,
+    "isl_rate_bps": 1.0e9,
+    "isl_tx_power_w": 10.0,
     "isl_topology": "grid",
     "isl_max_range_km": 5000.0,
     "out": "output/minimal_orbit",
@@ -121,10 +119,8 @@ CONFIG_SECTIONS = {
         "joule_per_cycle": "joule_per_cycle",
     },
     "isl": {
-        "isl_forward_rate_bps": "isl_forward_rate_bps",
-        "isl_return_rate_bps": "isl_return_rate_bps",
-        "isl_tx_energy_per_bit_j": "isl_tx_energy_per_bit_j",
-        "isl_rx_energy_per_bit_j": "isl_rx_energy_per_bit_j",
+        "rate_bps": "isl_rate_bps",
+        "tx_power_w": "isl_tx_power_w",
         "topology": "isl_topology",
         "max_range_km": "isl_max_range_km",
     },
@@ -142,7 +138,6 @@ CONFIG_SECTIONS = {
     },
     "output": {"path": "out"},
 }
-
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(
@@ -297,14 +292,10 @@ def validate_args(args: argparse.Namespace) -> None:
         raise ValueError("task.cpu_rate_cycles_s must be positive")
     if args.joule_per_cycle < 0:
         raise ValueError("task.joule_per_cycle must be non-negative")
-    if args.isl_forward_rate_bps <= 0 or args.isl_return_rate_bps <= 0:
-        raise ValueError(
-            "isl.isl_forward_rate_bps and isl.isl_return_rate_bps must be positive"
-        )
-    if args.isl_tx_energy_per_bit_j < 0 or args.isl_rx_energy_per_bit_j < 0:
-        raise ValueError(
-            "isl.isl_tx_energy_per_bit_j and isl.isl_rx_energy_per_bit_j must be non-negative"
-        )
+    if args.isl_rate_bps <= 0:
+        raise ValueError("isl.rate_bps must be positive")
+    if args.isl_tx_power_w < 0:
+        raise ValueError("isl.tx_power_w must be non-negative")
     if args.isl_topology not in {"fully-connected", "grid"}:
         raise ValueError("isl.topology must be fully-connected or grid")
     if args.isl_topology == "grid" and (
@@ -360,10 +351,8 @@ def build_configs(
         min_elevation_deg=args.task_min_elevation_deg,
     )
     isl_config = ISLConfig(
-        isl_forward_rate_bps=args.isl_forward_rate_bps,
-        isl_return_rate_bps=args.isl_return_rate_bps,
-        isl_tx_energy_per_bit_j=args.isl_tx_energy_per_bit_j,
-        isl_rx_energy_per_bit_j=args.isl_rx_energy_per_bit_j,
+        rate_bps=args.isl_rate_bps,
+        tx_power_w=args.isl_tx_power_w,
         topology=args.isl_topology,
         max_range_km=args.isl_max_range_km,
     )
@@ -445,10 +434,8 @@ def effective_run_config(args: argparse.Namespace) -> dict:
             "joule_per_cycle": args.joule_per_cycle,
         },
         "isl": {
-            "isl_forward_rate_bps": args.isl_forward_rate_bps,
-            "isl_return_rate_bps": args.isl_return_rate_bps,
-            "isl_tx_energy_per_bit_j": args.isl_tx_energy_per_bit_j,
-            "isl_rx_energy_per_bit_j": args.isl_rx_energy_per_bit_j,
+            "rate_bps": args.isl_rate_bps,
+            "tx_power_w": args.isl_tx_power_w,
             "topology": args.isl_topology,
             "max_range_km": args.isl_max_range_km,
         },

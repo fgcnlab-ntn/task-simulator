@@ -29,6 +29,14 @@ def add_energy(energy_by_sat: dict[int, float], sat_id: int, energy_j: float) ->
     energy_by_sat[sat_id] = energy_by_sat.get(sat_id, 0.0) + energy_j
 
 
+def transfer_time_s(bits: float, isl_config: ISLConfig) -> float:
+    return bits / isl_config.rate_bps
+
+
+def transmission_energy_j(bits: float, isl_config: ISLConfig) -> float:
+    return isl_config.tx_power_w * transfer_time_s(bits, isl_config)
+
+
 def estimate_route_cost(
     *,
     task: Task,
@@ -58,33 +66,26 @@ def estimate_route_cost(
         )
 
     forward_hops = tuple(zip(route.nodes, route.nodes[1:]))
-    for sender, receiver in forward_hops:
+    input_tx_energy_j = transmission_energy_j(task.input_bits, isl_config)
+    output_tx_energy_j = transmission_energy_j(task.output_bits, isl_config)
+
+    for sender, _receiver in forward_hops:
         add_energy(
             energy_by_sat,
             sender,
-            task.input_bits * isl_config.isl_tx_energy_per_bit_j,
-        )
-        add_energy(
-            energy_by_sat,
-            receiver,
-            task.input_bits * isl_config.isl_rx_energy_per_bit_j,
+            input_tx_energy_j,
         )
 
-    for receiver, sender in reversed(forward_hops):
+    for _receiver, sender in reversed(forward_hops):
         add_energy(
             energy_by_sat,
             sender,
-            task.output_bits * isl_config.isl_tx_energy_per_bit_j,
-        )
-        add_energy(
-            energy_by_sat,
-            receiver,
-            task.output_bits * isl_config.isl_rx_energy_per_bit_j,
+            output_tx_energy_j,
         )
 
     transmission_time_s = route.hop_count * (
-        task.input_bits / isl_config.isl_forward_rate_bps
-        + task.output_bits / isl_config.isl_return_rate_bps
+        transfer_time_s(task.input_bits, isl_config)
+        + transfer_time_s(task.output_bits, isl_config)
     )
     return RouteCost(
         compute_time_s=compute_time_s,

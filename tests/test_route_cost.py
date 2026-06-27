@@ -47,10 +47,8 @@ class RouteCostTests(unittest.TestCase):
         self.task = task()
         self.task_config = task_config()
         self.isl = ISLConfig(
-            isl_forward_rate_bps=10.0,
-            isl_return_rate_bps=5.0,
-            isl_tx_energy_per_bit_j=2.0,
-            isl_rx_energy_per_bit_j=1.0,
+            rate_bps=10.0,
+            tx_power_w=2.0,
         )
 
     def test_local_route_matches_local_execution(self) -> None:
@@ -66,7 +64,7 @@ class RouteCostTests(unittest.TestCase):
         self.assertEqual(cost.energy_by_sat, {0: 500.0})
         self.assertEqual(cost.total_energy_j, 500.0)
 
-    def test_one_hop_route_matches_existing_endpoint_formula(self) -> None:
+    def test_one_hop_route_charges_transmit_power(self) -> None:
         cost = estimate_route_cost(
             task=self.task,
             route=Route((0, 1)),
@@ -74,12 +72,10 @@ class RouteCostTests(unittest.TestCase):
             isl_config=self.isl,
         )
 
-        old_source = 100.0 * 2.0 + 10.0 * 1.0
-        old_target = 100.0 * 1.0 + 500.0 + 10.0 * 2.0
         self.assertEqual(cost.compute_time_s, 10.0)
-        self.assertEqual(cost.transmission_time_s, 12.0)
-        self.assertEqual(cost.energy_by_sat, {0: old_source, 1: old_target})
-        self.assertEqual(cost.total_energy_j, old_source + old_target)
+        self.assertEqual(cost.transmission_time_s, 11.0)
+        self.assertEqual(cost.energy_by_sat, {0: 20.0, 1: 502.0})
+        self.assertEqual(cost.total_energy_j, 522.0)
 
     def test_multi_hop_charges_relay_for_forward_and_return(self) -> None:
         cost = estimate_route_cost(
@@ -89,13 +85,10 @@ class RouteCostTests(unittest.TestCase):
             isl_config=self.isl,
         )
 
-        self.assertEqual(cost.transmission_time_s, 24.0)
-        self.assertEqual(cost.energy_by_sat[0], 100.0 * 2.0 + 10.0 * 1.0)
-        self.assertEqual(
-            cost.energy_by_sat[2],
-            100.0 * 1.0 + 100.0 * 2.0 + 10.0 * 1.0 + 10.0 * 2.0,
-        )
-        self.assertEqual(cost.energy_by_sat[1], 100.0 * 1.0 + 500.0 + 10.0 * 2.0)
+        self.assertEqual(cost.transmission_time_s, 22.0)
+        self.assertEqual(cost.energy_by_sat[0], 20.0)
+        self.assertEqual(cost.energy_by_sat[2], 22.0)
+        self.assertEqual(cost.energy_by_sat[1], 502.0)
 
 
 if __name__ == "__main__":

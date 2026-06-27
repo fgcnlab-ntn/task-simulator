@@ -80,7 +80,7 @@ class BatteryDoDTests(unittest.TestCase):
             step_s=30,
             battery=battery,
             task_config=task_config(),
-            isl_config=ISLConfig(1.0, 1.0, 0.0, 0.0),
+            isl_config=ISLConfig(1.0, 0.0),
             tasks=[task],
             assignments=[
                 Assignment(task_id=1, route=Route((0,)), mode="local")
@@ -135,7 +135,7 @@ class BatteryDoDTests(unittest.TestCase):
             step_s=30,
             battery=battery,
             task_config=task_config(),
-            isl_config=ISLConfig(1.0, 1.0, 0.0, 0.0),
+            isl_config=ISLConfig(1.0, 0.0),
             isl_graph=fully_connected_isl_graph(views),
             scheduler_config=SchedulerConfig(
                 name="slack-aware",

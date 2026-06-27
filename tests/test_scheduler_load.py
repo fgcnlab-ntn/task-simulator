@@ -59,7 +59,7 @@ class SchedulerLoadTests(unittest.TestCase):
         ]
         self.graph = fully_connected_isl_graph(self.views)
         self.battery = BatteryConfig(1000.0, 1000.0, 0.0, 0.0, 0.0)
-        self.isl = ISLConfig(1.0, 1.0, 0.0, 0.0)
+        self.isl = ISLConfig(1.0, 0.0)
 
     def task(self, task_id: int, cpu_cycles: float) -> Task:
         return Task(

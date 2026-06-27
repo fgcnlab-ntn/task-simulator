@@ -184,7 +184,7 @@ class ISLGraphTests(unittest.TestCase):
                 view(1, x=10003.0, plane=0, slot=1),
                 view(2, x=10010.0, plane=0, slot=2),
             ],
-            ISLConfig(1.0, 1.0, 0.0, 0.0, topology="grid", max_range_km=5.0),
+            ISLConfig(1.0, 0.0, topology="grid", max_range_km=5.0),
         )
 
         self.assertEqual(graph.neighbors(0), (1,))
@@ -196,8 +196,6 @@ class ISLGraphTests(unittest.TestCase):
                 [view(0, plane=0, slot=0)],
                 ISLConfig(
                     1.0,
-                    1.0,
-                    0.0,
                     0.0,
                     topology="grid",
                     max_range_km=None,

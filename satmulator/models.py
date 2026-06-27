@@ -56,10 +56,8 @@ class TaskConfig:
 
 @dataclass(frozen=True)
 class ISLConfig:
-    isl_forward_rate_bps: float
-    isl_return_rate_bps: float
-    isl_tx_energy_per_bit_j: float
-    isl_rx_energy_per_bit_j: float
+    rate_bps: float
+    tx_power_w: float
     topology: str = "grid"
     max_range_km: float | None = 5000.0
 

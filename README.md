@@ -110,7 +110,7 @@ The effective merged config is written to:
 - demand-point mode: task locations and workload sizes sampled from configured distributions
 - default legacy task size 1e9 CPU cycles, 1e7 input bits, 1e6 output bits
 - default four-neighbor grid ISL with a 5000 km link range and Earth-obstruction filtering
-- default ISL cost: 10 Mbps forward/return, 1e-7 J/bit TX, 5e-8 J/bit RX
+- default ISL cost: 1 Gbps transfer rate, 10 W transmit power
 - default scheduler target load limit: 4e9 CPU cycles per slot
 - scheduler: `local`
 
