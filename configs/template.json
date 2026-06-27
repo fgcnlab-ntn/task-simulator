@@ -19,11 +19,11 @@
     "step_s": 30
   },
   "battery": {
-    "capacity_j": 100000.0,
-    "initial_pct": 80.0,
+    "capacity_j": 216000.0,
+    "initial_pct": 100.0,
     "min_safe_pct": 20.0,
-    "harvest_w": 80.0,
-    "idle_w": 40.0
+    "harvest_w": 120.0,
+    "idle_w": 4.0
   },
   "task": {
     "enabled": true,
