@@ -3,6 +3,7 @@ import csv
 import json
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 from satmulator.cli import (
@@ -11,6 +12,7 @@ from satmulator.cli import (
     effective_run_config,
     load_json_config,
     load_standalone_json_config,
+    parse_args,
     run,
     validate_args,
 )
@@ -34,6 +36,44 @@ class EffectiveRunConfigTests(unittest.TestCase):
 
             self.assertEqual(load_json_config(path), {"duration_s": 60})
 
+
+    def test_parse_args_keeps_only_run_control_overrides(self) -> None:
+        with patch(
+            "sys.argv",
+            [
+                "minimal_orbit.py",
+                "--config",
+                "configs/template.json",
+                "--duration-s",
+                "60",
+                "--step-s",
+                "10",
+                "--no-task",
+                "--out",
+                "output/debug",
+            ],
+        ):
+            args = parse_args()
+
+        self.assertEqual(args.duration_s, 60)
+        self.assertEqual(args.step_s, 10)
+        self.assertFalse(args.task_enable)
+        self.assertEqual(args.out, Path("output/debug"))
+        self.assertEqual(args.satellites, 1584)
+
+    def test_parse_args_rejects_model_config_flags(self) -> None:
+        with patch(
+            "sys.argv",
+            [
+                "minimal_orbit.py",
+                "--config",
+                "configs/template.json",
+                "--satellites",
+                "1",
+            ],
+        ):
+            with self.assertRaises(SystemExit):
+                parse_args()
 
     def test_standalone_config_rejects_partial_specs(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

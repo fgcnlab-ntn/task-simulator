@@ -150,74 +150,19 @@ def parse_args() -> argparse.Namespace:
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     p.add_argument(
-        "--config", type=Path, help="JSON config file; CLI flags override it"
+        "--config",
+        type=Path,
+        help="complete standalone JSON config file",
     )
-    p.add_argument("--orbit-model", dest="orbit_model", choices=("circular", "tle"))
-    p.add_argument("--tle-file", type=Path, help="local TLE file for --orbit-model tle")
-    p.add_argument(
-        "--sun-position-file",
-        dest="sun_position_file",
-        help="local file used by Skyfield for Sun position",
-    )
-    p.add_argument("--start-utc")
-    p.add_argument("--satellites", type=int, help="total satellite count")
-    p.add_argument(
-        "--planes", type=int, help="orbital plane count; must divide satellites"
-    )
-    p.add_argument("--altitude-km", type=float)
-    p.add_argument("--inclination-deg", type=float)
     p.add_argument("--duration-s", type=int)
     p.add_argument("--step-s", type=int)
-    p.add_argument("--walker-phase", type=int)
-    p.add_argument("--battery-capacity-j", type=float)
-    p.add_argument("--battery-initial-pct", type=float)
-    p.add_argument("--battery-min-safe-pct", type=float)
-    p.add_argument("--harvest-w", type=float, help="charging power while sunlit")
-    p.add_argument("--idle-w", type=float, help="baseline power draw")
-    p.add_argument(
-        "--task-enable",
-        dest="task_enable",
-        action="store_true",
-        default=None,
-        help="enable deterministic local tasks",
-    )
     p.add_argument(
         "--no-task",
         dest="task_enable",
         action="store_false",
         default=None,
-        help="disable task generation and execution",
+        help="debug override to disable task generation and execution",
     )
-    p.add_argument("--scheduler", choices=("local", "nearest-sunlit", "slack-aware"))
-    p.add_argument("--scheduler-load-max-cycles-per-slot", type=float)
-    p.add_argument("--scheduler-defer-penalty", type=float)
-    p.add_argument("--scheduler-fail-penalty", type=float)
-    p.add_argument("--scheduler-time-weight", type=float)
-    p.add_argument("--scheduler-energy-weight", type=float)
-    p.add_argument("--scheduler-battery-weight", type=float)
-    p.add_argument("--scheduler-load-weight", type=float)
-    p.add_argument("--scheduler-eclipse-local-penalty", type=float)
-    p.add_argument("--scheduler-low-battery-threshold-pct", type=float)
-    p.add_argument("--task-interval-s", type=int)
-    p.add_argument(
-        "--task-generation-mode", choices=("satellite-deterministic", "demand-points")
-    )
-    p.add_argument("--task-random-seed", type=int)
-    p.add_argument("--tasks-per-sat", type=int)
-    p.add_argument("--task-demand-points-file", type=Path)
-    p.add_argument("--task-min-elevation-deg", type=float)
-    p.add_argument("--task-cpu-cycles", type=float)
-    p.add_argument("--task-input-bits", dest="task_input_bits", type=float)
-    p.add_argument("--task-output-bits", dest="task_output_bits", type=float)
-    p.add_argument("--task-deadline-s", type=float)
-    p.add_argument("--cpu-rate-cycles-s", type=float)
-    p.add_argument("--joule-per-cycle", type=float)
-    p.add_argument("--isl-forward-rate-bps", type=float)
-    p.add_argument("--isl-return-rate-bps", type=float)
-    p.add_argument("--isl-tx-energy-per-bit-j", type=float)
-    p.add_argument("--isl-rx-energy-per-bit-j", type=float)
-    p.add_argument("--isl-topology", choices=("fully-connected", "grid"))
-    p.add_argument("--isl-max-range-km", type=float)
     p.add_argument("--out", type=Path)
     p.add_argument(
         "--plot-run",
@@ -335,49 +280,49 @@ def parse_utc_datetime(value: str) -> dt.datetime:
 
 def validate_args(args: argparse.Namespace) -> None:
     if not 0 <= args.battery_initial_pct <= 100:
-        raise ValueError("--battery-initial-pct must be within [0, 100]")
+        raise ValueError("battery.initial_pct must be within [0, 100]")
     if not 0 <= args.battery_min_safe_pct <= 100:
-        raise ValueError("--battery-min-safe-pct must be within [0, 100]")
+        raise ValueError("battery.min_safe_pct must be within [0, 100]")
     if args.task_interval_s <= 0:
-        raise ValueError("--task-interval-s must be positive")
+        raise ValueError("task.interval_s must be positive")
     if args.tasks_per_sat < 0:
-        raise ValueError("--tasks-per-sat must be non-negative")
+        raise ValueError("task.tasks_per_sat must be non-negative")
     if args.task_cpu_cycles <= 0:
-        raise ValueError("--task-cpu-cycles must be positive")
+        raise ValueError("task.cpu_cycles must be positive")
     if args.task_deadline_s <= 0:
-        raise ValueError("--task-deadline-s must be positive")
+        raise ValueError("task.deadline_s must be positive")
     if not 0.0 <= args.task_min_elevation_deg <= 90.0:
-        raise ValueError("--task-min-elevation-deg must be within [0, 90]")
+        raise ValueError("task.min_elevation_deg must be within [0, 90]")
     if args.cpu_rate_cycles_s <= 0:
-        raise ValueError("--cpu-rate-cycles-s must be positive")
+        raise ValueError("task.cpu_rate_cycles_s must be positive")
     if args.joule_per_cycle < 0:
-        raise ValueError("--joule-per-cycle must be non-negative")
+        raise ValueError("task.joule_per_cycle must be non-negative")
     if args.isl_forward_rate_bps <= 0 or args.isl_return_rate_bps <= 0:
         raise ValueError(
-            "--isl-forward-rate-bps and --isl-return-rate-bps must be positive"
+            "isl.isl_forward_rate_bps and isl.isl_return_rate_bps must be positive"
         )
     if args.isl_tx_energy_per_bit_j < 0 or args.isl_rx_energy_per_bit_j < 0:
         raise ValueError(
-            "--isl-tx-energy-per-bit-j and --isl-rx-energy-per-bit-j must be non-negative"
+            "isl.isl_tx_energy_per_bit_j and isl.isl_rx_energy_per_bit_j must be non-negative"
         )
     if args.isl_topology not in {"fully-connected", "grid"}:
-        raise ValueError("--isl-topology must be fully-connected or grid")
+        raise ValueError("isl.topology must be fully-connected or grid")
     if args.isl_topology == "grid" and (
         args.isl_max_range_km is None or args.isl_max_range_km <= 0.0
     ):
-        raise ValueError("--isl-max-range-km must be positive for grid topology")
+        raise ValueError("isl.max_range_km must be positive for grid topology")
     if args.orbit_model == "tle" and args.isl_topology == "grid":
         raise ValueError(
             "grid ISL topology requires plane/slot metadata unavailable in TLE mode; "
-            "use --isl-topology fully-connected"
+            'use isl.topology: "fully-connected"'
         )
     if args.scheduler_load_max_cycles_per_slot <= 0:
-        raise ValueError("--scheduler-load-max-cycles-per-slot must be positive")
+        raise ValueError("scheduler.load_max_cycles_per_slot must be positive")
     if args.scheduler_fail_penalty < 0 or args.scheduler_defer_penalty < 0:
         raise ValueError("scheduler penalties must be non-negative")
     if not 0 <= args.scheduler_low_battery_threshold_pct <= 100:
         raise ValueError(
-            "--scheduler-low-battery-threshold-pct must be within [0, 100]"
+            "scheduler.low_battery_threshold_pct must be within [0, 100]"
         )
 
 
@@ -550,7 +495,7 @@ def run(args: argparse.Namespace) -> int:
 
         if args.orbit_model == "tle":
             if args.tle_file is None:
-                raise ValueError("--tle-file is required when --orbit-model tle")
+                raise ValueError("orbit.tle_file is required when orbit.orbit_model tle")
             step_iterator = iter_tle_states(
                 tle_file=args.tle_file,
                 sun_position_file=args.sun_position_file,

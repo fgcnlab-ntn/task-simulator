@@ -42,15 +42,7 @@ References:
 - DE440 technical paper: https://doi.org/10.3847/1538-3881/abd414
 - Skyfield documentation: https://rhodesmill.org/skyfield/planets.html
 
-For offline TLE runs, provide a local path:
-
-```bash
-python3 minimal_orbit.py \
-  --config configs/template.json \
-  --orbit-model tle \
-  --tle-file tle/stations.tle \
-  --sun-position-file /path/to/de440s.bsp
-```
+For offline TLE runs, copy `configs/template.json`, set the `orbit` section to `orbit_model: "tle"`, provide `tle_file` and `sun_position_file`, and use `isl.topology: "fully-connected"`.
 
 ## Run
 
@@ -82,33 +74,23 @@ Regenerate plots from an existing run without rerunning the simulation:
 python3 minimal_orbit.py --plot-run output/minimal_orbit
 ```
 
-CLI flags override config values:
+CLI only keeps run-control and debug overrides:
 
 ```bash
 python3 minimal_orbit.py \
   --config configs/template.json \
-  --scheduler nearest-sunlit \
   --duration-s 600 \
+  --no-task \
   --out output/debug
 ```
 
-TLE run:
-
-```bash
-python3 minimal_orbit.py \
-  --config configs/template.json \
-  --orbit-model tle \
-  --tle-file tle/stations.tle \
-  --duration-s 1800 \
-  --step-s 60 \
-  --out output/tle_stations
-```
+TLE runs should be described by a complete standalone TLE config file; the CLI no longer carries orbit or topology fields.
 
 Config behavior:
 
 ```text
 no --config: built-in defaults
---config: complete standalone JSON config < CLI overrides
+--config: complete standalone JSON config < run-control/debug CLI overrides
 ```
 
 The effective merged config is written to:
@@ -136,17 +118,11 @@ The grid builds a fixed candidate layout once: two in-plane links and two
 cross-plane links per satellite. The plane seam is shifted by the configured
 Walker phase. At each simulation step, only range and Earth line-of-sight are
 reevaluated to determine which candidate links are active. Diagonal satellites
-therefore require at least two hops. Fully-connected routing remains available
-for smoke tests:
+therefore require at least two hops. Fully-connected routing remains available by setting `isl.topology` to
+`fully-connected` in a standalone config.
 
-```bash
-python3 minimal_orbit.py \
-  --config configs/nearest_sunlit.json \
-  --isl-topology fully-connected
-```
-
-TLE input does not carry reliable plane/slot assignments, so TLE runs must use
-`--isl-topology fully-connected` until explicit constellation layout metadata is
+TLE input does not carry reliable plane/slot assignments, so TLE configs must use
+`isl.topology: "fully-connected"` until explicit constellation layout metadata is
 provided.
 
 ## Outputs
