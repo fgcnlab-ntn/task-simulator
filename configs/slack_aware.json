@@ -7,10 +7,10 @@
     "orbit_model": "circular",
     "tle_file": null,
     "sun_position_file": "de421.bsp",
-    "satellites": 66,
-    "planes": 6,
+    "satellites": 1584,
+    "planes": 72,
     "altitude_km": 550.0,
-    "inclination_deg": 53.0,
+    "inclination_deg": 53.05,
     "walker_phase": 1
   },
   "time": {

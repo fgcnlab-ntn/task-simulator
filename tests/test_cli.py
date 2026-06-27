@@ -56,10 +56,10 @@ class EffectiveRunConfigTests(unittest.TestCase):
             config["orbit"],
             {
                 "orbit_model": "circular",
-                "satellites": 66,
-                "planes": 6,
+                "satellites": 1584,
+                "planes": 72,
                 "altitude_km": 550.0,
-                "inclination_deg": 53.0,
+                "inclination_deg": 53.05,
                 "walker_phase": 1,
             },
         )
