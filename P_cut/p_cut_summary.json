@@ -1,0 +1,35 @@
+{
+  "scenarios": [
+    {
+      "battery_capacity_j": 216000.0,
+      "eclipse_duration_s": 1920,
+      "energy_from_initial_to_safe_battery_j": 172800.0,
+      "idle_power_w": 4.0,
+      "initial_battery_pct": 100.0,
+      "safe_battery_pct": 20.0,
+      "schema_version": 1,
+      "scope": "single_satellite"
+    },
+    {
+      "battery_capacity_j": 216000.0,
+      "eclipse_duration_s": 1920,
+      "energy_from_initial_to_safe_battery_j": 108000.0,
+      "idle_power_w": 4.0,
+      "initial_battery_pct": 100.0,
+      "safe_battery_pct": 50.0,
+      "schema_version": 1,
+      "scope": "single_satellite"
+    },
+    {
+      "battery_capacity_j": 216000.0,
+      "eclipse_duration_s": 1920,
+      "energy_from_initial_to_safe_battery_j": 64800.0,
+      "idle_power_w": 4.0,
+      "initial_battery_pct": 100.0,
+      "safe_battery_pct": 70.0,
+      "schema_version": 1,
+      "scope": "single_satellite"
+    }
+  ],
+  "schema_version": 1
+}

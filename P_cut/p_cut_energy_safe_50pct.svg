@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="560" viewBox="0 0 900 560">
+  <style>
+    text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 13px; fill: #222; }
+    .title { font-size: 20px; font-weight: 700; }
+    .label { font-size: 15px; font-weight: 600; }
+  </style>
+  <rect width="100%" height="100%" fill="white" />
+  <text class="title" x="450.0" y="28" text-anchor="middle">P_cut: CPU power vs one-satellite eclipse energy (safe battery 50%)</text>
+  <rect x="90" y="50" width="780" height="430" fill="#fafafa" stroke="#ccc" />
+  <line x1="84" y1="480.00" x2="90" y2="480.00" stroke="#333" /><text x="80" y="484.00" text-anchor="end">0</text><line x1="90" y1="480.00" x2="870" y2="480.00" stroke="#eee" />
+<line x1="84" y1="336.67" x2="90" y2="336.67" stroke="#333" /><text x="80" y="340.67" text-anchor="end">50</text><line x1="90" y1="336.67" x2="870" y2="336.67" stroke="#eee" />
+<line x1="84" y1="193.33" x2="90" y2="193.33" stroke="#333" /><text x="80" y="197.33" text-anchor="end">100</text><line x1="90" y1="193.33" x2="870" y2="193.33" stroke="#eee" />
+<line x1="84" y1="50.00" x2="90" y2="50.00" stroke="#333" /><text x="80" y="54.00" text-anchor="end">150</text><line x1="90" y1="50.00" x2="870" y2="50.00" stroke="#eee" />
+  <line x1="90" y1="480" x2="870" y2="480" stroke="#333" />
+  <line x1="90" y1="50" x2="90" y2="480" stroke="#333" />
+  <line x1="90.00" y1="480" x2="90.00" y2="486" stroke="#333" /><text x="90.00" y="515" text-anchor="middle">0</text>
+<line x1="220.00" y1="480" x2="220.00" y2="486" stroke="#333" /><text x="220.00" y="515" text-anchor="middle">10</text>
+<line x1="350.00" y1="480" x2="350.00" y2="486" stroke="#333" /><text x="350.00" y="515" text-anchor="middle">20</text>
+<line x1="480.00" y1="480" x2="480.00" y2="486" stroke="#333" /><text x="480.00" y="515" text-anchor="middle">30</text>
+<line x1="610.00" y1="480" x2="610.00" y2="486" stroke="#333" /><text x="610.00" y="515" text-anchor="middle">40</text>
+<line x1="740.00" y1="480" x2="740.00" y2="486" stroke="#333" /><text x="740.00" y="515" text-anchor="middle">50</text>
+<line x1="870.00" y1="480" x2="870.00" y2="486" stroke="#333" /><text x="870.00" y="515" text-anchor="middle">60</text>
+  <line x1="90" y1="170.40" x2="870" y2="170.40" stroke="#ff7f0e" stroke-width="2" stroke-dasharray="10 5" /><text x="864" y="162.40" text-anchor="end" fill="#ff7f0e">safe battery budget 108 kJ; limit ≈ 52.2 W</text>
+  <line x1="90" y1="457.98" x2="870" y2="457.98" stroke="#d62728" stroke-width="2" stroke-dasharray="6 4" /><text x="864" y="449.98" text-anchor="end" fill="#d62728">idle baseline 7.68 kJ</text>
+  <polyline points="90.00,457.98 155.00,430.46 220.00,402.94 285.00,375.42 350.00,347.90 415.00,320.38 480.00,292.86 545.00,265.34 610.00,237.82 675.00,210.30 740.00,182.78 805.00,155.26 870.00,127.74" fill="none" stroke="#1f77b4" stroke-width="3" />
+  <circle cx="90.00" cy="457.98" r="4" fill="#1f77b4" />
+<circle cx="155.00" cy="430.46" r="4" fill="#1f77b4" />
+<circle cx="220.00" cy="402.94" r="4" fill="#1f77b4" />
+<circle cx="285.00" cy="375.42" r="4" fill="#1f77b4" />
+<circle cx="350.00" cy="347.90" r="4" fill="#1f77b4" />
+<circle cx="415.00" cy="320.38" r="4" fill="#1f77b4" />
+<circle cx="480.00" cy="292.86" r="4" fill="#1f77b4" />
+<circle cx="545.00" cy="265.34" r="4" fill="#1f77b4" />
+<circle cx="610.00" cy="237.82" r="4" fill="#1f77b4" />
+<circle cx="675.00" cy="210.30" r="4" fill="#1f77b4" />
+<circle cx="740.00" cy="182.78" r="4" fill="#1f77b4" />
+<circle cx="805.00" cy="155.26" r="4" fill="#1f77b4" />
+<circle cx="870.00" cy="127.74" r="4" fill="#1f77b4" />
+  <text class="label" x="480.0" y="548" text-anchor="middle">CPU power (W)</text>
+  <text class="label" transform="translate(22 265.0) rotate(-90)" text-anchor="middle">Total eclipse energy (kJ)</text>
+</svg>

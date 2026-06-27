@@ -1,0 +1,13 @@
+{"cpu_energy_j":0.0,"cpu_power_w":0.0,"eclipse_duration_s":1920,"idle_energy_j":7680.0,"index":0,"schema_version":1,"scope":"single_satellite","total_eclipse_energy_j":7680.0}
+{"cpu_energy_j":9600.0,"cpu_power_w":5.0,"eclipse_duration_s":1920,"idle_energy_j":7680.0,"index":1,"schema_version":1,"scope":"single_satellite","total_eclipse_energy_j":17280.0}
+{"cpu_energy_j":19200.0,"cpu_power_w":10.0,"eclipse_duration_s":1920,"idle_energy_j":7680.0,"index":2,"schema_version":1,"scope":"single_satellite","total_eclipse_energy_j":26880.0}
+{"cpu_energy_j":28800.0,"cpu_power_w":15.0,"eclipse_duration_s":1920,"idle_energy_j":7680.0,"index":3,"schema_version":1,"scope":"single_satellite","total_eclipse_energy_j":36480.0}
+{"cpu_energy_j":38400.0,"cpu_power_w":20.0,"eclipse_duration_s":1920,"idle_energy_j":7680.0,"index":4,"schema_version":1,"scope":"single_satellite","total_eclipse_energy_j":46080.0}
+{"cpu_energy_j":48000.0,"cpu_power_w":25.0,"eclipse_duration_s":1920,"idle_energy_j":7680.0,"index":5,"schema_version":1,"scope":"single_satellite","total_eclipse_energy_j":55680.0}
+{"cpu_energy_j":57600.0,"cpu_power_w":30.0,"eclipse_duration_s":1920,"idle_energy_j":7680.0,"index":6,"schema_version":1,"scope":"single_satellite","total_eclipse_energy_j":65280.0}
+{"cpu_energy_j":67200.0,"cpu_power_w":35.0,"eclipse_duration_s":1920,"idle_energy_j":7680.0,"index":7,"schema_version":1,"scope":"single_satellite","total_eclipse_energy_j":74880.0}
+{"cpu_energy_j":76800.0,"cpu_power_w":40.0,"eclipse_duration_s":1920,"idle_energy_j":7680.0,"index":8,"schema_version":1,"scope":"single_satellite","total_eclipse_energy_j":84480.0}
+{"cpu_energy_j":86400.0,"cpu_power_w":45.0,"eclipse_duration_s":1920,"idle_energy_j":7680.0,"index":9,"schema_version":1,"scope":"single_satellite","total_eclipse_energy_j":94080.0}
+{"cpu_energy_j":96000.0,"cpu_power_w":50.0,"eclipse_duration_s":1920,"idle_energy_j":7680.0,"index":10,"schema_version":1,"scope":"single_satellite","total_eclipse_energy_j":103680.0}
+{"cpu_energy_j":105600.0,"cpu_power_w":55.0,"eclipse_duration_s":1920,"idle_energy_j":7680.0,"index":11,"schema_version":1,"scope":"single_satellite","total_eclipse_energy_j":113280.0}
+{"cpu_energy_j":115200.0,"cpu_power_w":60.0,"eclipse_duration_s":1920,"idle_energy_j":7680.0,"index":12,"schema_version":1,"scope":"single_satellite","total_eclipse_energy_j":122880.0}

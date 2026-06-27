@@ -64,6 +64,13 @@ Task-oriented demand-point workload:
 python3 minimal_orbit.py --config configs/demand_points.json
 ```
 
+CPU-power sweep for one satellite keeping its CPU fully active through a
+32-minute eclipse interval:
+
+```bash
+python3 tools/p_cut_experiment.py --out P_cut
+```
+
 Population-weighted demand inputs use WorldPop 2025 R2025A constrained 1 km
 population-count products for both Taiwan and global experiments. See
 `data/worldpop/README.md` for the exact sources and checksums.
@@ -137,6 +144,9 @@ Each run writes:
 
 JSON/JSONL files are the structured experiment log. SVG files are quick
 inspection outputs.
+
+The `P_cut` experiment writes `p_cut_results.csv`, `p_cut_results.jsonl`,
+`p_cut_summary.json`, and `p_cut_energy.svg`.
 
 `states.jsonl` stores one JSON object per simulation step, including the ECI Sun
 direction needed to reproduce TLE snapshot plots without reopening the BSP
