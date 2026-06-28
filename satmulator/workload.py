@@ -96,14 +96,21 @@ def validate_task_config(task_config: TaskConfig) -> None:
         raise ValueError("task deadline must be positive")
     if not 0.0 <= task_config.min_elevation_deg <= 90.0:
         raise ValueError("minimum elevation must be within [0, 90]")
-    if task_config.generation_mode not in {"satellite-deterministic", "demand-points"}:
+    if task_config.generation_mode not in {
+        "satellite-deterministic",
+        "demand-points",
+        "demand-points-fixed-all",
+    }:
         raise ValueError(f"unknown task generation mode: {task_config.generation_mode}")
     validate_distribution(
         "tasks_per_step", task_config.tasks_per_step_choices, task_config.tasks_per_step_weights
     )
     validate_distribution("input_bits", task_config.input_bits_choices, task_config.input_bits_weights)
     validate_distribution("output_bits", task_config.output_bits_choices, task_config.output_bits_weights)
-    if task_config.generation_mode == "demand-points" and not task_config.demand_distribution:
+    if (
+        task_config.generation_mode in {"demand-points", "demand-points-fixed-all"}
+        and not task_config.demand_distribution
+    ):
         raise ValueError("demand-points task generation requires a demand_points_file")
 
 
@@ -202,6 +209,78 @@ def nearest_satellite_id(
     return None if best_sat_id < 0 else best_sat_id
 
 
+def nearest_satellite_ids_vectorized(
+    satellites: Sequence[SatelliteRuntime],
+    points: Sequence[DemandPoint],
+    time_utc: dt.datetime,
+    min_elevation_deg: float = 30.0,
+) -> list[int | None]:
+    """Find nearest visible satellites for many ground points at one time.
+
+    The scalar path above calls Skyfield ``altaz()`` for every
+    point/satellite pair.  That is the wrong data structure for a sweep:
+    geometry is a matrix.  Build the ground-position and satellite-position
+    matrices once, then use dot products for elevation and vector norms for
+    distance.
+    """
+
+    if not points:
+        return []
+    if not satellites:
+        return [None for _ in points]
+
+    try:
+        import numpy as np
+    except ImportError:
+        return [
+            nearest_satellite_id(
+                satellites,
+                point,
+                time_utc,
+                min_elevation_deg,
+            )
+            for point in points
+        ]
+
+    ground_positions = np.array(
+        [ground_position_km(point, time_utc) for point in points],
+        dtype=float,
+    )
+    satellite_positions = np.array([sat.pos_km for sat in satellites], dtype=float)
+    satellite_ids = np.array([sat.sat_id for sat in satellites], dtype=int)
+
+    ground_norms = np.linalg.norm(ground_positions, axis=1)
+    if np.any(ground_norms <= 0.0):
+        raise ValueError("ground position norm must be positive")
+    local_up = ground_positions / ground_norms[:, None]
+
+    line_of_sight = satellite_positions[None, :, :] - ground_positions[:, None, :]
+    distances = np.linalg.norm(line_of_sight, axis=2)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        sin_elevation = np.einsum(
+            "psk,pk->ps",
+            line_of_sight,
+            local_up,
+        ) / distances
+
+    min_sin_elevation = math.sin(math.radians(min_elevation_deg))
+    visible = np.isfinite(sin_elevation) & (sin_elevation >= min_sin_elevation)
+    masked_distances = np.where(visible, distances, np.inf)
+    nearest_indices = np.argmin(masked_distances, axis=1)
+    nearest_distances = masked_distances[
+        np.arange(len(points)),
+        nearest_indices,
+    ]
+
+    result: list[int | None] = []
+    for index, distance in zip(nearest_indices, nearest_distances):
+        if math.isinf(float(distance)):
+            result.append(None)
+        else:
+            result.append(int(satellite_ids[int(index)]))
+    return result
+
+
 def generate_step_tasks(
     env: EnvironmentRuntime,
     task_config: TaskConfig,
@@ -217,6 +296,10 @@ def generate_step_tasks(
         if env.time_s > 0 and env.time_s % task_config.interval_s == 0:
             env.pending_tasks.extend(generate_demand_point_tasks(env, task_config, compute_config))
         return resolve_pending_tasks(env, task_config)
+    if task_config.generation_mode == "demand-points-fixed-all":
+        if env.time_s <= 0 or env.time_s % task_config.interval_s != 0:
+            return [], []
+        return generate_fixed_all_demand_point_tasks(env, task_config, compute_config)
     raise ValueError(f"unknown task generation mode: {task_config.generation_mode}")
 
 
@@ -273,6 +356,59 @@ def generate_demand_point_tasks(
         emit_generated_task(env, task, compute_config)
         env.next_task_id += 1
     return tasks
+
+
+def generate_fixed_all_demand_point_tasks(
+    env: EnvironmentRuntime,
+    task_config: TaskConfig,
+    compute_config: ComputeConfig,
+) -> tuple[list[Task], list[Task]]:
+    """Generate one fixed-size task for every configured demand point.
+
+    This mode is for controlled load sweeps.  It deliberately avoids the
+    random sampling and coverage queue used by ``demand-points``: every demand
+    point emits exactly one task at every generation slot, and the task is
+    immediately assigned to the nearest visible satellite.  If no satellite
+    satisfies the minimum elevation constraint, the task is returned as an
+    immediate no-coverage failure rather than being deferred.
+    """
+
+    if env.time_utc is None:
+        raise ValueError("demand-point task generation requires an absolute UTC simulation time")
+
+    ready: list[Task] = []
+    expired: list[Task] = []
+    points = task_config.demand_distribution.points
+    source_sats = nearest_satellite_ids_vectorized(
+        env.satellites,
+        points,
+        env.time_utc,
+        task_config.min_elevation_deg,
+    )
+    for point, source_sat in zip(points, source_sats):
+        task = Task(
+            task_id=env.next_task_id,
+            created_time_s=env.time_s,
+            source_sat=source_sat,
+            input_bits=task_config.input_bits,
+            output_bits=task_config.output_bits,
+            deadline_s=task_config.deadline_s,
+            lat_deg=point.lat_deg,
+            lon_deg=point.lon_deg,
+        )
+        emit_generated_task(env, task, compute_config)
+        env.next_task_id += 1
+        if source_sat is None:
+            expired.append(task)
+            continue
+        env.emit_task_event(
+            "task_coverage_acquired",
+            task.task_id,
+            source_sat=source_sat,
+            waiting_time_s=0,
+        )
+        ready.append(task)
+    return ready, expired
 
 
 def emit_generated_task(

@@ -9,8 +9,10 @@ from satmulator.runtime import EnvironmentRuntime, SatelliteRuntime
 from satmulator.workload import (
     choose_demand_point,
     demand_distribution,
+    generate_step_tasks,
     ground_position_km,
     nearest_satellite_id,
+    nearest_satellite_ids_vectorized,
     resolve_pending_tasks,
     satellite_altitude_distance,
     weighted_choice,
@@ -139,6 +141,42 @@ class DemandPointCoordinateTests(unittest.TestCase):
         self.assertEqual(nearest_satellite_id([low, high], point, time_utc, 30.0), 1)
         self.assertIsNone(nearest_satellite_id([low], point, time_utc, 30.0))
 
+    def test_vectorized_nearest_matches_scalar_for_clear_visibility(self) -> None:
+        points = (
+            DemandPoint(lat_deg=0.0, lon_deg=0.0, weight=1.0),
+            DemandPoint(lat_deg=25.033, lon_deg=121.5654, weight=1.0),
+        )
+        time_utc = dt.datetime(2026, 6, 7, 12, tzinfo=dt.timezone.utc)
+        satellites = []
+        for sat_id, point in enumerate(points):
+            ground = ground_position_km(point, time_utc)
+            satellites.append(
+                SatelliteRuntime(
+                    sat_id,
+                    f"near_{sat_id}",
+                    0,
+                    sat_id,
+                    1.0,
+                    pos_km=tuple(component * 1.2 for component in ground),
+                )
+            )
+        satellites.append(
+            SatelliteRuntime(99, "hidden", 0, 99, 1.0, pos_km=(0.0, 0.0, 0.0))
+        )
+
+        scalar = [
+            nearest_satellite_id(satellites, point, time_utc, 30.0)
+            for point in points
+        ]
+        vectorized = nearest_satellite_ids_vectorized(
+            satellites,
+            points,
+            time_utc,
+            30.0,
+        )
+
+        self.assertEqual(vectorized, scalar)
+
     def test_pending_task_expires_without_coverage(self) -> None:
         point = DemandPoint(lat_deg=0.0, lon_deg=0.0, weight=1.0)
         time_utc = dt.datetime(2026, 6, 7, 12, tzinfo=dt.timezone.utc)
@@ -160,6 +198,50 @@ class DemandPointCoordinateTests(unittest.TestCase):
         ready, expired = resolve_pending_tasks(env, config)
         self.assertEqual(ready, [])
         self.assertEqual(expired, [task])
+        self.assertEqual(env.pending_tasks, [])
+
+    def test_fixed_all_demand_generates_one_task_per_point_without_pending(self) -> None:
+        time_utc = dt.datetime(2026, 6, 7, 12, tzinfo=dt.timezone.utc)
+        points = (
+            DemandPoint(lat_deg=0.0, lon_deg=0.0, weight=1.0),
+            DemandPoint(lat_deg=25.0, lon_deg=121.0, weight=2.0),
+        )
+        satellites = []
+        for sat_id, point in enumerate(points):
+            ground = ground_position_km(point, time_utc)
+            satellites.append(
+                SatelliteRuntime(
+                    sat_id,
+                    f"sat_{sat_id}",
+                    0,
+                    sat_id,
+                    1.0,
+                    pos_km=tuple(component * 1.1 for component in ground),
+                )
+            )
+        env = EnvironmentRuntime(
+            satellites=satellites,
+            time_s=30,
+            time_utc=time_utc,
+        )
+        task_config = SimpleNamespace(
+            enabled=True,
+            generation_mode="demand-points-fixed-all",
+            interval_s=30,
+            demand_distribution=demand_distribution(points),
+            min_elevation_deg=0.0,
+            input_bits=1234.0,
+            output_bits=0.0,
+            deadline_s=9999.0,
+        )
+        compute_config = SimpleNamespace(cycles_per_input_bit=10.0)
+
+        ready, expired = generate_step_tasks(env, task_config, compute_config)
+
+        self.assertEqual(expired, [])
+        self.assertEqual(len(ready), 2)
+        self.assertEqual([task.input_bits for task in ready], [1234.0, 1234.0])
+        self.assertEqual([task.source_sat for task in ready], [0, 1])
         self.assertEqual(env.pending_tasks, [])
 
 
