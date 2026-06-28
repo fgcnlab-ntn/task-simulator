@@ -248,37 +248,81 @@ def nearest_satellite_ids_vectorized(
     )
     satellite_positions = np.array([sat.pos_km for sat in satellites], dtype=float)
     satellite_ids = np.array([sat.sat_id for sat in satellites], dtype=int)
+    satellite_norms = np.linalg.norm(satellite_positions, axis=1)
+    valid_satellites = satellite_norms > 0.0
+    if not np.any(valid_satellites):
+        return [None for _ in points]
+    satellite_positions = satellite_positions[valid_satellites]
+    satellite_ids = satellite_ids[valid_satellites]
+    satellite_norms = satellite_norms[valid_satellites]
 
     ground_norms = np.linalg.norm(ground_positions, axis=1)
     if np.any(ground_norms <= 0.0):
         raise ValueError("ground position norm must be positive")
     local_up = ground_positions / ground_norms[:, None]
-
-    line_of_sight = satellite_positions[None, :, :] - ground_positions[:, None, :]
-    distances = np.linalg.norm(line_of_sight, axis=2)
-    with np.errstate(divide="ignore", invalid="ignore"):
-        sin_elevation = np.einsum(
-            "psk,pk->ps",
-            line_of_sight,
-            local_up,
-        ) / distances
+    satellite_up = satellite_positions / satellite_norms[:, None]
+    candidate_mask = elevation_candidate_mask(
+        local_up,
+        satellite_up,
+        ground_norms,
+        satellite_norms,
+        min_elevation_deg,
+    )
 
     min_sin_elevation = math.sin(math.radians(min_elevation_deg))
-    visible = np.isfinite(sin_elevation) & (sin_elevation >= min_sin_elevation)
-    masked_distances = np.where(visible, distances, np.inf)
-    nearest_indices = np.argmin(masked_distances, axis=1)
-    nearest_distances = masked_distances[
-        np.arange(len(points)),
-        nearest_indices,
-    ]
-
     result: list[int | None] = []
-    for index, distance in zip(nearest_indices, nearest_distances):
-        if math.isinf(float(distance)):
+    for point_index, point_position in enumerate(ground_positions):
+        candidate_indices = np.flatnonzero(candidate_mask[point_index])
+        if len(candidate_indices) == 0:
             result.append(None)
-        else:
-            result.append(int(satellite_ids[int(index)]))
+            continue
+
+        line_of_sight = satellite_positions[candidate_indices] - point_position
+        distances = np.linalg.norm(line_of_sight, axis=1)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            sin_elevation = line_of_sight @ local_up[point_index] / distances
+
+        visible = np.isfinite(sin_elevation) & (sin_elevation >= min_sin_elevation)
+        if not np.any(visible):
+            result.append(None)
+            continue
+
+        visible_indices = candidate_indices[visible]
+        visible_distances = distances[visible]
+        nearest_visible_index = int(np.argmin(visible_distances))
+        result.append(int(satellite_ids[int(visible_indices[nearest_visible_index])]))
     return result
+
+
+def elevation_candidate_mask(
+    ground_unit_vectors,
+    satellite_unit_vectors,
+    ground_radii_km,
+    satellite_radii_km,
+    min_elevation_deg: float,
+):
+    """Return point/satellite pairs that can satisfy the elevation limit.
+
+    This is the cheap rejection pass.  Visibility only depends on the central
+    angle between the ground radial vector and the satellite radial vector,
+    plus the two radii.  A dot-product matrix gives that angle without
+    allocating the full point/satellite line-of-sight vector matrix.
+    """
+
+    import numpy as np
+
+    min_elevation_rad = math.radians(min_elevation_deg)
+    cos_elevation = math.cos(min_elevation_rad)
+    sin_elevation = math.sin(min_elevation_rad)
+
+    radius_ratio = ground_radii_km[:, None] / satellite_radii_km[None, :]
+    horizon_term = np.maximum(0.0, 1.0 - (radius_ratio * cos_elevation) ** 2)
+    min_central_cosine = (
+        radius_ratio * cos_elevation * cos_elevation
+        + sin_elevation * np.sqrt(horizon_term)
+    )
+    central_cosine = ground_unit_vectors @ satellite_unit_vectors.T
+    return central_cosine >= min_central_cosine
 
 
 def generate_step_tasks(

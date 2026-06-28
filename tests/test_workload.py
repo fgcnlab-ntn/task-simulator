@@ -9,6 +9,7 @@ from satmulator.runtime import EnvironmentRuntime, SatelliteRuntime
 from satmulator.workload import (
     choose_demand_point,
     demand_distribution,
+    elevation_candidate_mask,
     generate_step_tasks,
     ground_position_km,
     nearest_satellite_id,
@@ -176,6 +177,32 @@ class DemandPointCoordinateTests(unittest.TestCase):
         )
 
         self.assertEqual(vectorized, scalar)
+
+    def test_elevation_candidate_mask_rejects_far_side_satellite(self) -> None:
+        try:
+            import numpy as np
+        except ImportError:
+            self.skipTest("NumPy is not installed")
+
+        ground_unit = np.array([[1.0, 0.0, 0.0]])
+        satellite_unit = np.array(
+            [
+                [1.0, 0.0, 0.0],
+                [-1.0, 0.0, 0.0],
+            ]
+        )
+        ground_radii = np.array([6378.0])
+        satellite_radii = np.array([6928.0, 6928.0])
+
+        candidates = elevation_candidate_mask(
+            ground_unit,
+            satellite_unit,
+            ground_radii,
+            satellite_radii,
+            30.0,
+        )
+
+        self.assertEqual(candidates.tolist(), [[True, False]])
 
     def test_pending_task_expires_without_coverage(self) -> None:
         point = DemandPoint(lat_deg=0.0, lon_deg=0.0, weight=1.0)
