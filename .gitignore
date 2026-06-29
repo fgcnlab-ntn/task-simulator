@@ -41,3 +41,10 @@ output/
 !data/demand/
 !data/demand/sample_population_points.csv
 !data/demand/global_population_2025_5deg.csv
+
+# Keep compact breach-ratio chart summaries, not multi-GB simulator logs
+!breach_ratio/
+!breach_ratio/*/
+!breach_ratio/*/chart/
+!breach_ratio/*/chart/*.csv
+breach_ratio/*/logs/
