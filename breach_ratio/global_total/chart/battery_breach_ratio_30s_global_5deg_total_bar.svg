@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="940" height="650" viewBox="0 0 940 650">
+<style>text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 13px; fill: #222; } .title { font-size: 20px; font-weight: 700; } .label { font-size: 15px; font-weight: 600; } .note { font-size: 12px; fill: #666; }</style>
+<rect width="100%" height="100%" fill="white" />
+<text class="title" x="470.0" y="30" text-anchor="middle">Global total demand: battery breach ratio (30s slot)</text>
+<text class="note" x="470.0" y="52" text-anchor="middle">WorldPop global demand, 5° aggregation; total demand split across 971 points by population weight</text>
+<text class="note" x="470.0" y="70" text-anchor="middle">Labels show ratio and breached satellite count; one complete orbit cycle</text>
+<rect x="86" y="138" width="818" height="390" fill="#fafafa" stroke="#ccc" />
+<line x1="80" y1="528.00" x2="86" y2="528.00" stroke="#333" />
+<text x="76" y="532.00" text-anchor="end">0%</text>
+<line x1="86" y1="528.00" x2="904" y2="528.00" stroke="#eee" />
+<line x1="80" y1="489.00" x2="86" y2="489.00" stroke="#333" />
+<text x="76" y="493.00" text-anchor="end">10%</text>
+<line x1="86" y1="489.00" x2="904" y2="489.00" stroke="#eee" />
+<line x1="80" y1="450.00" x2="86" y2="450.00" stroke="#333" />
+<text x="76" y="454.00" text-anchor="end">20%</text>
+<line x1="86" y1="450.00" x2="904" y2="450.00" stroke="#eee" />
+<line x1="80" y1="411.00" x2="86" y2="411.00" stroke="#333" />
+<text x="76" y="415.00" text-anchor="end">30%</text>
+<line x1="86" y1="411.00" x2="904" y2="411.00" stroke="#eee" />
+<line x1="80" y1="372.00" x2="86" y2="372.00" stroke="#333" />
+<text x="76" y="376.00" text-anchor="end">40%</text>
+<line x1="86" y1="372.00" x2="904" y2="372.00" stroke="#eee" />
+<line x1="80" y1="333.00" x2="86" y2="333.00" stroke="#333" />
+<text x="76" y="337.00" text-anchor="end">50%</text>
+<line x1="86" y1="333.00" x2="904" y2="333.00" stroke="#eee" />
+<line x1="80" y1="294.00" x2="86" y2="294.00" stroke="#333" />
+<text x="76" y="298.00" text-anchor="end">60%</text>
+<line x1="86" y1="294.00" x2="904" y2="294.00" stroke="#eee" />
+<line x1="80" y1="255.00" x2="86" y2="255.00" stroke="#333" />
+<text x="76" y="259.00" text-anchor="end">70%</text>
+<line x1="86" y1="255.00" x2="904" y2="255.00" stroke="#eee" />
+<line x1="80" y1="216.00" x2="86" y2="216.00" stroke="#333" />
+<text x="76" y="220.00" text-anchor="end">80%</text>
+<line x1="86" y1="216.00" x2="904" y2="216.00" stroke="#eee" />
+<line x1="80" y1="177.00" x2="86" y2="177.00" stroke="#333" />
+<text x="76" y="181.00" text-anchor="end">90%</text>
+<line x1="86" y1="177.00" x2="904" y2="177.00" stroke="#eee" />
+<line x1="80" y1="138.00" x2="86" y2="138.00" stroke="#333" />
+<text x="76" y="142.00" text-anchor="end">100%</text>
+<line x1="86" y1="138.00" x2="904" y2="138.00" stroke="#eee" />
+<line x1="86" y1="528" x2="904" y2="528" stroke="#333" />
+<line x1="86" y1="138" x2="86" y2="528" stroke="#333" />
+<rect x="107.81" y="528.00" width="92.71" height="0.00" fill="#1f77b4" stroke="#155a8a" />
+<text x="154.17" y="520.00" text-anchor="middle">0.0% (0)</text>
+<text x="154.17" y="566" text-anchor="middle">1G</text>
+<rect x="244.15" y="485.90" width="92.71" height="42.10" fill="#1f77b4" stroke="#155a8a" />
+<text x="290.50" y="477.90" text-anchor="middle">10.8% (171)</text>
+<text x="290.50" y="566" text-anchor="middle">5G</text>
+<rect x="380.48" y="407.60" width="92.71" height="120.40" fill="#1f77b4" stroke="#155a8a" />
+<text x="426.83" y="399.60" text-anchor="middle">30.9% (489)</text>
+<text x="426.83" y="566" text-anchor="middle">10G</text>
+<rect x="516.81" y="351.71" width="92.71" height="176.29" fill="#1f77b4" stroke="#155a8a" />
+<text x="563.17" y="343.71" text-anchor="middle">45.2% (716)</text>
+<text x="563.17" y="566" text-anchor="middle">20G</text>
+<rect x="653.15" y="289.17" width="92.71" height="238.83" fill="#1f77b4" stroke="#155a8a" />
+<text x="699.50" y="281.17" text-anchor="middle">61.2% (970)</text>
+<text x="699.50" y="566" text-anchor="middle">30G</text>
+<rect x="789.48" y="214.33" width="92.71" height="313.67" fill="#1f77b4" stroke="#155a8a" />
+<text x="835.83" y="206.33" text-anchor="middle">80.4% (1274)</text>
+<text x="835.83" y="566" text-anchor="middle">50G</text>
+<text class="label" x="495.0" y="624" text-anchor="middle">Global total demand per 30s slot</text>
+<text class="label" transform="translate(24 333.0) rotate(-90)" text-anchor="middle">Satellites below minimum battery ratio</text>
+</svg>
