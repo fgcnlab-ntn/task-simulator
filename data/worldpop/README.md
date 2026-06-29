@@ -23,16 +23,18 @@ curl -fL \
 
 The simulator does not read these rasters directly. Convert them into the
 common `lat,lon,weight` demand-point format with
-`tools/worldpop_to_demand_points.py`. By default, conversion aggregates source
-pixels into `0.1` degree latitude/longitude cells and uses each cell center as
-the demand-point coordinate; `weight` is the summed population in that cell.
+`tools/worldpop_to_demand_points.py`. The default global experiment input is a
+checked-in 5° aggregate at `data/demand/global_population_2025_5deg.csv`
+(971 demand points, preserving 8.195439311893 billion of 8.195439313761
+population). Use the same aggregation for reproducible demand-energy sweeps.
 Pass the canonical source URL so the generated metadata and every experiment
 log retain it:
 
 ```bash
 python3 tools/worldpop_to_demand_points.py \
   data/worldpop/global_pop_2025_CN_1km_R2025A_v1.tif \
-  data/demand/global_population_2025_1km.csv \
+  data/demand/global_population_2025_5deg.csv \
+  --aggregate-deg 5 \
   --source-url https://data.worldpop.org/GIS/Population/Global_2015_2030/R2025A/2025/0_Mosaicked/v1/1km/constrained/global_pop_2025_CN_1km_R2025A_v1.tif
 ```
 

@@ -71,9 +71,22 @@ CPU-power sweep for one satellite keeping its CPU fully active through a
 python3 tools/p_cut_experiment.py --out P_cut
 ```
 
+Deterministic demand-load sweep for fixed data size and time-slot intervals:
+
+```bash
+python3 tools/demand_energy_sweep.py \
+  --data-sizes-bits 1e6,1e7,1e8 \
+  --slot-intervals-s 30,60,120,300 \
+  --out output/demand_energy_sweep
+```
+
 Population-weighted demand inputs use WorldPop 2025 R2025A constrained 1 km
 population-count products for both Taiwan and global experiments. See
 `data/worldpop/README.md` for the exact sources and checksums.
+The default global demand config uses `data/demand/global_population_2025_5deg.csv`,
+which aggregates the global raster into 5° latitude/longitude cells. This keeps
+the controlled demand-energy sweep small enough for repeated runs while
+preserving essentially all source population.
 
 Regenerate plots from an existing run without rerunning the simulation:
 
@@ -147,6 +160,13 @@ inspection outputs.
 
 The `P_cut` experiment writes `p_cut_results.csv`, `p_cut_results.jsonl`,
 `p_cut_summary.json`, and `p_cut_energy.svg`.
+
+The demand energy sweep writes `demand_energy_sweep.csv`,
+`demand_energy_sweep.jsonl`, `demand_energy_sweep_summary.json`,
+`battery_breach_ratio_heatmap.svg`, and one full simulator run directory per
+scenario. Each scenario runs `demand-points-fixed-all`: every ground point
+creates one fixed-size task at each selected time slot, and the nearest visible
+satellite executes it locally.
 
 `states.jsonl` stores one JSON object per simulation step, including the ECI Sun
 direction needed to reproduce TLE snapshot plots without reopening the BSP

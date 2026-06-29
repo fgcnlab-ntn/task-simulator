@@ -65,7 +65,7 @@
       0.3,
       0.1
     ],
-    "demand_points_file": "data/demand/sample_population_points.csv",
+    "demand_points_file": "data/demand/global_population_2025_5deg.csv",
     "min_elevation_deg": 30.0,
     "deadline_s": 120.0
   },

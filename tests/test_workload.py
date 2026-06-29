@@ -10,6 +10,7 @@ from satmulator.workload import (
     choose_demand_point,
     demand_distribution,
     elevation_candidate_mask,
+    fixed_all_demand_point_input_bits,
     generate_step_tasks,
     ground_position_km,
     nearest_satellite_id,
@@ -270,6 +271,25 @@ class DemandPointCoordinateTests(unittest.TestCase):
         self.assertEqual([task.input_bits for task in ready], [1234.0, 1234.0])
         self.assertEqual([task.source_sat for task in ready], [0, 1])
         self.assertEqual(env.pending_tasks, [])
+
+    def test_weighted_fixed_all_splits_global_input_by_demand_weight(self) -> None:
+        points = (
+            DemandPoint(lat_deg=0.0, lon_deg=0.0, weight=1.0),
+            DemandPoint(lat_deg=1.0, lon_deg=1.0, weight=3.0),
+        )
+        distribution = demand_distribution(points)
+        task_config = SimpleNamespace(
+            generation_mode="demand-points-fixed-weighted-all",
+            input_bits=400.0,
+            demand_distribution=distribution,
+        )
+
+        input_bits = [
+            fixed_all_demand_point_input_bits(task_config, point)
+            for point in points
+        ]
+
+        self.assertEqual(input_bits, [100.0, 300.0])
 
 
 if __name__ == "__main__":

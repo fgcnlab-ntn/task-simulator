@@ -6,18 +6,23 @@ The old task model is satellite-oriented: each satellite creates a fixed number
 of identical tasks.  That is predictable, but it is not a realistic demand
 model.  The new config keeps that old mode for compatibility and adds a
 `demand-points` mode where tasks are sampled from weighted ground demand points.
+Controlled battery-load sweeps use `demand-points-fixed-all`, which emits one
+fixed-size task for every demand point at every generation slot.
 
 ## Task fields
 
 - `enabled`: enable or disable task generation.
 - `interval_s`: generate tasks every N simulated seconds.
-- `generation_mode`: `satellite-deterministic` or `demand-points`.
+- `generation_mode`: `satellite-deterministic`, `demand-points`, or
+  `demand-points-fixed-all`.
 - `random_seed`: seed for reproducible stochastic workloads.
 - `tasks_per_sat`: legacy deterministic task count per satellite.
 - `tasks_per_step_choices`, `tasks_per_step_weights`: discrete distribution for
   the number of tasks created at each generation time in `demand-points` mode.
 - `demand_points_file`: CSV file with `lat,lon,weight` columns.  The weight can
-  come from population, nighttime lights, or measured traffic demand.
+  come from population, nighttime lights, or measured traffic demand. The
+  default demand-point config uses the checked-in 5° global WorldPop aggregate
+  at `data/demand/global_population_2025_5deg.csv`.
 - `min_elevation_deg`: minimum ground-to-satellite elevation angle used when
   selecting a serving satellite. Defaults to 30 degrees. Tasks wait while no
   satellite meets the threshold and fail with `no_coverage` when their deadline
@@ -25,6 +30,13 @@ model.  The new config keeps that old mode for compatibility and adds a
 - `input_bits_choices`, `input_bits_weights`: discrete input data distribution.
 - `output_bits_choices`, `output_bits_weights`: discrete output data distribution.
 - `deadline_s`: task deadline.
+
+`demand-points-fixed-all` deliberately does not use the random choice fields.
+At each generation time after the initial state, every configured demand point
+creates exactly one task using `input_bits` and `output_bits`. The nearest
+satellite satisfying `min_elevation_deg` is selected immediately. If no
+satellite is visible, the task fails immediately with `no_coverage`; it is not
+queued or deferred.
 
 ## Compute fields
 

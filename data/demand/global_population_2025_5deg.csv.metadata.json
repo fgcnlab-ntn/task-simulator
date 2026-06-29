@@ -1,0 +1,14 @@
+{
+  "aggregate_deg": 5.0,
+  "bbox": null,
+  "coordinate": "center of each aggregated latitude/longitude cell",
+  "demand_points": 971,
+  "discarded_population": 1.8680419921875,
+  "input_positive_population": 8195439313.76055,
+  "min_population": 1.0,
+  "output_file": "data/demand/global_population_2025_5deg.csv",
+  "output_population": 8195439311.892508,
+  "source": "WorldPop population-count GeoTIFF",
+  "source_file": "data/worldpop/global_pop_2025_CN_1km_R2025A_v1.tif",
+  "source_url": "https://data.worldpop.org/GIS/Population/Global_2015_2030/R2025A/2025/0_Mosaicked/v1/1km/constrained/global_pop_2025_CN_1km_R2025A_v1.tif"
+}

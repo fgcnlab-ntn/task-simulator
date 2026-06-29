@@ -100,6 +100,7 @@ def validate_task_config(task_config: TaskConfig) -> None:
         "satellite-deterministic",
         "demand-points",
         "demand-points-fixed-all",
+        "demand-points-fixed-weighted-all",
     }:
         raise ValueError(f"unknown task generation mode: {task_config.generation_mode}")
     validate_distribution(
@@ -108,7 +109,8 @@ def validate_task_config(task_config: TaskConfig) -> None:
     validate_distribution("input_bits", task_config.input_bits_choices, task_config.input_bits_weights)
     validate_distribution("output_bits", task_config.output_bits_choices, task_config.output_bits_weights)
     if (
-        task_config.generation_mode in {"demand-points", "demand-points-fixed-all"}
+        task_config.generation_mode
+        in {"demand-points", "demand-points-fixed-all", "demand-points-fixed-weighted-all"}
         and not task_config.demand_distribution
     ):
         raise ValueError("demand-points task generation requires a demand_points_file")
@@ -340,7 +342,10 @@ def generate_step_tasks(
         if env.time_s > 0 and env.time_s % task_config.interval_s == 0:
             env.pending_tasks.extend(generate_demand_point_tasks(env, task_config, compute_config))
         return resolve_pending_tasks(env, task_config)
-    if task_config.generation_mode == "demand-points-fixed-all":
+    if task_config.generation_mode in {
+        "demand-points-fixed-all",
+        "demand-points-fixed-weighted-all",
+    }:
         if env.time_s <= 0 or env.time_s % task_config.interval_s != 0:
             return [], []
         return generate_fixed_all_demand_point_tasks(env, task_config, compute_config)
@@ -430,11 +435,12 @@ def generate_fixed_all_demand_point_tasks(
         task_config.min_elevation_deg,
     )
     for point, source_sat in zip(points, source_sats):
+        input_bits = fixed_all_demand_point_input_bits(task_config, point)
         task = Task(
             task_id=env.next_task_id,
             created_time_s=env.time_s,
             source_sat=source_sat,
-            input_bits=task_config.input_bits,
+            input_bits=input_bits,
             output_bits=task_config.output_bits,
             deadline_s=task_config.deadline_s,
             lat_deg=point.lat_deg,
@@ -453,6 +459,15 @@ def generate_fixed_all_demand_point_tasks(
         )
         ready.append(task)
     return ready, expired
+
+
+def fixed_all_demand_point_input_bits(
+    task_config: TaskConfig,
+    point: DemandPoint,
+) -> float:
+    if task_config.generation_mode != "demand-points-fixed-weighted-all":
+        return task_config.input_bits
+    return task_config.input_bits * point.weight / task_config.demand_distribution.total_weight
 
 
 def emit_generated_task(

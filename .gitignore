@@ -40,3 +40,4 @@ output/
 !data/
 !data/demand/
 !data/demand/sample_population_points.csv
+!data/demand/global_population_2025_5deg.csv
