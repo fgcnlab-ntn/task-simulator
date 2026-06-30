@@ -178,10 +178,9 @@ class EffectiveRunConfigTests(unittest.TestCase):
             self.assertTrue((output / "tasks.jsonl").exists())
             self.assertTrue((output / "summary.json").exists())
             state = json.loads((output / "states.jsonl").read_text())
-            self.assertEqual(
-                state["snapshot_context"]["sun_eci_unit"],
-                [1.0, 0.0, 0.0],
-            )
+            sun_unit = state["snapshot_context"]["sun_eci_unit"]
+            self.assertAlmostEqual(sum(component**2 for component in sun_unit), 1.0)
+            self.assertIn("ephemeris Sun vector", state["snapshot_context"]["projection_label"])
 
     def test_tle_requires_explicit_non_grid_topology(self) -> None:
         with self.assertRaisesRegex(ValueError, "unavailable in TLE mode"):

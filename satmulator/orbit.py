@@ -4,6 +4,7 @@ import datetime as dt
 import math
 import random
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import Callable, Iterable
 
@@ -441,6 +442,7 @@ def apply_step(
 def iter_circular_states(
     *,
     start: dt.datetime | None = None,
+    sun_position_file: str | None = None,
     satellites: int,
     planes: int,
     altitude_km: float,
@@ -472,6 +474,11 @@ def iter_circular_states(
     radius_km = EARTH_RADIUS_KM + altitude_km
     inclination_rad = math.radians(inclination_deg)
     mean_motion = math.sqrt(EARTH_MU_KM3_S2 / (radius_km**3))
+    sun_ephemeris = (
+        None
+        if start is None or sun_position_file is None
+        else load_sun_ephemeris(sun_position_file)
+    )
 
     env = EnvironmentRuntime(
         rng=random.Random(task_config.random_seed),
@@ -496,6 +503,14 @@ def iter_circular_states(
     for time_s in range(0, duration_s + 1, step_s):
         env.time_s = time_s
         env.time_utc = None if start is None else start + dt.timedelta(seconds=time_s)
+        sun_vector = (
+            None
+            if env.time_utc is None or sun_ephemeris is None
+            else sun_vector_from_ephemeris(sun_ephemeris, env.time_utc)
+        )
+        sun_unit = (1.0, 0.0, 0.0) if sun_vector is None else vector_unit(sun_vector)
+        if sun_unit is None:
+            raise ValueError("Sun vector norm must be positive")
 
         for plane in range(planes):
             raan = 2.0 * math.pi * plane / planes
@@ -509,7 +524,7 @@ def iter_circular_states(
                     + mean_motion * time_s
                 )
                 pos, vel = circular_state(radius_km, inclination_rad, raan, arg)
-                sunlit = is_sunlit_cylindrical_shadow(pos)
+                sunlit = is_sunlit_cylindrical_shadow(pos, sun_unit)
 
                 env.satellites[sat_id].update_orbit(
                     pos_km=pos,
@@ -555,7 +570,7 @@ def iter_circular_states(
         )
 
         if step_sink is not None:
-            step_sink(states, circular_snapshot_context())
+            step_sink(states, circular_snapshot_context(sun_vector))
         yield states, task_records
 
 
@@ -698,12 +713,43 @@ def iter_tle_states(
         yield states, task_records
 
 
-def circular_snapshot_context() -> SnapshotContext:
+def circular_snapshot_context(
+    sun_vector: tuple[float, float, float] | None = None,
+) -> SnapshotContext:
+    if sun_vector is None:
+        return SnapshotContext(
+            projection_label="ECI x-y projection; circular orbit model uses fixed +x sun direction",
+            sun_xy_unit=(1.0, 0.0),
+            sun_eci_unit=(1.0, 0.0, 0.0),
+        )
     return SnapshotContext(
-        projection_label="ECI x-y projection; circular orbit model uses fixed +x sun direction",
-        sun_xy_unit=(1.0, 0.0),
-        sun_eci_unit=(1.0, 0.0, 0.0),
+        projection_label="ECI x-y projection; circular orbit model uses ephemeris Sun vector",
+        sun_xy_unit=xy_unit(sun_vector),
+        sun_eci_unit=vector_unit(sun_vector),
     )
+
+
+@lru_cache(maxsize=4)
+def load_sun_ephemeris(sun_position_file: str):
+    try:
+        from skyfield.api import load
+    except ImportError as exc:
+        raise SystemExit(
+            "Skyfield is required for ephemeris Sun positions. Install it with: "
+            "python3 -m pip install -r requirements.txt"
+        ) from exc
+    return load.timescale(), load(sun_position_file)
+
+
+def sun_vector_from_ephemeris(
+    sun_ephemeris,
+    time_utc: dt.datetime,
+) -> tuple[float, float, float]:
+    ts, eph = sun_ephemeris
+    t = ts.from_datetime(time_utc)
+    earth = eph["earth"].at(t)
+    sun = eph["sun"].at(t)
+    return tuple(float(x) for x in (sun.position.km - earth.position.km))
 
 
 def snapshot_context_from_sun_vector(

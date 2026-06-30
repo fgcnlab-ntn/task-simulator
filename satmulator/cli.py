@@ -493,6 +493,7 @@ def run(args: argparse.Namespace) -> int:
                 planes=args.planes,
                 altitude_km=args.altitude_km,
                 inclination_deg=args.inclination_deg,
+                sun_position_file=args.sun_position_file,
                 walker_phase=args.walker_phase,
                 **common,
             )

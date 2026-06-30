@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import math
 import os
@@ -69,6 +70,15 @@ def main() -> int:
     bins = histogram_bins(durations)
     write_pdf_svg(args.out / "eclipse_time_pdf.svg", bins, summary)
     write_cdf_svg(args.out / "eclipse_time_cdf.svg", durations, summary)
+    satellite_sunlit_ratios = satellite_sunlit_ratios_from_csv(
+        args.out / "satellite_sunlit_ratios.csv"
+    )
+    write_satellite_sunlit_ratio_cdf_svg(
+        args.out / "satellite_sunlit_ratio_cdf.svg",
+        satellite_sunlit_ratios,
+        summary=summarize_ratios(satellite_sunlit_ratios),
+        label=constellation_label(run_args),
+    )
     print_eclipse_summary(summary)
     return 0
 
@@ -81,16 +91,20 @@ def run_eclipse_experiment(args: SimpleNamespace) -> list[float]:
     args.out.mkdir(parents=True, exist_ok=True)
     write_json(args.out / "run_config.json", effective_run_config(args))
 
-    battery, task_config, isl_config, scheduler_config = build_configs(args)
+    battery, compute_config, task_config, isl_config, scheduler_config = build_configs(args)
     scheduler = create_scheduler(args.scheduler)
     start = parse_utc_datetime(args.start_utc)
     tracker = EclipseIntervalTracker()
+    sunlit_counts: dict[int, int] = {}
+    sample_counts: dict[int, int] = {}
+    satellite_layout: dict[int, tuple[int, int]] = {}
 
     with (args.out / "eclipse_samples.jsonl").open("w") as samples, (
         args.out / "eclipse_intervals.jsonl"
     ).open("w") as intervals:
         for states, _ in iter_circular_states(
             start=start,
+            sun_position_file=args.sun_position_file,
             satellites=args.satellites,
             planes=args.planes,
             altitude_km=args.altitude_km,
@@ -98,6 +112,7 @@ def run_eclipse_experiment(args: SimpleNamespace) -> list[float]:
             duration_s=args.duration_s,
             step_s=args.step_s,
             battery=battery,
+            compute_config=compute_config,
             task_config=task_config,
             isl_config=isl_config,
             scheduler=scheduler,
@@ -105,6 +120,11 @@ def run_eclipse_experiment(args: SimpleNamespace) -> list[float]:
             walker_phase=args.walker_phase,
         ):
             eclipsed = sum(1 for state in states if not state.sunlit)
+            for state in states:
+                sat_id = int(state.sat_id)
+                sample_counts[sat_id] = sample_counts.get(sat_id, 0) + 1
+                sunlit_counts[sat_id] = sunlit_counts.get(sat_id, 0) + int(state.sunlit)
+                satellite_layout[sat_id] = (int(state.plane), int(state.slot))
             append_json_line(
                 samples,
                 {
@@ -121,6 +141,13 @@ def run_eclipse_experiment(args: SimpleNamespace) -> list[float]:
     durations = tracker.durations_s
     if not durations:
         raise ValueError("no complete eclipse intervals found")
+    write_satellite_sunlit_ratios(
+        args.out / "satellite_sunlit_ratios.csv",
+        args.out / "satellite_sunlit_ratios.json",
+        sunlit_counts=sunlit_counts,
+        sample_counts=sample_counts,
+        satellite_layout=satellite_layout,
+    )
     return durations
 
 
@@ -227,6 +254,86 @@ def summarize_durations(durations_s: list[float]) -> dict[str, object]:
         "p90_min": percentile(ordered, 0.90) / 60.0,
         "max_min": ordered[-1] / 60.0,
     }
+
+
+def write_satellite_sunlit_ratios(
+    csv_path: Path,
+    json_path: Path,
+    *,
+    sunlit_counts: dict[int, int],
+    sample_counts: dict[int, int],
+    satellite_layout: dict[int, tuple[int, int]],
+) -> None:
+    rows = []
+    for sat_id in sorted(sample_counts):
+        samples = sample_counts[sat_id]
+        if samples <= 0:
+            raise ValueError("satellite sample count must be positive")
+        plane, slot = satellite_layout[sat_id]
+        sunlit_samples = sunlit_counts.get(sat_id, 0)
+        rows.append(
+            {
+                "satellite_id": sat_id,
+                "plane": plane,
+                "slot": slot,
+                "samples": samples,
+                "sunlit_samples": sunlit_samples,
+                "sunlit_ratio_pct": 100.0 * sunlit_samples / samples,
+            }
+        )
+    if not rows:
+        raise ValueError("no satellite sunlit-ratio rows found")
+
+    with csv_path.open("w", newline="") as output:
+        writer = csv.DictWriter(
+            output,
+            fieldnames=[
+                "satellite_id",
+                "plane",
+                "slot",
+                "samples",
+                "sunlit_samples",
+                "sunlit_ratio_pct",
+            ],
+        )
+        writer.writeheader()
+        writer.writerows(rows)
+    write_json(
+        json_path,
+        {
+            "schema_version": 1,
+            "satellites": len(rows),
+            "ratios": rows,
+        },
+    )
+
+
+def satellite_sunlit_ratios_from_csv(path: Path) -> list[float]:
+    with path.open(newline="") as stream:
+        ratios = [float(row["sunlit_ratio_pct"]) for row in csv.DictReader(stream)]
+    if not ratios:
+        raise ValueError("no satellite sunlit-ratio rows found")
+    return ratios
+
+
+def summarize_ratios(ratios: list[float]) -> dict[str, float]:
+    ordered = sorted(ratios)
+    return {
+        "count": float(len(ordered)),
+        "min": ordered[0],
+        "mean": statistics.fmean(ordered),
+        "p25": percentile(ordered, 0.25),
+        "median": percentile(ordered, 0.50),
+        "p75": percentile(ordered, 0.75),
+        "max": ordered[-1],
+    }
+
+
+def constellation_label(args: SimpleNamespace) -> str:
+    name = str(args.run_name).strip()
+    if name and name != "eclipse_time":
+        return name
+    return f"{int(args.satellites)} satellites, {int(args.planes)} planes"
 
 
 def percentile(ordered: list[float], q: float) -> float:
@@ -354,6 +461,11 @@ def write_pdf_svg(path: Path, bins: list[dict[str, float]], summary: dict[str, o
     plt = _pyplot()
     lefts = [bin_["left"] for bin_ in bins]
     widths = [bin_["right"] - bin_["left"] for bin_ in bins]
+    centers = [left + width / 2 for left, width in zip(lefts, widths)]
+    range_labels = [
+        f"{bin_['left']:.0f}–{bin_['right']:.0f}"
+        for bin_ in bins
+    ]
     shares_pct = [100.0 * bin_["share"] for bin_ in bins]
     bin_width_s = widths[0] if widths else 0.0
 
@@ -367,9 +479,11 @@ def write_pdf_svg(path: Path, bins: list[dict[str, float]], summary: dict[str, o
         edgecolor="white",
         linewidth=1.0,
     )
-    ax.set_xlabel("Eclipse duration t")
+    ax.set_xlabel("Eclipse duration range (s)")
     ax.set_ylabel("Share of eclipse intervals (%)")
     ax.set_title("Distribution of eclipse duration")
+    ax.set_xticks(centers)
+    ax.set_xticklabels(range_labels, rotation=45, ha="right", fontsize=9)
     ax.grid(axis="y", alpha=0.7)
     ax.set_xlim(lefts[0], bins[-1]["right"])
     ax.set_ylim(0.0, max(shares_pct) * 1.18 if shares_pct else 1.0)
@@ -400,6 +514,52 @@ def write_cdf_svg(path: Path, durations_s: list[float], summary: dict[str, objec
     ax.set_ylim(0.0, 1.02)
     ax.set_xlim(values[0], values[-1])
     ax.grid(True, alpha=0.7)
+    fig.savefig(path, format="svg")
+    plt.close(fig)
+
+
+def write_satellite_sunlit_ratio_cdf_svg(
+    path: Path,
+    sunlit_ratios_pct: list[float],
+    *,
+    summary: dict[str, float],
+    label: str,
+) -> None:
+    plt = _pyplot()
+    values = sorted(sunlit_ratios_pct)
+    cdf = [(index + 1) / len(values) for index in range(len(values))]
+
+    fig, ax = plt.subplots(figsize=(7.6, 4.8))
+    ax.step(values, cdf, where="post", color="#1f77b4", linewidth=2.8, label=label)
+    ax.set_xlabel("Sunlit Ratio (%)")
+    ax.set_ylabel("CDF")
+    ax.set_title("CDF of per-satellite sunlit ratio")
+    ax.set_ylim(0.0, 1.02)
+    # Keep the same visual frame as the constellation-comparison plot this
+    # figure mirrors.  A single Walker shell has a narrow range, and autoscale
+    # would make tiny fluctuations look larger than they are.
+    if 60.0 <= values[0] and values[-1] <= 100.0:
+        ax.set_xlim(60.0, 100.0)
+    else:
+        ax.set_xlim(
+            max(0.0, math.floor(values[0] - 1.0)),
+            min(100.0, math.ceil(values[-1] + 1.0)),
+        )
+    ax.grid(True, alpha=0.7)
+    ax.legend(loc="lower right", framealpha=0.94)
+    ax.text(
+        0.02,
+        0.96,
+        f"satellites={int(summary['count'])}\n"
+        f"min={summary['min']:.1f}%\n"
+        f"mean={summary['mean']:.1f}%\n"
+        f"max={summary['max']:.1f}%",
+        transform=ax.transAxes,
+        ha="left",
+        va="top",
+        fontsize=10,
+        bbox={"boxstyle": "round,pad=0.25", "facecolor": "white", "edgecolor": "#cccccc"},
+    )
     fig.savefig(path, format="svg")
     plt.close(fig)
 

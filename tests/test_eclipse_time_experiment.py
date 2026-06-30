@@ -52,6 +52,23 @@ class EclipseTimeExperimentTests(unittest.TestCase):
         self.assertEqual(summary["mean_min"], 30.666666666666668)
         self.assertEqual(summary["max_min"], 36.0)
 
+    def test_satellite_sunlit_ratios_are_written_and_loaded(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            eclipse_time_experiment.write_satellite_sunlit_ratios(
+                output / "ratios.csv",
+                output / "ratios.json",
+                sunlit_counts={0: 6, 1: 7},
+                sample_counts={0: 10, 1: 10},
+                satellite_layout={0: (0, 0), 1: (0, 1)},
+            )
+
+            ratios = eclipse_time_experiment.satellite_sunlit_ratios_from_csv(
+                output / "ratios.csv"
+            )
+
+        self.assertEqual(ratios, [60.0, 70.0])
+
 
 if __name__ == "__main__":
     unittest.main()
