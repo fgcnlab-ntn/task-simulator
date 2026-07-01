@@ -22,6 +22,7 @@ from satmulator.cli import (
     load_standalone_json_config,
     parse_utc_datetime,
     validate_args,
+    walker_raan_spread_deg,
 )
 from satmulator.orbit import iter_circular_states
 from satmulator.runlog import append_json_line, iter_state_steps, write_json
@@ -50,7 +51,6 @@ def main() -> int:
     values["out"] = args.out
     values["config"] = args.config
     values["plot_run"] = None
-    values["run_name"] = "eclipse_time"
     values["run_description"] = (
         "No-task eclipse-duration experiment for the configured constellation"
     )
@@ -118,6 +118,7 @@ def run_eclipse_experiment(args: SimpleNamespace) -> list[float]:
             scheduler=scheduler,
             scheduler_config=scheduler_config,
             walker_phase=args.walker_phase,
+            raan_spread_deg=walker_raan_spread_deg(args),
         ):
             eclipsed = sum(1 for state in states if not state.sunlit)
             for state in states:

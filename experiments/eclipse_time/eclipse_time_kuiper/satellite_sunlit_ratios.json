@@ -1,0 +1,6278 @@
+{
+  "ratios": [
+    {
+      "plane": 0,
+      "samples": 1441,
+      "satellite_id": 0,
+      "slot": 0,
+      "sunlit_ratio_pct": 65.51006245662734,
+      "sunlit_samples": 944
+    },
+    {
+      "plane": 0,
+      "samples": 1441,
+      "satellite_id": 1,
+      "slot": 1,
+      "sunlit_ratio_pct": 65.30187369882026,
+      "sunlit_samples": 941
+    },
+    {
+      "plane": 0,
+      "samples": 1441,
+      "satellite_id": 2,
+      "slot": 2,
+      "sunlit_ratio_pct": 64.81609993060374,
+      "sunlit_samples": 934
+    },
+    {
+      "plane": 0,
+      "samples": 1441,
+      "satellite_id": 3,
+      "slot": 3,
+      "sunlit_ratio_pct": 64.33032616238724,
+      "sunlit_samples": 927
+    },
+    {
+      "plane": 0,
+      "samples": 1441,
+      "satellite_id": 4,
+      "slot": 4,
+      "sunlit_ratio_pct": 64.3997224149896,
+      "sunlit_samples": 928
+    },
+    {
+      "plane": 0,
+      "samples": 1441,
+      "satellite_id": 5,
+      "slot": 5,
+      "sunlit_ratio_pct": 63.91394864677307,
+      "sunlit_samples": 921
+    },
+    {
+      "plane": 0,
+      "samples": 1441,
+      "satellite_id": 6,
+      "slot": 6,
+      "sunlit_ratio_pct": 63.08119361554476,
+      "sunlit_samples": 909
+    },
+    {
+      "plane": 0,
+      "samples": 1441,
+      "satellite_id": 7,
+      "slot": 7,
+      "sunlit_ratio_pct": 62.456627342123525,
+      "sunlit_samples": 900
+    },
+    {
+      "plane": 0,
+      "samples": 1441,
+      "satellite_id": 8,
+      "slot": 8,
+      "sunlit_ratio_pct": 61.97085357390701,
+      "sunlit_samples": 893
+    },
+    {
+      "plane": 0,
+      "samples": 1441,
+      "satellite_id": 9,
+      "slot": 9,
+      "sunlit_ratio_pct": 61.48507980569049,
+      "sunlit_samples": 886
+    },
+    {
+      "plane": 0,
+      "samples": 1441,
+      "satellite_id": 10,
+      "slot": 10,
+      "sunlit_ratio_pct": 60.99930603747398,
+      "sunlit_samples": 879
+    },
+    {
+      "plane": 0,
+      "samples": 1441,
+      "satellite_id": 11,
+      "slot": 11,
+      "sunlit_ratio_pct": 60.58292852185982,
+      "sunlit_samples": 873
+    },
+    {
+      "plane": 0,
+      "samples": 1441,
+      "satellite_id": 12,
+      "slot": 12,
+      "sunlit_ratio_pct": 60.58292852185982,
+      "sunlit_samples": 873
+    },
+    {
+      "plane": 0,
+      "samples": 1441,
+      "satellite_id": 13,
+      "slot": 13,
+      "sunlit_ratio_pct": 60.99930603747398,
+      "sunlit_samples": 879
+    },
+    {
+      "plane": 0,
+      "samples": 1441,
+      "satellite_id": 14,
+      "slot": 14,
+      "sunlit_ratio_pct": 61.27689104788342,
+      "sunlit_samples": 883
+    },
+    {
+      "plane": 0,
+      "samples": 1441,
+      "satellite_id": 15,
+      "slot": 15,
+      "sunlit_ratio_pct": 61.55447605829285,
+      "sunlit_samples": 887
+    },
+    {
+      "plane": 0,
+      "samples": 1441,
+      "satellite_id": 16,
+      "slot": 16,
+      "sunlit_ratio_pct": 61.69326856349757,
+      "sunlit_samples": 889
+    },
+    {
+      "plane": 0,
+      "samples": 1441,
+      "satellite_id": 17,
+      "slot": 17,
+      "sunlit_ratio_pct": 62.179042331714086,
+      "sunlit_samples": 896
+    },
+    {
+      "plane": 0,
+      "samples": 1441,
+      "satellite_id": 18,
+      "slot": 18,
+      "sunlit_ratio_pct": 62.664816099930604,
+      "sunlit_samples": 903
+    },
+    {
+      "plane": 0,
+      "samples": 1441,
+      "satellite_id": 19,
+      "slot": 19,
+      "sunlit_ratio_pct": 63.15058986814712,
+      "sunlit_samples": 910
+    },
+    {
+      "plane": 0,
+      "samples": 1441,
+      "satellite_id": 20,
+      "slot": 20,
+      "sunlit_ratio_pct": 63.63636363636363,
+      "sunlit_samples": 917
+    },
+    {
+      "plane": 0,
+      "samples": 1441,
+      "satellite_id": 21,
+      "slot": 21,
+      "sunlit_ratio_pct": 64.12213740458016,
+      "sunlit_samples": 924
+    },
+    {
+      "plane": 0,
+      "samples": 1441,
+      "satellite_id": 22,
+      "slot": 22,
+      "sunlit_ratio_pct": 64.81609993060374,
+      "sunlit_samples": 934
+    },
+    {
+      "plane": 0,
+      "samples": 1441,
+      "satellite_id": 23,
+      "slot": 23,
+      "sunlit_ratio_pct": 65.5794587092297,
+      "sunlit_samples": 945
+    },
+    {
+      "plane": 0,
+      "samples": 1441,
+      "satellite_id": 24,
+      "slot": 24,
+      "sunlit_ratio_pct": 65.99583622484386,
+      "sunlit_samples": 951
+    },
+    {
+      "plane": 0,
+      "samples": 1441,
+      "satellite_id": 25,
+      "slot": 25,
+      "sunlit_ratio_pct": 65.51006245662734,
+      "sunlit_samples": 944
+    },
+    {
+      "plane": 0,
+      "samples": 1441,
+      "satellite_id": 26,
+      "slot": 26,
+      "sunlit_ratio_pct": 65.51006245662734,
+      "sunlit_samples": 944
+    },
+    {
+      "plane": 0,
+      "samples": 1441,
+      "satellite_id": 27,
+      "slot": 27,
+      "sunlit_ratio_pct": 65.51006245662734,
+      "sunlit_samples": 944
+    },
+    {
+      "plane": 1,
+      "samples": 1441,
+      "satellite_id": 28,
+      "slot": 0,
+      "sunlit_ratio_pct": 65.37126995142262,
+      "sunlit_samples": 942
+    },
+    {
+      "plane": 1,
+      "samples": 1441,
+      "satellite_id": 29,
+      "slot": 1,
+      "sunlit_ratio_pct": 64.8854961832061,
+      "sunlit_samples": 935
+    },
+    {
+      "plane": 1,
+      "samples": 1441,
+      "satellite_id": 30,
+      "slot": 2,
+      "sunlit_ratio_pct": 64.3997224149896,
+      "sunlit_samples": 928
+    },
+    {
+      "plane": 1,
+      "samples": 1441,
+      "satellite_id": 31,
+      "slot": 3,
+      "sunlit_ratio_pct": 63.91394864677307,
+      "sunlit_samples": 921
+    },
+    {
+      "plane": 1,
+      "samples": 1441,
+      "satellite_id": 32,
+      "slot": 4,
+      "sunlit_ratio_pct": 63.42817487855656,
+      "sunlit_samples": 914
+    },
+    {
+      "plane": 1,
+      "samples": 1441,
+      "satellite_id": 33,
+      "slot": 5,
+      "sunlit_ratio_pct": 62.94240111034004,
+      "sunlit_samples": 907
+    },
+    {
+      "plane": 1,
+      "samples": 1441,
+      "satellite_id": 34,
+      "slot": 6,
+      "sunlit_ratio_pct": 62.456627342123525,
+      "sunlit_samples": 900
+    },
+    {
+      "plane": 1,
+      "samples": 1441,
+      "satellite_id": 35,
+      "slot": 7,
+      "sunlit_ratio_pct": 61.97085357390701,
+      "sunlit_samples": 893
+    },
+    {
+      "plane": 1,
+      "samples": 1441,
+      "satellite_id": 36,
+      "slot": 8,
+      "sunlit_ratio_pct": 61.69326856349757,
+      "sunlit_samples": 889
+    },
+    {
+      "plane": 1,
+      "samples": 1441,
+      "satellite_id": 37,
+      "slot": 9,
+      "sunlit_ratio_pct": 61.06870229007634,
+      "sunlit_samples": 880
+    },
+    {
+      "plane": 1,
+      "samples": 1441,
+      "satellite_id": 38,
+      "slot": 10,
+      "sunlit_ratio_pct": 60.58292852185982,
+      "sunlit_samples": 873
+    },
+    {
+      "plane": 1,
+      "samples": 1441,
+      "satellite_id": 39,
+      "slot": 11,
+      "sunlit_ratio_pct": 60.58292852185982,
+      "sunlit_samples": 873
+    },
+    {
+      "plane": 1,
+      "samples": 1441,
+      "satellite_id": 40,
+      "slot": 12,
+      "sunlit_ratio_pct": 60.58292852185982,
+      "sunlit_samples": 873
+    },
+    {
+      "plane": 1,
+      "samples": 1441,
+      "satellite_id": 41,
+      "slot": 13,
+      "sunlit_ratio_pct": 60.72172102706454,
+      "sunlit_samples": 875
+    },
+    {
+      "plane": 1,
+      "samples": 1441,
+      "satellite_id": 42,
+      "slot": 14,
+      "sunlit_ratio_pct": 61.20749479528106,
+      "sunlit_samples": 882
+    },
+    {
+      "plane": 1,
+      "samples": 1441,
+      "satellite_id": 43,
+      "slot": 15,
+      "sunlit_ratio_pct": 61.69326856349757,
+      "sunlit_samples": 889
+    },
+    {
+      "plane": 1,
+      "samples": 1441,
+      "satellite_id": 44,
+      "slot": 16,
+      "sunlit_ratio_pct": 62.179042331714086,
+      "sunlit_samples": 896
+    },
+    {
+      "plane": 1,
+      "samples": 1441,
+      "satellite_id": 45,
+      "slot": 17,
+      "sunlit_ratio_pct": 62.734212352532964,
+      "sunlit_samples": 904
+    },
+    {
+      "plane": 1,
+      "samples": 1441,
+      "satellite_id": 46,
+      "slot": 18,
+      "sunlit_ratio_pct": 63.15058986814712,
+      "sunlit_samples": 910
+    },
+    {
+      "plane": 1,
+      "samples": 1441,
+      "satellite_id": 47,
+      "slot": 19,
+      "sunlit_ratio_pct": 63.56696738376127,
+      "sunlit_samples": 916
+    },
+    {
+      "plane": 1,
+      "samples": 1441,
+      "satellite_id": 48,
+      "slot": 20,
+      "sunlit_ratio_pct": 64.0527411519778,
+      "sunlit_samples": 923
+    },
+    {
+      "plane": 1,
+      "samples": 1441,
+      "satellite_id": 49,
+      "slot": 21,
+      "sunlit_ratio_pct": 64.53851492019432,
+      "sunlit_samples": 930
+    },
+    {
+      "plane": 1,
+      "samples": 1441,
+      "satellite_id": 50,
+      "slot": 22,
+      "sunlit_ratio_pct": 65.02428868841082,
+      "sunlit_samples": 937
+    },
+    {
+      "plane": 1,
+      "samples": 1441,
+      "satellite_id": 51,
+      "slot": 23,
+      "sunlit_ratio_pct": 65.51006245662734,
+      "sunlit_samples": 944
+    },
+    {
+      "plane": 1,
+      "samples": 1441,
+      "satellite_id": 52,
+      "slot": 24,
+      "sunlit_ratio_pct": 65.51006245662734,
+      "sunlit_samples": 944
+    },
+    {
+      "plane": 1,
+      "samples": 1441,
+      "satellite_id": 53,
+      "slot": 25,
+      "sunlit_ratio_pct": 65.51006245662734,
+      "sunlit_samples": 944
+    },
+    {
+      "plane": 1,
+      "samples": 1441,
+      "satellite_id": 54,
+      "slot": 26,
+      "sunlit_ratio_pct": 65.51006245662734,
+      "sunlit_samples": 944
+    },
+    {
+      "plane": 1,
+      "samples": 1441,
+      "satellite_id": 55,
+      "slot": 27,
+      "sunlit_ratio_pct": 65.78764746703678,
+      "sunlit_samples": 948
+    },
+    {
+      "plane": 2,
+      "samples": 1441,
+      "satellite_id": 56,
+      "slot": 0,
+      "sunlit_ratio_pct": 64.74670367800138,
+      "sunlit_samples": 933
+    },
+    {
+      "plane": 2,
+      "samples": 1441,
+      "satellite_id": 57,
+      "slot": 1,
+      "sunlit_ratio_pct": 64.46911866759196,
+      "sunlit_samples": 929
+    },
+    {
+      "plane": 2,
+      "samples": 1441,
+      "satellite_id": 58,
+      "slot": 2,
+      "sunlit_ratio_pct": 63.98334489937543,
+      "sunlit_samples": 922
+    },
+    {
+      "plane": 2,
+      "samples": 1441,
+      "satellite_id": 59,
+      "slot": 3,
+      "sunlit_ratio_pct": 63.49757113115892,
+      "sunlit_samples": 915
+    },
+    {
+      "plane": 2,
+      "samples": 1441,
+      "satellite_id": 60,
+      "slot": 4,
+      "sunlit_ratio_pct": 63.0117973629424,
+      "sunlit_samples": 908
+    },
+    {
+      "plane": 2,
+      "samples": 1441,
+      "satellite_id": 61,
+      "slot": 5,
+      "sunlit_ratio_pct": 62.526023594725885,
+      "sunlit_samples": 901
+    },
+    {
+      "plane": 2,
+      "samples": 1441,
+      "satellite_id": 62,
+      "slot": 6,
+      "sunlit_ratio_pct": 62.04024982650937,
+      "sunlit_samples": 894
+    },
+    {
+      "plane": 2,
+      "samples": 1441,
+      "satellite_id": 63,
+      "slot": 7,
+      "sunlit_ratio_pct": 61.55447605829285,
+      "sunlit_samples": 887
+    },
+    {
+      "plane": 2,
+      "samples": 1441,
+      "satellite_id": 64,
+      "slot": 8,
+      "sunlit_ratio_pct": 61.06870229007634,
+      "sunlit_samples": 880
+    },
+    {
+      "plane": 2,
+      "samples": 1441,
+      "satellite_id": 65,
+      "slot": 9,
+      "sunlit_ratio_pct": 60.4441360166551,
+      "sunlit_samples": 871
+    },
+    {
+      "plane": 2,
+      "samples": 1441,
+      "satellite_id": 66,
+      "slot": 10,
+      "sunlit_ratio_pct": 60.58292852185982,
+      "sunlit_samples": 873
+    },
+    {
+      "plane": 2,
+      "samples": 1441,
+      "satellite_id": 67,
+      "slot": 11,
+      "sunlit_ratio_pct": 60.58292852185982,
+      "sunlit_samples": 873
+    },
+    {
+      "plane": 2,
+      "samples": 1441,
+      "satellite_id": 68,
+      "slot": 12,
+      "sunlit_ratio_pct": 60.65232477446218,
+      "sunlit_samples": 874
+    },
+    {
+      "plane": 2,
+      "samples": 1441,
+      "satellite_id": 69,
+      "slot": 13,
+      "sunlit_ratio_pct": 61.1380985426787,
+      "sunlit_samples": 881
+    },
+    {
+      "plane": 2,
+      "samples": 1441,
+      "satellite_id": 70,
+      "slot": 14,
+      "sunlit_ratio_pct": 61.62387231089521,
+      "sunlit_samples": 888
+    },
+    {
+      "plane": 2,
+      "samples": 1441,
+      "satellite_id": 71,
+      "slot": 15,
+      "sunlit_ratio_pct": 62.10964607911173,
+      "sunlit_samples": 895
+    },
+    {
+      "plane": 2,
+      "samples": 1441,
+      "satellite_id": 72,
+      "slot": 16,
+      "sunlit_ratio_pct": 62.595419847328245,
+      "sunlit_samples": 902
+    },
+    {
+      "plane": 2,
+      "samples": 1441,
+      "satellite_id": 73,
+      "slot": 17,
+      "sunlit_ratio_pct": 63.08119361554476,
+      "sunlit_samples": 909
+    },
+    {
+      "plane": 2,
+      "samples": 1441,
+      "satellite_id": 74,
+      "slot": 18,
+      "sunlit_ratio_pct": 63.56696738376127,
+      "sunlit_samples": 916
+    },
+    {
+      "plane": 2,
+      "samples": 1441,
+      "satellite_id": 75,
+      "slot": 19,
+      "sunlit_ratio_pct": 63.84455239417071,
+      "sunlit_samples": 920
+    },
+    {
+      "plane": 2,
+      "samples": 1441,
+      "satellite_id": 76,
+      "slot": 20,
+      "sunlit_ratio_pct": 64.46911866759196,
+      "sunlit_samples": 929
+    },
+    {
+      "plane": 2,
+      "samples": 1441,
+      "satellite_id": 77,
+      "slot": 21,
+      "sunlit_ratio_pct": 64.95489243580846,
+      "sunlit_samples": 936
+    },
+    {
+      "plane": 2,
+      "samples": 1441,
+      "satellite_id": 78,
+      "slot": 22,
+      "sunlit_ratio_pct": 65.44066620402498,
+      "sunlit_samples": 943
+    },
+    {
+      "plane": 2,
+      "samples": 1441,
+      "satellite_id": 79,
+      "slot": 23,
+      "sunlit_ratio_pct": 65.51006245662734,
+      "sunlit_samples": 944
+    },
+    {
+      "plane": 2,
+      "samples": 1441,
+      "satellite_id": 80,
+      "slot": 24,
+      "sunlit_ratio_pct": 65.51006245662734,
+      "sunlit_samples": 944
+    },
+    {
+      "plane": 2,
+      "samples": 1441,
+      "satellite_id": 81,
+      "slot": 25,
+      "sunlit_ratio_pct": 65.51006245662734,
+      "sunlit_samples": 944
+    },
+    {
+      "plane": 2,
+      "samples": 1441,
+      "satellite_id": 82,
+      "slot": 26,
+      "sunlit_ratio_pct": 65.51006245662734,
+      "sunlit_samples": 944
+    },
+    {
+      "plane": 2,
+      "samples": 1441,
+      "satellite_id": 83,
+      "slot": 27,
+      "sunlit_ratio_pct": 65.37126995142262,
+      "sunlit_samples": 942
+    },
+    {
+      "plane": 3,
+      "samples": 1441,
+      "satellite_id": 84,
+      "slot": 0,
+      "sunlit_ratio_pct": 64.60791117279666,
+      "sunlit_samples": 931
+    },
+    {
+      "plane": 3,
+      "samples": 1441,
+      "satellite_id": 85,
+      "slot": 1,
+      "sunlit_ratio_pct": 64.0527411519778,
+      "sunlit_samples": 923
+    },
+    {
+      "plane": 3,
+      "samples": 1441,
+      "satellite_id": 86,
+      "slot": 2,
+      "sunlit_ratio_pct": 63.56696738376127,
+      "sunlit_samples": 916
+    },
+    {
+      "plane": 3,
+      "samples": 1441,
+      "satellite_id": 87,
+      "slot": 3,
+      "sunlit_ratio_pct": 63.08119361554476,
+      "sunlit_samples": 909
+    },
+    {
+      "plane": 3,
+      "samples": 1441,
+      "satellite_id": 88,
+      "slot": 4,
+      "sunlit_ratio_pct": 62.595419847328245,
+      "sunlit_samples": 902
+    },
+    {
+      "plane": 3,
+      "samples": 1441,
+      "satellite_id": 89,
+      "slot": 5,
+      "sunlit_ratio_pct": 62.10964607911173,
+      "sunlit_samples": 895
+    },
+    {
+      "plane": 3,
+      "samples": 1441,
+      "satellite_id": 90,
+      "slot": 6,
+      "sunlit_ratio_pct": 61.62387231089521,
+      "sunlit_samples": 888
+    },
+    {
+      "plane": 3,
+      "samples": 1441,
+      "satellite_id": 91,
+      "slot": 7,
+      "sunlit_ratio_pct": 61.1380985426787,
+      "sunlit_samples": 881
+    },
+    {
+      "plane": 3,
+      "samples": 1441,
+      "satellite_id": 92,
+      "slot": 8,
+      "sunlit_ratio_pct": 61.06870229007634,
+      "sunlit_samples": 880
+    },
+    {
+      "plane": 3,
+      "samples": 1441,
+      "satellite_id": 93,
+      "slot": 9,
+      "sunlit_ratio_pct": 60.92990978487162,
+      "sunlit_samples": 878
+    },
+    {
+      "plane": 3,
+      "samples": 1441,
+      "satellite_id": 94,
+      "slot": 10,
+      "sunlit_ratio_pct": 60.58292852185982,
+      "sunlit_samples": 873
+    },
+    {
+      "plane": 3,
+      "samples": 1441,
+      "satellite_id": 95,
+      "slot": 11,
+      "sunlit_ratio_pct": 60.58292852185982,
+      "sunlit_samples": 873
+    },
+    {
+      "plane": 3,
+      "samples": 1441,
+      "satellite_id": 96,
+      "slot": 12,
+      "sunlit_ratio_pct": 61.06870229007634,
+      "sunlit_samples": 880
+    },
+    {
+      "plane": 3,
+      "samples": 1441,
+      "satellite_id": 97,
+      "slot": 13,
+      "sunlit_ratio_pct": 61.55447605829285,
+      "sunlit_samples": 887
+    },
+    {
+      "plane": 3,
+      "samples": 1441,
+      "satellite_id": 98,
+      "slot": 14,
+      "sunlit_ratio_pct": 62.04024982650937,
+      "sunlit_samples": 894
+    },
+    {
+      "plane": 3,
+      "samples": 1441,
+      "satellite_id": 99,
+      "slot": 15,
+      "sunlit_ratio_pct": 62.526023594725885,
+      "sunlit_samples": 901
+    },
+    {
+      "plane": 3,
+      "samples": 1441,
+      "satellite_id": 100,
+      "slot": 16,
+      "sunlit_ratio_pct": 63.0117973629424,
+      "sunlit_samples": 908
+    },
+    {
+      "plane": 3,
+      "samples": 1441,
+      "satellite_id": 101,
+      "slot": 17,
+      "sunlit_ratio_pct": 63.70575988896599,
+      "sunlit_samples": 918
+    },
+    {
+      "plane": 3,
+      "samples": 1441,
+      "satellite_id": 102,
+      "slot": 18,
+      "sunlit_ratio_pct": 64.3997224149896,
+      "sunlit_samples": 928
+    },
+    {
+      "plane": 3,
+      "samples": 1441,
+      "satellite_id": 103,
+      "slot": 19,
+      "sunlit_ratio_pct": 64.3997224149896,
+      "sunlit_samples": 928
+    },
+    {
+      "plane": 3,
+      "samples": 1441,
+      "satellite_id": 104,
+      "slot": 20,
+      "sunlit_ratio_pct": 64.8854961832061,
+      "sunlit_samples": 935
+    },
+    {
+      "plane": 3,
+      "samples": 1441,
+      "satellite_id": 105,
+      "slot": 21,
+      "sunlit_ratio_pct": 65.37126995142262,
+      "sunlit_samples": 942
+    },
+    {
+      "plane": 3,
+      "samples": 1441,
+      "satellite_id": 106,
+      "slot": 22,
+      "sunlit_ratio_pct": 65.51006245662734,
+      "sunlit_samples": 944
+    },
+    {
+      "plane": 3,
+      "samples": 1441,
+      "satellite_id": 107,
+      "slot": 23,
+      "sunlit_ratio_pct": 65.51006245662734,
+      "sunlit_samples": 944
+    },
+    {
+      "plane": 3,
+      "samples": 1441,
+      "satellite_id": 108,
+      "slot": 24,
+      "sunlit_ratio_pct": 65.51006245662734,
+      "sunlit_samples": 944
+    },
+    {
+      "plane": 3,
+      "samples": 1441,
+      "satellite_id": 109,
+      "slot": 25,
+      "sunlit_ratio_pct": 65.51006245662734,
+      "sunlit_samples": 944
+    },
+    {
+      "plane": 3,
+      "samples": 1441,
+      "satellite_id": 110,
+      "slot": 26,
+      "sunlit_ratio_pct": 65.51006245662734,
+      "sunlit_samples": 944
+    },
+    {
+      "plane": 3,
+      "samples": 1441,
+      "satellite_id": 111,
+      "slot": 27,
+      "sunlit_ratio_pct": 65.51006245662734,
+      "sunlit_samples": 944
+    },
+    {
+      "plane": 4,
+      "samples": 1441,
+      "satellite_id": 112,
+      "slot": 0,
+      "sunlit_ratio_pct": 64.46911866759196,
+      "sunlit_samples": 929
+    },
+    {
+      "plane": 4,
+      "samples": 1441,
+      "satellite_id": 113,
+      "slot": 1,
+      "sunlit_ratio_pct": 63.63636363636363,
+      "sunlit_samples": 917
+    },
+    {
+      "plane": 4,
+      "samples": 1441,
+      "satellite_id": 114,
+      "slot": 2,
+      "sunlit_ratio_pct": 63.15058986814712,
+      "sunlit_samples": 910
+    },
+    {
+      "plane": 4,
+      "samples": 1441,
+      "satellite_id": 115,
+      "slot": 3,
+      "sunlit_ratio_pct": 62.803608605135324,
+      "sunlit_samples": 905
+    },
+    {
+      "plane": 4,
+      "samples": 1441,
+      "satellite_id": 116,
+      "slot": 4,
+      "sunlit_ratio_pct": 62.734212352532964,
+      "sunlit_samples": 904
+    },
+    {
+      "plane": 4,
+      "samples": 1441,
+      "satellite_id": 117,
+      "slot": 5,
+      "sunlit_ratio_pct": 62.248438584316446,
+      "sunlit_samples": 897
+    },
+    {
+      "plane": 4,
+      "samples": 1441,
+      "satellite_id": 118,
+      "slot": 6,
+      "sunlit_ratio_pct": 61.76266481609993,
+      "sunlit_samples": 890
+    },
+    {
+      "plane": 4,
+      "samples": 1441,
+      "satellite_id": 119,
+      "slot": 7,
+      "sunlit_ratio_pct": 61.27689104788342,
+      "sunlit_samples": 883
+    },
+    {
+      "plane": 4,
+      "samples": 1441,
+      "satellite_id": 120,
+      "slot": 8,
+      "sunlit_ratio_pct": 61.1380985426787,
+      "sunlit_samples": 881
+    },
+    {
+      "plane": 4,
+      "samples": 1441,
+      "satellite_id": 121,
+      "slot": 9,
+      "sunlit_ratio_pct": 61.1380985426787,
+      "sunlit_samples": 881
+    },
+    {
+      "plane": 4,
+      "samples": 1441,
+      "satellite_id": 122,
+      "slot": 10,
+      "sunlit_ratio_pct": 60.58292852185982,
+      "sunlit_samples": 873
+    },
+    {
+      "plane": 4,
+      "samples": 1441,
+      "satellite_id": 123,
+      "slot": 11,
+      "sunlit_ratio_pct": 60.99930603747398,
+      "sunlit_samples": 879
+    },
+    {
+      "plane": 4,
+      "samples": 1441,
+      "satellite_id": 124,
+      "slot": 12,
+      "sunlit_ratio_pct": 61.48507980569049,
+      "sunlit_samples": 886
+    },
+    {
+      "plane": 4,
+      "samples": 1441,
+      "satellite_id": 125,
+      "slot": 13,
+      "sunlit_ratio_pct": 62.387231089521165,
+      "sunlit_samples": 899
+    },
+    {
+      "plane": 4,
+      "samples": 1441,
+      "satellite_id": 126,
+      "slot": 14,
+      "sunlit_ratio_pct": 62.94240111034004,
+      "sunlit_samples": 907
+    },
+    {
+      "plane": 4,
+      "samples": 1441,
+      "satellite_id": 127,
+      "slot": 15,
+      "sunlit_ratio_pct": 63.42817487855656,
+      "sunlit_samples": 914
+    },
+    {
+      "plane": 4,
+      "samples": 1441,
+      "satellite_id": 128,
+      "slot": 16,
+      "sunlit_ratio_pct": 63.91394864677307,
+      "sunlit_samples": 921
+    },
+    {
+      "plane": 4,
+      "samples": 1441,
+      "satellite_id": 129,
+      "slot": 17,
+      "sunlit_ratio_pct": 64.3997224149896,
+      "sunlit_samples": 928
+    },
+    {
+      "plane": 4,
+      "samples": 1441,
+      "satellite_id": 130,
+      "slot": 18,
+      "sunlit_ratio_pct": 64.8854961832061,
+      "sunlit_samples": 935
+    },
+    {
+      "plane": 4,
+      "samples": 1441,
+      "satellite_id": 131,
+      "slot": 19,
+      "sunlit_ratio_pct": 65.02428868841082,
+      "sunlit_samples": 937
+    },
+    {
+      "plane": 4,
+      "samples": 1441,
+      "satellite_id": 132,
+      "slot": 20,
+      "sunlit_ratio_pct": 65.30187369882026,
+      "sunlit_samples": 941
+    },
+    {
+      "plane": 4,
+      "samples": 1441,
+      "satellite_id": 133,
+      "slot": 21,
+      "sunlit_ratio_pct": 65.51006245662734,
+      "sunlit_samples": 944
+    },
+    {
+      "plane": 4,
+      "samples": 1441,
+      "satellite_id": 134,
+      "slot": 22,
+      "sunlit_ratio_pct": 65.78764746703678,
+      "sunlit_samples": 948
+    },
+    {
+      "plane": 4,
+      "samples": 1441,
+      "satellite_id": 135,
+      "slot": 23,
+      "sunlit_ratio_pct": 65.99583622484386,
+      "sunlit_samples": 951
+    },
+    {
+      "plane": 4,
+      "samples": 1441,
+      "satellite_id": 136,
+      "slot": 24,
+      "sunlit_ratio_pct": 65.99583622484386,
+      "sunlit_samples": 951
+    },
+    {
+      "plane": 4,
+      "samples": 1441,
+      "satellite_id": 137,
+      "slot": 25,
+      "sunlit_ratio_pct": 65.99583622484386,
+      "sunlit_samples": 951
+    },
+    {
+      "plane": 4,
+      "samples": 1441,
+      "satellite_id": 138,
+      "slot": 26,
+      "sunlit_ratio_pct": 65.5794587092297,
+      "sunlit_samples": 945
+    },
+    {
+      "plane": 4,
+      "samples": 1441,
+      "satellite_id": 139,
+      "slot": 27,
+      "sunlit_ratio_pct": 65.09368494101318,
+      "sunlit_samples": 938
+    },
+    {
+      "plane": 5,
+      "samples": 1441,
+      "satellite_id": 140,
+      "slot": 0,
+      "sunlit_ratio_pct": 64.74670367800138,
+      "sunlit_samples": 933
+    },
+    {
+      "plane": 5,
+      "samples": 1441,
+      "satellite_id": 141,
+      "slot": 1,
+      "sunlit_ratio_pct": 64.26092990978488,
+      "sunlit_samples": 926
+    },
+    {
+      "plane": 5,
+      "samples": 1441,
+      "satellite_id": 142,
+      "slot": 2,
+      "sunlit_ratio_pct": 63.77515614156835,
+      "sunlit_samples": 919
+    },
+    {
+      "plane": 5,
+      "samples": 1441,
+      "satellite_id": 143,
+      "slot": 3,
+      "sunlit_ratio_pct": 63.0117973629424,
+      "sunlit_samples": 908
+    },
+    {
+      "plane": 5,
+      "samples": 1441,
+      "satellite_id": 144,
+      "slot": 4,
+      "sunlit_ratio_pct": 62.317834836918806,
+      "sunlit_samples": 898
+    },
+    {
+      "plane": 5,
+      "samples": 1441,
+      "satellite_id": 145,
+      "slot": 5,
+      "sunlit_ratio_pct": 61.83206106870229,
+      "sunlit_samples": 891
+    },
+    {
+      "plane": 5,
+      "samples": 1441,
+      "satellite_id": 146,
+      "slot": 6,
+      "sunlit_ratio_pct": 61.62387231089521,
+      "sunlit_samples": 888
+    },
+    {
+      "plane": 5,
+      "samples": 1441,
+      "satellite_id": 147,
+      "slot": 7,
+      "sunlit_ratio_pct": 61.69326856349757,
+      "sunlit_samples": 889
+    },
+    {
+      "plane": 5,
+      "samples": 1441,
+      "satellite_id": 148,
+      "slot": 8,
+      "sunlit_ratio_pct": 61.69326856349757,
+      "sunlit_samples": 889
+    },
+    {
+      "plane": 5,
+      "samples": 1441,
+      "satellite_id": 149,
+      "slot": 9,
+      "sunlit_ratio_pct": 61.69326856349757,
+      "sunlit_samples": 889
+    },
+    {
+      "plane": 5,
+      "samples": 1441,
+      "satellite_id": 150,
+      "slot": 10,
+      "sunlit_ratio_pct": 61.97085357390701,
+      "sunlit_samples": 893
+    },
+    {
+      "plane": 5,
+      "samples": 1441,
+      "satellite_id": 151,
+      "slot": 11,
+      "sunlit_ratio_pct": 62.456627342123525,
+      "sunlit_samples": 900
+    },
+    {
+      "plane": 5,
+      "samples": 1441,
+      "satellite_id": 152,
+      "slot": 12,
+      "sunlit_ratio_pct": 62.87300485773768,
+      "sunlit_samples": 906
+    },
+    {
+      "plane": 5,
+      "samples": 1441,
+      "satellite_id": 153,
+      "slot": 13,
+      "sunlit_ratio_pct": 62.87300485773768,
+      "sunlit_samples": 906
+    },
+    {
+      "plane": 5,
+      "samples": 1441,
+      "satellite_id": 154,
+      "slot": 14,
+      "sunlit_ratio_pct": 63.3587786259542,
+      "sunlit_samples": 913
+    },
+    {
+      "plane": 5,
+      "samples": 1441,
+      "satellite_id": 155,
+      "slot": 15,
+      "sunlit_ratio_pct": 63.91394864677307,
+      "sunlit_samples": 921
+    },
+    {
+      "plane": 5,
+      "samples": 1441,
+      "satellite_id": 156,
+      "slot": 16,
+      "sunlit_ratio_pct": 64.81609993060374,
+      "sunlit_samples": 934
+    },
+    {
+      "plane": 5,
+      "samples": 1441,
+      "satellite_id": 157,
+      "slot": 17,
+      "sunlit_ratio_pct": 65.30187369882026,
+      "sunlit_samples": 941
+    },
+    {
+      "plane": 5,
+      "samples": 1441,
+      "satellite_id": 158,
+      "slot": 18,
+      "sunlit_ratio_pct": 65.78764746703678,
+      "sunlit_samples": 948
+    },
+    {
+      "plane": 5,
+      "samples": 1441,
+      "satellite_id": 159,
+      "slot": 19,
+      "sunlit_ratio_pct": 66.2734212352533,
+      "sunlit_samples": 955
+    },
+    {
+      "plane": 5,
+      "samples": 1441,
+      "satellite_id": 160,
+      "slot": 20,
+      "sunlit_ratio_pct": 66.48160999306037,
+      "sunlit_samples": 958
+    },
+    {
+      "plane": 5,
+      "samples": 1441,
+      "satellite_id": 161,
+      "slot": 21,
+      "sunlit_ratio_pct": 66.48160999306037,
+      "sunlit_samples": 958
+    },
+    {
+      "plane": 5,
+      "samples": 1441,
+      "satellite_id": 162,
+      "slot": 22,
+      "sunlit_ratio_pct": 65.99583622484386,
+      "sunlit_samples": 951
+    },
+    {
+      "plane": 5,
+      "samples": 1441,
+      "satellite_id": 163,
+      "slot": 23,
+      "sunlit_ratio_pct": 65.99583622484386,
+      "sunlit_samples": 951
+    },
+    {
+      "plane": 5,
+      "samples": 1441,
+      "satellite_id": 164,
+      "slot": 24,
+      "sunlit_ratio_pct": 65.99583622484386,
+      "sunlit_samples": 951
+    },
+    {
+      "plane": 5,
+      "samples": 1441,
+      "satellite_id": 165,
+      "slot": 25,
+      "sunlit_ratio_pct": 66.06523247744622,
+      "sunlit_samples": 952
+    },
+    {
+      "plane": 5,
+      "samples": 1441,
+      "satellite_id": 166,
+      "slot": 26,
+      "sunlit_ratio_pct": 65.71825121443442,
+      "sunlit_samples": 947
+    },
+    {
+      "plane": 5,
+      "samples": 1441,
+      "satellite_id": 167,
+      "slot": 27,
+      "sunlit_ratio_pct": 65.2324774462179,
+      "sunlit_samples": 940
+    },
+    {
+      "plane": 6,
+      "samples": 1441,
+      "satellite_id": 168,
+      "slot": 0,
+      "sunlit_ratio_pct": 65.37126995142262,
+      "sunlit_samples": 942
+    },
+    {
+      "plane": 6,
+      "samples": 1441,
+      "satellite_id": 169,
+      "slot": 1,
+      "sunlit_ratio_pct": 64.3997224149896,
+      "sunlit_samples": 928
+    },
+    {
+      "plane": 6,
+      "samples": 1441,
+      "satellite_id": 170,
+      "slot": 2,
+      "sunlit_ratio_pct": 63.91394864677307,
+      "sunlit_samples": 921
+    },
+    {
+      "plane": 6,
+      "samples": 1441,
+      "satellite_id": 171,
+      "slot": 3,
+      "sunlit_ratio_pct": 63.42817487855656,
+      "sunlit_samples": 914
+    },
+    {
+      "plane": 6,
+      "samples": 1441,
+      "satellite_id": 172,
+      "slot": 4,
+      "sunlit_ratio_pct": 62.94240111034004,
+      "sunlit_samples": 907
+    },
+    {
+      "plane": 6,
+      "samples": 1441,
+      "satellite_id": 173,
+      "slot": 5,
+      "sunlit_ratio_pct": 62.456627342123525,
+      "sunlit_samples": 900
+    },
+    {
+      "plane": 6,
+      "samples": 1441,
+      "satellite_id": 174,
+      "slot": 6,
+      "sunlit_ratio_pct": 62.248438584316446,
+      "sunlit_samples": 897
+    },
+    {
+      "plane": 6,
+      "samples": 1441,
+      "satellite_id": 175,
+      "slot": 7,
+      "sunlit_ratio_pct": 62.248438584316446,
+      "sunlit_samples": 897
+    },
+    {
+      "plane": 6,
+      "samples": 1441,
+      "satellite_id": 176,
+      "slot": 8,
+      "sunlit_ratio_pct": 62.595419847328245,
+      "sunlit_samples": 902
+    },
+    {
+      "plane": 6,
+      "samples": 1441,
+      "satellite_id": 177,
+      "slot": 9,
+      "sunlit_ratio_pct": 62.94240111034004,
+      "sunlit_samples": 907
+    },
+    {
+      "plane": 6,
+      "samples": 1441,
+      "satellite_id": 178,
+      "slot": 10,
+      "sunlit_ratio_pct": 63.21998612074948,
+      "sunlit_samples": 911
+    },
+    {
+      "plane": 6,
+      "samples": 1441,
+      "satellite_id": 179,
+      "slot": 11,
+      "sunlit_ratio_pct": 63.3587786259542,
+      "sunlit_samples": 913
+    },
+    {
+      "plane": 6,
+      "samples": 1441,
+      "satellite_id": 180,
+      "slot": 12,
+      "sunlit_ratio_pct": 63.84455239417071,
+      "sunlit_samples": 920
+    },
+    {
+      "plane": 6,
+      "samples": 1441,
+      "satellite_id": 181,
+      "slot": 13,
+      "sunlit_ratio_pct": 64.33032616238724,
+      "sunlit_samples": 927
+    },
+    {
+      "plane": 6,
+      "samples": 1441,
+      "satellite_id": 182,
+      "slot": 14,
+      "sunlit_ratio_pct": 64.81609993060374,
+      "sunlit_samples": 934
+    },
+    {
+      "plane": 6,
+      "samples": 1441,
+      "satellite_id": 183,
+      "slot": 15,
+      "sunlit_ratio_pct": 65.30187369882026,
+      "sunlit_samples": 941
+    },
+    {
+      "plane": 6,
+      "samples": 1441,
+      "satellite_id": 184,
+      "slot": 16,
+      "sunlit_ratio_pct": 65.78764746703678,
+      "sunlit_samples": 948
+    },
+    {
+      "plane": 6,
+      "samples": 1441,
+      "satellite_id": 185,
+      "slot": 17,
+      "sunlit_ratio_pct": 66.41221374045801,
+      "sunlit_samples": 957
+    },
+    {
+      "plane": 6,
+      "samples": 1441,
+      "satellite_id": 186,
+      "slot": 18,
+      "sunlit_ratio_pct": 67.24496877168633,
+      "sunlit_samples": 969
+    },
+    {
+      "plane": 6,
+      "samples": 1441,
+      "satellite_id": 187,
+      "slot": 19,
+      "sunlit_ratio_pct": 67.45315752949341,
+      "sunlit_samples": 972
+    },
+    {
+      "plane": 6,
+      "samples": 1441,
+      "satellite_id": 188,
+      "slot": 20,
+      "sunlit_ratio_pct": 66.96738376127689,
+      "sunlit_samples": 965
+    },
+    {
+      "plane": 6,
+      "samples": 1441,
+      "satellite_id": 189,
+      "slot": 21,
+      "sunlit_ratio_pct": 66.96738376127689,
+      "sunlit_samples": 965
+    },
+    {
+      "plane": 6,
+      "samples": 1441,
+      "satellite_id": 190,
+      "slot": 22,
+      "sunlit_ratio_pct": 66.96738376127689,
+      "sunlit_samples": 965
+    },
+    {
+      "plane": 6,
+      "samples": 1441,
+      "satellite_id": 191,
+      "slot": 23,
+      "sunlit_ratio_pct": 66.96738376127689,
+      "sunlit_samples": 965
+    },
+    {
+      "plane": 6,
+      "samples": 1441,
+      "satellite_id": 192,
+      "slot": 24,
+      "sunlit_ratio_pct": 66.75919500346981,
+      "sunlit_samples": 962
+    },
+    {
+      "plane": 6,
+      "samples": 1441,
+      "satellite_id": 193,
+      "slot": 25,
+      "sunlit_ratio_pct": 66.2734212352533,
+      "sunlit_samples": 955
+    },
+    {
+      "plane": 6,
+      "samples": 1441,
+      "satellite_id": 194,
+      "slot": 26,
+      "sunlit_ratio_pct": 65.78764746703678,
+      "sunlit_samples": 948
+    },
+    {
+      "plane": 6,
+      "samples": 1441,
+      "satellite_id": 195,
+      "slot": 27,
+      "sunlit_ratio_pct": 65.78764746703678,
+      "sunlit_samples": 948
+    },
+    {
+      "plane": 7,
+      "samples": 1441,
+      "satellite_id": 196,
+      "slot": 0,
+      "sunlit_ratio_pct": 65.44066620402498,
+      "sunlit_samples": 943
+    },
+    {
+      "plane": 7,
+      "samples": 1441,
+      "satellite_id": 197,
+      "slot": 1,
+      "sunlit_ratio_pct": 65.37126995142262,
+      "sunlit_samples": 942
+    },
+    {
+      "plane": 7,
+      "samples": 1441,
+      "satellite_id": 198,
+      "slot": 2,
+      "sunlit_ratio_pct": 65.02428868841082,
+      "sunlit_samples": 937
+    },
+    {
+      "plane": 7,
+      "samples": 1441,
+      "satellite_id": 199,
+      "slot": 3,
+      "sunlit_ratio_pct": 64.53851492019432,
+      "sunlit_samples": 930
+    },
+    {
+      "plane": 7,
+      "samples": 1441,
+      "satellite_id": 200,
+      "slot": 4,
+      "sunlit_ratio_pct": 64.0527411519778,
+      "sunlit_samples": 923
+    },
+    {
+      "plane": 7,
+      "samples": 1441,
+      "satellite_id": 201,
+      "slot": 5,
+      "sunlit_ratio_pct": 63.91394864677307,
+      "sunlit_samples": 921
+    },
+    {
+      "plane": 7,
+      "samples": 1441,
+      "satellite_id": 202,
+      "slot": 6,
+      "sunlit_ratio_pct": 63.3587786259542,
+      "sunlit_samples": 913
+    },
+    {
+      "plane": 7,
+      "samples": 1441,
+      "satellite_id": 203,
+      "slot": 7,
+      "sunlit_ratio_pct": 63.3587786259542,
+      "sunlit_samples": 913
+    },
+    {
+      "plane": 7,
+      "samples": 1441,
+      "satellite_id": 204,
+      "slot": 8,
+      "sunlit_ratio_pct": 63.42817487855656,
+      "sunlit_samples": 914
+    },
+    {
+      "plane": 7,
+      "samples": 1441,
+      "satellite_id": 205,
+      "slot": 9,
+      "sunlit_ratio_pct": 63.91394864677307,
+      "sunlit_samples": 921
+    },
+    {
+      "plane": 7,
+      "samples": 1441,
+      "satellite_id": 206,
+      "slot": 10,
+      "sunlit_ratio_pct": 64.60791117279666,
+      "sunlit_samples": 931
+    },
+    {
+      "plane": 7,
+      "samples": 1441,
+      "satellite_id": 207,
+      "slot": 11,
+      "sunlit_ratio_pct": 65.37126995142262,
+      "sunlit_samples": 942
+    },
+    {
+      "plane": 7,
+      "samples": 1441,
+      "satellite_id": 208,
+      "slot": 12,
+      "sunlit_ratio_pct": 65.85704371963914,
+      "sunlit_samples": 949
+    },
+    {
+      "plane": 7,
+      "samples": 1441,
+      "satellite_id": 209,
+      "slot": 13,
+      "sunlit_ratio_pct": 66.34281748785565,
+      "sunlit_samples": 956
+    },
+    {
+      "plane": 7,
+      "samples": 1441,
+      "satellite_id": 210,
+      "slot": 14,
+      "sunlit_ratio_pct": 66.82859125607217,
+      "sunlit_samples": 963
+    },
+    {
+      "plane": 7,
+      "samples": 1441,
+      "satellite_id": 211,
+      "slot": 15,
+      "sunlit_ratio_pct": 66.89798750867453,
+      "sunlit_samples": 964
+    },
+    {
+      "plane": 7,
+      "samples": 1441,
+      "satellite_id": 212,
+      "slot": 16,
+      "sunlit_ratio_pct": 67.24496877168633,
+      "sunlit_samples": 969
+    },
+    {
+      "plane": 7,
+      "samples": 1441,
+      "satellite_id": 213,
+      "slot": 17,
+      "sunlit_ratio_pct": 67.73074253990285,
+      "sunlit_samples": 976
+    },
+    {
+      "plane": 7,
+      "samples": 1441,
+      "satellite_id": 214,
+      "slot": 18,
+      "sunlit_ratio_pct": 67.93893129770993,
+      "sunlit_samples": 979
+    },
+    {
+      "plane": 7,
+      "samples": 1441,
+      "satellite_id": 215,
+      "slot": 19,
+      "sunlit_ratio_pct": 67.93893129770993,
+      "sunlit_samples": 979
+    },
+    {
+      "plane": 7,
+      "samples": 1441,
+      "satellite_id": 216,
+      "slot": 20,
+      "sunlit_ratio_pct": 68.42470506592645,
+      "sunlit_samples": 986
+    },
+    {
+      "plane": 7,
+      "samples": 1441,
+      "satellite_id": 217,
+      "slot": 21,
+      "sunlit_ratio_pct": 68.42470506592645,
+      "sunlit_samples": 986
+    },
+    {
+      "plane": 7,
+      "samples": 1441,
+      "satellite_id": 218,
+      "slot": 22,
+      "sunlit_ratio_pct": 68.42470506592645,
+      "sunlit_samples": 986
+    },
+    {
+      "plane": 7,
+      "samples": 1441,
+      "satellite_id": 219,
+      "slot": 23,
+      "sunlit_ratio_pct": 68.35530881332409,
+      "sunlit_samples": 985
+    },
+    {
+      "plane": 7,
+      "samples": 1441,
+      "satellite_id": 220,
+      "slot": 24,
+      "sunlit_ratio_pct": 67.86953504510757,
+      "sunlit_samples": 978
+    },
+    {
+      "plane": 7,
+      "samples": 1441,
+      "satellite_id": 221,
+      "slot": 25,
+      "sunlit_ratio_pct": 66.89798750867453,
+      "sunlit_samples": 964
+    },
+    {
+      "plane": 7,
+      "samples": 1441,
+      "satellite_id": 222,
+      "slot": 26,
+      "sunlit_ratio_pct": 66.41221374045801,
+      "sunlit_samples": 957
+    },
+    {
+      "plane": 7,
+      "samples": 1441,
+      "satellite_id": 223,
+      "slot": 27,
+      "sunlit_ratio_pct": 65.9264399722415,
+      "sunlit_samples": 950
+    },
+    {
+      "plane": 8,
+      "samples": 1441,
+      "satellite_id": 224,
+      "slot": 0,
+      "sunlit_ratio_pct": 67.03678001387925,
+      "sunlit_samples": 966
+    },
+    {
+      "plane": 8,
+      "samples": 1441,
+      "satellite_id": 225,
+      "slot": 1,
+      "sunlit_ratio_pct": 66.55100624566273,
+      "sunlit_samples": 959
+    },
+    {
+      "plane": 8,
+      "samples": 1441,
+      "satellite_id": 226,
+      "slot": 2,
+      "sunlit_ratio_pct": 65.5794587092297,
+      "sunlit_samples": 945
+    },
+    {
+      "plane": 8,
+      "samples": 1441,
+      "satellite_id": 227,
+      "slot": 3,
+      "sunlit_ratio_pct": 65.09368494101318,
+      "sunlit_samples": 938
+    },
+    {
+      "plane": 8,
+      "samples": 1441,
+      "satellite_id": 228,
+      "slot": 4,
+      "sunlit_ratio_pct": 65.02428868841082,
+      "sunlit_samples": 937
+    },
+    {
+      "plane": 8,
+      "samples": 1441,
+      "satellite_id": 229,
+      "slot": 5,
+      "sunlit_ratio_pct": 65.02428868841082,
+      "sunlit_samples": 937
+    },
+    {
+      "plane": 8,
+      "samples": 1441,
+      "satellite_id": 230,
+      "slot": 6,
+      "sunlit_ratio_pct": 65.5794587092297,
+      "sunlit_samples": 945
+    },
+    {
+      "plane": 8,
+      "samples": 1441,
+      "satellite_id": 231,
+      "slot": 7,
+      "sunlit_ratio_pct": 65.5794587092297,
+      "sunlit_samples": 945
+    },
+    {
+      "plane": 8,
+      "samples": 1441,
+      "satellite_id": 232,
+      "slot": 8,
+      "sunlit_ratio_pct": 65.99583622484386,
+      "sunlit_samples": 951
+    },
+    {
+      "plane": 8,
+      "samples": 1441,
+      "satellite_id": 233,
+      "slot": 9,
+      "sunlit_ratio_pct": 66.48160999306037,
+      "sunlit_samples": 958
+    },
+    {
+      "plane": 8,
+      "samples": 1441,
+      "satellite_id": 234,
+      "slot": 10,
+      "sunlit_ratio_pct": 66.96738376127689,
+      "sunlit_samples": 965
+    },
+    {
+      "plane": 8,
+      "samples": 1441,
+      "satellite_id": 235,
+      "slot": 11,
+      "sunlit_ratio_pct": 67.45315752949341,
+      "sunlit_samples": 972
+    },
+    {
+      "plane": 8,
+      "samples": 1441,
+      "satellite_id": 236,
+      "slot": 12,
+      "sunlit_ratio_pct": 67.38376127689105,
+      "sunlit_samples": 971
+    },
+    {
+      "plane": 8,
+      "samples": 1441,
+      "satellite_id": 237,
+      "slot": 13,
+      "sunlit_ratio_pct": 67.86953504510757,
+      "sunlit_samples": 978
+    },
+    {
+      "plane": 8,
+      "samples": 1441,
+      "satellite_id": 238,
+      "slot": 14,
+      "sunlit_ratio_pct": 68.35530881332409,
+      "sunlit_samples": 985
+    },
+    {
+      "plane": 8,
+      "samples": 1441,
+      "satellite_id": 239,
+      "slot": 15,
+      "sunlit_ratio_pct": 69.18806384455239,
+      "sunlit_samples": 997
+    },
+    {
+      "plane": 8,
+      "samples": 1441,
+      "satellite_id": 240,
+      "slot": 16,
+      "sunlit_ratio_pct": 69.81263011797363,
+      "sunlit_samples": 1006
+    },
+    {
+      "plane": 8,
+      "samples": 1441,
+      "satellite_id": 241,
+      "slot": 17,
+      "sunlit_ratio_pct": 69.88202637057599,
+      "sunlit_samples": 1007
+    },
+    {
+      "plane": 8,
+      "samples": 1441,
+      "satellite_id": 242,
+      "slot": 18,
+      "sunlit_ratio_pct": 69.88202637057599,
+      "sunlit_samples": 1007
+    },
+    {
+      "plane": 8,
+      "samples": 1441,
+      "satellite_id": 243,
+      "slot": 19,
+      "sunlit_ratio_pct": 69.88202637057599,
+      "sunlit_samples": 1007
+    },
+    {
+      "plane": 8,
+      "samples": 1441,
+      "satellite_id": 244,
+      "slot": 20,
+      "sunlit_ratio_pct": 69.88202637057599,
+      "sunlit_samples": 1007
+    },
+    {
+      "plane": 8,
+      "samples": 1441,
+      "satellite_id": 245,
+      "slot": 21,
+      "sunlit_ratio_pct": 69.39625260235947,
+      "sunlit_samples": 1000
+    },
+    {
+      "plane": 8,
+      "samples": 1441,
+      "satellite_id": 246,
+      "slot": 22,
+      "sunlit_ratio_pct": 69.39625260235947,
+      "sunlit_samples": 1000
+    },
+    {
+      "plane": 8,
+      "samples": 1441,
+      "satellite_id": 247,
+      "slot": 23,
+      "sunlit_ratio_pct": 68.91047883414295,
+      "sunlit_samples": 993
+    },
+    {
+      "plane": 8,
+      "samples": 1441,
+      "satellite_id": 248,
+      "slot": 24,
+      "sunlit_ratio_pct": 68.56349757113117,
+      "sunlit_samples": 988
+    },
+    {
+      "plane": 8,
+      "samples": 1441,
+      "satellite_id": 249,
+      "slot": 25,
+      "sunlit_ratio_pct": 68.4941013185288,
+      "sunlit_samples": 987
+    },
+    {
+      "plane": 8,
+      "samples": 1441,
+      "satellite_id": 250,
+      "slot": 26,
+      "sunlit_ratio_pct": 68.00832755031229,
+      "sunlit_samples": 980
+    },
+    {
+      "plane": 8,
+      "samples": 1441,
+      "satellite_id": 251,
+      "slot": 27,
+      "sunlit_ratio_pct": 67.52255378209577,
+      "sunlit_samples": 973
+    },
+    {
+      "plane": 9,
+      "samples": 1441,
+      "satellite_id": 252,
+      "slot": 0,
+      "sunlit_ratio_pct": 68.56349757113117,
+      "sunlit_samples": 988
+    },
+    {
+      "plane": 9,
+      "samples": 1441,
+      "satellite_id": 253,
+      "slot": 1,
+      "sunlit_ratio_pct": 68.07772380291465,
+      "sunlit_samples": 981
+    },
+    {
+      "plane": 9,
+      "samples": 1441,
+      "satellite_id": 254,
+      "slot": 2,
+      "sunlit_ratio_pct": 67.24496877168633,
+      "sunlit_samples": 969
+    },
+    {
+      "plane": 9,
+      "samples": 1441,
+      "satellite_id": 255,
+      "slot": 3,
+      "sunlit_ratio_pct": 67.24496877168633,
+      "sunlit_samples": 969
+    },
+    {
+      "plane": 9,
+      "samples": 1441,
+      "satellite_id": 256,
+      "slot": 4,
+      "sunlit_ratio_pct": 67.24496877168633,
+      "sunlit_samples": 969
+    },
+    {
+      "plane": 9,
+      "samples": 1441,
+      "satellite_id": 257,
+      "slot": 5,
+      "sunlit_ratio_pct": 67.24496877168633,
+      "sunlit_samples": 969
+    },
+    {
+      "plane": 9,
+      "samples": 1441,
+      "satellite_id": 258,
+      "slot": 6,
+      "sunlit_ratio_pct": 67.24496877168633,
+      "sunlit_samples": 969
+    },
+    {
+      "plane": 9,
+      "samples": 1441,
+      "satellite_id": 259,
+      "slot": 7,
+      "sunlit_ratio_pct": 68.14712005551701,
+      "sunlit_samples": 982
+    },
+    {
+      "plane": 9,
+      "samples": 1441,
+      "satellite_id": 260,
+      "slot": 8,
+      "sunlit_ratio_pct": 68.63289382373353,
+      "sunlit_samples": 989
+    },
+    {
+      "plane": 9,
+      "samples": 1441,
+      "satellite_id": 261,
+      "slot": 9,
+      "sunlit_ratio_pct": 69.11866759195003,
+      "sunlit_samples": 996
+    },
+    {
+      "plane": 9,
+      "samples": 1441,
+      "satellite_id": 262,
+      "slot": 10,
+      "sunlit_ratio_pct": 69.60444136016655,
+      "sunlit_samples": 1003
+    },
+    {
+      "plane": 9,
+      "samples": 1441,
+      "satellite_id": 263,
+      "slot": 11,
+      "sunlit_ratio_pct": 69.53504510756419,
+      "sunlit_samples": 1002
+    },
+    {
+      "plane": 9,
+      "samples": 1441,
+      "satellite_id": 264,
+      "slot": 12,
+      "sunlit_ratio_pct": 70.0208188757807,
+      "sunlit_samples": 1009
+    },
+    {
+      "plane": 9,
+      "samples": 1441,
+      "satellite_id": 265,
+      "slot": 13,
+      "sunlit_ratio_pct": 70.50659264399722,
+      "sunlit_samples": 1016
+    },
+    {
+      "plane": 9,
+      "samples": 1441,
+      "satellite_id": 266,
+      "slot": 14,
+      "sunlit_ratio_pct": 70.99236641221374,
+      "sunlit_samples": 1023
+    },
+    {
+      "plane": 9,
+      "samples": 1441,
+      "satellite_id": 267,
+      "slot": 15,
+      "sunlit_ratio_pct": 71.33934767522554,
+      "sunlit_samples": 1028
+    },
+    {
+      "plane": 9,
+      "samples": 1441,
+      "satellite_id": 268,
+      "slot": 16,
+      "sunlit_ratio_pct": 71.61693268563498,
+      "sunlit_samples": 1032
+    },
+    {
+      "plane": 9,
+      "samples": 1441,
+      "satellite_id": 269,
+      "slot": 17,
+      "sunlit_ratio_pct": 71.82512144344206,
+      "sunlit_samples": 1035
+    },
+    {
+      "plane": 9,
+      "samples": 1441,
+      "satellite_id": 270,
+      "slot": 18,
+      "sunlit_ratio_pct": 71.82512144344206,
+      "sunlit_samples": 1035
+    },
+    {
+      "plane": 9,
+      "samples": 1441,
+      "satellite_id": 271,
+      "slot": 19,
+      "sunlit_ratio_pct": 71.82512144344206,
+      "sunlit_samples": 1035
+    },
+    {
+      "plane": 9,
+      "samples": 1441,
+      "satellite_id": 272,
+      "slot": 20,
+      "sunlit_ratio_pct": 71.54753643303262,
+      "sunlit_samples": 1031
+    },
+    {
+      "plane": 9,
+      "samples": 1441,
+      "satellite_id": 273,
+      "slot": 21,
+      "sunlit_ratio_pct": 71.33934767522554,
+      "sunlit_samples": 1028
+    },
+    {
+      "plane": 9,
+      "samples": 1441,
+      "satellite_id": 274,
+      "slot": 22,
+      "sunlit_ratio_pct": 70.92297015961138,
+      "sunlit_samples": 1022
+    },
+    {
+      "plane": 9,
+      "samples": 1441,
+      "satellite_id": 275,
+      "slot": 23,
+      "sunlit_ratio_pct": 70.43719639139486,
+      "sunlit_samples": 1015
+    },
+    {
+      "plane": 9,
+      "samples": 1441,
+      "satellite_id": 276,
+      "slot": 24,
+      "sunlit_ratio_pct": 69.95142262317835,
+      "sunlit_samples": 1008
+    },
+    {
+      "plane": 9,
+      "samples": 1441,
+      "satellite_id": 277,
+      "slot": 25,
+      "sunlit_ratio_pct": 69.46564885496183,
+      "sunlit_samples": 1001
+    },
+    {
+      "plane": 9,
+      "samples": 1441,
+      "satellite_id": 278,
+      "slot": 26,
+      "sunlit_ratio_pct": 69.53504510756419,
+      "sunlit_samples": 1002
+    },
+    {
+      "plane": 9,
+      "samples": 1441,
+      "satellite_id": 279,
+      "slot": 27,
+      "sunlit_ratio_pct": 69.04927133934767,
+      "sunlit_samples": 995
+    },
+    {
+      "plane": 10,
+      "samples": 1441,
+      "satellite_id": 280,
+      "slot": 0,
+      "sunlit_ratio_pct": 70.0208188757807,
+      "sunlit_samples": 1009
+    },
+    {
+      "plane": 10,
+      "samples": 1441,
+      "satellite_id": 281,
+      "slot": 1,
+      "sunlit_ratio_pct": 70.0208188757807,
+      "sunlit_samples": 1009
+    },
+    {
+      "plane": 10,
+      "samples": 1441,
+      "satellite_id": 282,
+      "slot": 2,
+      "sunlit_ratio_pct": 70.0208188757807,
+      "sunlit_samples": 1009
+    },
+    {
+      "plane": 10,
+      "samples": 1441,
+      "satellite_id": 283,
+      "slot": 3,
+      "sunlit_ratio_pct": 70.0208188757807,
+      "sunlit_samples": 1009
+    },
+    {
+      "plane": 10,
+      "samples": 1441,
+      "satellite_id": 284,
+      "slot": 4,
+      "sunlit_ratio_pct": 69.81263011797363,
+      "sunlit_samples": 1006
+    },
+    {
+      "plane": 10,
+      "samples": 1441,
+      "satellite_id": 285,
+      "slot": 5,
+      "sunlit_ratio_pct": 69.46564885496183,
+      "sunlit_samples": 1001
+    },
+    {
+      "plane": 10,
+      "samples": 1441,
+      "satellite_id": 286,
+      "slot": 6,
+      "sunlit_ratio_pct": 69.88202637057599,
+      "sunlit_samples": 1007
+    },
+    {
+      "plane": 10,
+      "samples": 1441,
+      "satellite_id": 287,
+      "slot": 7,
+      "sunlit_ratio_pct": 70.3678001387925,
+      "sunlit_samples": 1014
+    },
+    {
+      "plane": 10,
+      "samples": 1441,
+      "satellite_id": 288,
+      "slot": 8,
+      "sunlit_ratio_pct": 70.85357390700902,
+      "sunlit_samples": 1021
+    },
+    {
+      "plane": 10,
+      "samples": 1441,
+      "satellite_id": 289,
+      "slot": 9,
+      "sunlit_ratio_pct": 71.82512144344206,
+      "sunlit_samples": 1035
+    },
+    {
+      "plane": 10,
+      "samples": 1441,
+      "satellite_id": 290,
+      "slot": 10,
+      "sunlit_ratio_pct": 72.31089521165858,
+      "sunlit_samples": 1042
+    },
+    {
+      "plane": 10,
+      "samples": 1441,
+      "satellite_id": 291,
+      "slot": 11,
+      "sunlit_ratio_pct": 72.7966689798751,
+      "sunlit_samples": 1049
+    },
+    {
+      "plane": 10,
+      "samples": 1441,
+      "satellite_id": 292,
+      "slot": 12,
+      "sunlit_ratio_pct": 73.2824427480916,
+      "sunlit_samples": 1056
+    },
+    {
+      "plane": 10,
+      "samples": 1441,
+      "satellite_id": 293,
+      "slot": 13,
+      "sunlit_ratio_pct": 73.76821651630812,
+      "sunlit_samples": 1063
+    },
+    {
+      "plane": 10,
+      "samples": 1441,
+      "satellite_id": 294,
+      "slot": 14,
+      "sunlit_ratio_pct": 73.2824427480916,
+      "sunlit_samples": 1056
+    },
+    {
+      "plane": 10,
+      "samples": 1441,
+      "satellite_id": 295,
+      "slot": 15,
+      "sunlit_ratio_pct": 73.2824427480916,
+      "sunlit_samples": 1056
+    },
+    {
+      "plane": 10,
+      "samples": 1441,
+      "satellite_id": 296,
+      "slot": 16,
+      "sunlit_ratio_pct": 73.2824427480916,
+      "sunlit_samples": 1056
+    },
+    {
+      "plane": 10,
+      "samples": 1441,
+      "satellite_id": 297,
+      "slot": 17,
+      "sunlit_ratio_pct": 73.2824427480916,
+      "sunlit_samples": 1056
+    },
+    {
+      "plane": 10,
+      "samples": 1441,
+      "satellite_id": 298,
+      "slot": 18,
+      "sunlit_ratio_pct": 73.2824427480916,
+      "sunlit_samples": 1056
+    },
+    {
+      "plane": 10,
+      "samples": 1441,
+      "satellite_id": 299,
+      "slot": 19,
+      "sunlit_ratio_pct": 73.76821651630812,
+      "sunlit_samples": 1063
+    },
+    {
+      "plane": 10,
+      "samples": 1441,
+      "satellite_id": 300,
+      "slot": 20,
+      "sunlit_ratio_pct": 73.76821651630812,
+      "sunlit_samples": 1063
+    },
+    {
+      "plane": 10,
+      "samples": 1441,
+      "satellite_id": 301,
+      "slot": 21,
+      "sunlit_ratio_pct": 73.35183900069396,
+      "sunlit_samples": 1057
+    },
+    {
+      "plane": 10,
+      "samples": 1441,
+      "satellite_id": 302,
+      "slot": 22,
+      "sunlit_ratio_pct": 72.86606523247745,
+      "sunlit_samples": 1050
+    },
+    {
+      "plane": 10,
+      "samples": 1441,
+      "satellite_id": 303,
+      "slot": 23,
+      "sunlit_ratio_pct": 71.96391394864678,
+      "sunlit_samples": 1037
+    },
+    {
+      "plane": 10,
+      "samples": 1441,
+      "satellite_id": 304,
+      "slot": 24,
+      "sunlit_ratio_pct": 71.4087439278279,
+      "sunlit_samples": 1029
+    },
+    {
+      "plane": 10,
+      "samples": 1441,
+      "satellite_id": 305,
+      "slot": 25,
+      "sunlit_ratio_pct": 70.92297015961138,
+      "sunlit_samples": 1022
+    },
+    {
+      "plane": 10,
+      "samples": 1441,
+      "satellite_id": 306,
+      "slot": 26,
+      "sunlit_ratio_pct": 70.43719639139486,
+      "sunlit_samples": 1015
+    },
+    {
+      "plane": 10,
+      "samples": 1441,
+      "satellite_id": 307,
+      "slot": 27,
+      "sunlit_ratio_pct": 69.95142262317835,
+      "sunlit_samples": 1008
+    },
+    {
+      "plane": 11,
+      "samples": 1441,
+      "satellite_id": 308,
+      "slot": 0,
+      "sunlit_ratio_pct": 71.68632893823734,
+      "sunlit_samples": 1033
+    },
+    {
+      "plane": 11,
+      "samples": 1441,
+      "satellite_id": 309,
+      "slot": 1,
+      "sunlit_ratio_pct": 71.68632893823734,
+      "sunlit_samples": 1033
+    },
+    {
+      "plane": 11,
+      "samples": 1441,
+      "satellite_id": 310,
+      "slot": 2,
+      "sunlit_ratio_pct": 71.68632893823734,
+      "sunlit_samples": 1033
+    },
+    {
+      "plane": 11,
+      "samples": 1441,
+      "satellite_id": 311,
+      "slot": 3,
+      "sunlit_ratio_pct": 71.68632893823734,
+      "sunlit_samples": 1033
+    },
+    {
+      "plane": 11,
+      "samples": 1441,
+      "satellite_id": 312,
+      "slot": 4,
+      "sunlit_ratio_pct": 71.20055517002082,
+      "sunlit_samples": 1026
+    },
+    {
+      "plane": 11,
+      "samples": 1441,
+      "satellite_id": 313,
+      "slot": 5,
+      "sunlit_ratio_pct": 71.68632893823734,
+      "sunlit_samples": 1033
+    },
+    {
+      "plane": 11,
+      "samples": 1441,
+      "satellite_id": 314,
+      "slot": 6,
+      "sunlit_ratio_pct": 72.17210270645386,
+      "sunlit_samples": 1040
+    },
+    {
+      "plane": 11,
+      "samples": 1441,
+      "satellite_id": 315,
+      "slot": 7,
+      "sunlit_ratio_pct": 72.65787647467037,
+      "sunlit_samples": 1047
+    },
+    {
+      "plane": 11,
+      "samples": 1441,
+      "satellite_id": 316,
+      "slot": 8,
+      "sunlit_ratio_pct": 73.21304649548924,
+      "sunlit_samples": 1055
+    },
+    {
+      "plane": 11,
+      "samples": 1441,
+      "satellite_id": 317,
+      "slot": 9,
+      "sunlit_ratio_pct": 74.11519777931991,
+      "sunlit_samples": 1068
+    },
+    {
+      "plane": 11,
+      "samples": 1441,
+      "satellite_id": 318,
+      "slot": 10,
+      "sunlit_ratio_pct": 74.60097154753643,
+      "sunlit_samples": 1075
+    },
+    {
+      "plane": 11,
+      "samples": 1441,
+      "satellite_id": 319,
+      "slot": 11,
+      "sunlit_ratio_pct": 75.08674531575295,
+      "sunlit_samples": 1082
+    },
+    {
+      "plane": 11,
+      "samples": 1441,
+      "satellite_id": 320,
+      "slot": 12,
+      "sunlit_ratio_pct": 75.22553782095767,
+      "sunlit_samples": 1084
+    },
+    {
+      "plane": 11,
+      "samples": 1441,
+      "satellite_id": 321,
+      "slot": 13,
+      "sunlit_ratio_pct": 75.01734906315059,
+      "sunlit_samples": 1081
+    },
+    {
+      "plane": 11,
+      "samples": 1441,
+      "satellite_id": 322,
+      "slot": 14,
+      "sunlit_ratio_pct": 74.73976405274115,
+      "sunlit_samples": 1077
+    },
+    {
+      "plane": 11,
+      "samples": 1441,
+      "satellite_id": 323,
+      "slot": 15,
+      "sunlit_ratio_pct": 74.73976405274115,
+      "sunlit_samples": 1077
+    },
+    {
+      "plane": 11,
+      "samples": 1441,
+      "satellite_id": 324,
+      "slot": 16,
+      "sunlit_ratio_pct": 74.73976405274115,
+      "sunlit_samples": 1077
+    },
+    {
+      "plane": 11,
+      "samples": 1441,
+      "satellite_id": 325,
+      "slot": 17,
+      "sunlit_ratio_pct": 74.73976405274115,
+      "sunlit_samples": 1077
+    },
+    {
+      "plane": 11,
+      "samples": 1441,
+      "satellite_id": 326,
+      "slot": 18,
+      "sunlit_ratio_pct": 75.15614156835531,
+      "sunlit_samples": 1083
+    },
+    {
+      "plane": 11,
+      "samples": 1441,
+      "satellite_id": 327,
+      "slot": 19,
+      "sunlit_ratio_pct": 75.15614156835531,
+      "sunlit_samples": 1083
+    },
+    {
+      "plane": 11,
+      "samples": 1441,
+      "satellite_id": 328,
+      "slot": 20,
+      "sunlit_ratio_pct": 74.67036780013879,
+      "sunlit_samples": 1076
+    },
+    {
+      "plane": 11,
+      "samples": 1441,
+      "satellite_id": 329,
+      "slot": 21,
+      "sunlit_ratio_pct": 74.18459403192227,
+      "sunlit_samples": 1069
+    },
+    {
+      "plane": 11,
+      "samples": 1441,
+      "satellite_id": 330,
+      "slot": 22,
+      "sunlit_ratio_pct": 73.69882026370576,
+      "sunlit_samples": 1062
+    },
+    {
+      "plane": 11,
+      "samples": 1441,
+      "satellite_id": 331,
+      "slot": 23,
+      "sunlit_ratio_pct": 72.72727272727273,
+      "sunlit_samples": 1048
+    },
+    {
+      "plane": 11,
+      "samples": 1441,
+      "satellite_id": 332,
+      "slot": 24,
+      "sunlit_ratio_pct": 72.24149895905622,
+      "sunlit_samples": 1041
+    },
+    {
+      "plane": 11,
+      "samples": 1441,
+      "satellite_id": 333,
+      "slot": 25,
+      "sunlit_ratio_pct": 71.7557251908397,
+      "sunlit_samples": 1034
+    },
+    {
+      "plane": 11,
+      "samples": 1441,
+      "satellite_id": 334,
+      "slot": 26,
+      "sunlit_ratio_pct": 71.26995142262318,
+      "sunlit_samples": 1027
+    },
+    {
+      "plane": 11,
+      "samples": 1441,
+      "satellite_id": 335,
+      "slot": 27,
+      "sunlit_ratio_pct": 71.4087439278279,
+      "sunlit_samples": 1029
+    },
+    {
+      "plane": 12,
+      "samples": 1441,
+      "satellite_id": 336,
+      "slot": 0,
+      "sunlit_ratio_pct": 71.68632893823734,
+      "sunlit_samples": 1033
+    },
+    {
+      "plane": 12,
+      "samples": 1441,
+      "satellite_id": 337,
+      "slot": 1,
+      "sunlit_ratio_pct": 71.68632893823734,
+      "sunlit_samples": 1033
+    },
+    {
+      "plane": 12,
+      "samples": 1441,
+      "satellite_id": 338,
+      "slot": 2,
+      "sunlit_ratio_pct": 71.68632893823734,
+      "sunlit_samples": 1033
+    },
+    {
+      "plane": 12,
+      "samples": 1441,
+      "satellite_id": 339,
+      "slot": 3,
+      "sunlit_ratio_pct": 72.03331020124914,
+      "sunlit_samples": 1038
+    },
+    {
+      "plane": 12,
+      "samples": 1441,
+      "satellite_id": 340,
+      "slot": 4,
+      "sunlit_ratio_pct": 72.51908396946565,
+      "sunlit_samples": 1045
+    },
+    {
+      "plane": 12,
+      "samples": 1441,
+      "satellite_id": 341,
+      "slot": 5,
+      "sunlit_ratio_pct": 73.00485773768216,
+      "sunlit_samples": 1052
+    },
+    {
+      "plane": 12,
+      "samples": 1441,
+      "satellite_id": 342,
+      "slot": 6,
+      "sunlit_ratio_pct": 72.9354614850798,
+      "sunlit_samples": 1051
+    },
+    {
+      "plane": 12,
+      "samples": 1441,
+      "satellite_id": 343,
+      "slot": 7,
+      "sunlit_ratio_pct": 73.6294240111034,
+      "sunlit_samples": 1061
+    },
+    {
+      "plane": 12,
+      "samples": 1441,
+      "satellite_id": 344,
+      "slot": 8,
+      "sunlit_ratio_pct": 74.39278278972935,
+      "sunlit_samples": 1072
+    },
+    {
+      "plane": 12,
+      "samples": 1441,
+      "satellite_id": 345,
+      "slot": 9,
+      "sunlit_ratio_pct": 74.87855655794587,
+      "sunlit_samples": 1079
+    },
+    {
+      "plane": 12,
+      "samples": 1441,
+      "satellite_id": 346,
+      "slot": 10,
+      "sunlit_ratio_pct": 75.22553782095767,
+      "sunlit_samples": 1084
+    },
+    {
+      "plane": 12,
+      "samples": 1441,
+      "satellite_id": 347,
+      "slot": 11,
+      "sunlit_ratio_pct": 75.22553782095767,
+      "sunlit_samples": 1084
+    },
+    {
+      "plane": 12,
+      "samples": 1441,
+      "satellite_id": 348,
+      "slot": 12,
+      "sunlit_ratio_pct": 75.22553782095767,
+      "sunlit_samples": 1084
+    },
+    {
+      "plane": 12,
+      "samples": 1441,
+      "satellite_id": 349,
+      "slot": 13,
+      "sunlit_ratio_pct": 75.22553782095767,
+      "sunlit_samples": 1084
+    },
+    {
+      "plane": 12,
+      "samples": 1441,
+      "satellite_id": 350,
+      "slot": 14,
+      "sunlit_ratio_pct": 75.22553782095767,
+      "sunlit_samples": 1084
+    },
+    {
+      "plane": 12,
+      "samples": 1441,
+      "satellite_id": 351,
+      "slot": 15,
+      "sunlit_ratio_pct": 74.73976405274115,
+      "sunlit_samples": 1077
+    },
+    {
+      "plane": 12,
+      "samples": 1441,
+      "satellite_id": 352,
+      "slot": 16,
+      "sunlit_ratio_pct": 74.80916030534351,
+      "sunlit_samples": 1078
+    },
+    {
+      "plane": 12,
+      "samples": 1441,
+      "satellite_id": 353,
+      "slot": 17,
+      "sunlit_ratio_pct": 75.15614156835531,
+      "sunlit_samples": 1083
+    },
+    {
+      "plane": 12,
+      "samples": 1441,
+      "satellite_id": 354,
+      "slot": 18,
+      "sunlit_ratio_pct": 74.87855655794587,
+      "sunlit_samples": 1079
+    },
+    {
+      "plane": 12,
+      "samples": 1441,
+      "satellite_id": 355,
+      "slot": 19,
+      "sunlit_ratio_pct": 74.39278278972935,
+      "sunlit_samples": 1072
+    },
+    {
+      "plane": 12,
+      "samples": 1441,
+      "satellite_id": 356,
+      "slot": 20,
+      "sunlit_ratio_pct": 73.90700902151283,
+      "sunlit_samples": 1065
+    },
+    {
+      "plane": 12,
+      "samples": 1441,
+      "satellite_id": 357,
+      "slot": 21,
+      "sunlit_ratio_pct": 73.42123525329632,
+      "sunlit_samples": 1058
+    },
+    {
+      "plane": 12,
+      "samples": 1441,
+      "satellite_id": 358,
+      "slot": 22,
+      "sunlit_ratio_pct": 72.9354614850798,
+      "sunlit_samples": 1051
+    },
+    {
+      "plane": 12,
+      "samples": 1441,
+      "satellite_id": 359,
+      "slot": 23,
+      "sunlit_ratio_pct": 72.4496877168633,
+      "sunlit_samples": 1044
+    },
+    {
+      "plane": 12,
+      "samples": 1441,
+      "satellite_id": 360,
+      "slot": 24,
+      "sunlit_ratio_pct": 71.96391394864678,
+      "sunlit_samples": 1037
+    },
+    {
+      "plane": 12,
+      "samples": 1441,
+      "satellite_id": 361,
+      "slot": 25,
+      "sunlit_ratio_pct": 71.13115891741846,
+      "sunlit_samples": 1025
+    },
+    {
+      "plane": 12,
+      "samples": 1441,
+      "satellite_id": 362,
+      "slot": 26,
+      "sunlit_ratio_pct": 71.47814018043026,
+      "sunlit_samples": 1030
+    },
+    {
+      "plane": 12,
+      "samples": 1441,
+      "satellite_id": 363,
+      "slot": 27,
+      "sunlit_ratio_pct": 71.68632893823734,
+      "sunlit_samples": 1033
+    },
+    {
+      "plane": 13,
+      "samples": 1441,
+      "satellite_id": 364,
+      "slot": 0,
+      "sunlit_ratio_pct": 70.0208188757807,
+      "sunlit_samples": 1009
+    },
+    {
+      "plane": 13,
+      "samples": 1441,
+      "satellite_id": 365,
+      "slot": 1,
+      "sunlit_ratio_pct": 70.22900763358778,
+      "sunlit_samples": 1012
+    },
+    {
+      "plane": 13,
+      "samples": 1441,
+      "satellite_id": 366,
+      "slot": 2,
+      "sunlit_ratio_pct": 70.7147814018043,
+      "sunlit_samples": 1019
+    },
+    {
+      "plane": 13,
+      "samples": 1441,
+      "satellite_id": 367,
+      "slot": 3,
+      "sunlit_ratio_pct": 71.20055517002082,
+      "sunlit_samples": 1026
+    },
+    {
+      "plane": 13,
+      "samples": 1441,
+      "satellite_id": 368,
+      "slot": 4,
+      "sunlit_ratio_pct": 71.68632893823734,
+      "sunlit_samples": 1033
+    },
+    {
+      "plane": 13,
+      "samples": 1441,
+      "satellite_id": 369,
+      "slot": 5,
+      "sunlit_ratio_pct": 72.17210270645386,
+      "sunlit_samples": 1040
+    },
+    {
+      "plane": 13,
+      "samples": 1441,
+      "satellite_id": 370,
+      "slot": 6,
+      "sunlit_ratio_pct": 72.72727272727273,
+      "sunlit_samples": 1048
+    },
+    {
+      "plane": 13,
+      "samples": 1441,
+      "satellite_id": 371,
+      "slot": 7,
+      "sunlit_ratio_pct": 73.6294240111034,
+      "sunlit_samples": 1061
+    },
+    {
+      "plane": 13,
+      "samples": 1441,
+      "satellite_id": 372,
+      "slot": 8,
+      "sunlit_ratio_pct": 74.11519777931991,
+      "sunlit_samples": 1068
+    },
+    {
+      "plane": 13,
+      "samples": 1441,
+      "satellite_id": 373,
+      "slot": 9,
+      "sunlit_ratio_pct": 73.9764052741152,
+      "sunlit_samples": 1066
+    },
+    {
+      "plane": 13,
+      "samples": 1441,
+      "satellite_id": 374,
+      "slot": 10,
+      "sunlit_ratio_pct": 73.76821651630812,
+      "sunlit_samples": 1063
+    },
+    {
+      "plane": 13,
+      "samples": 1441,
+      "satellite_id": 375,
+      "slot": 11,
+      "sunlit_ratio_pct": 73.76821651630812,
+      "sunlit_samples": 1063
+    },
+    {
+      "plane": 13,
+      "samples": 1441,
+      "satellite_id": 376,
+      "slot": 12,
+      "sunlit_ratio_pct": 73.76821651630812,
+      "sunlit_samples": 1063
+    },
+    {
+      "plane": 13,
+      "samples": 1441,
+      "satellite_id": 377,
+      "slot": 13,
+      "sunlit_ratio_pct": 73.76821651630812,
+      "sunlit_samples": 1063
+    },
+    {
+      "plane": 13,
+      "samples": 1441,
+      "satellite_id": 378,
+      "slot": 14,
+      "sunlit_ratio_pct": 73.76821651630812,
+      "sunlit_samples": 1063
+    },
+    {
+      "plane": 13,
+      "samples": 1441,
+      "satellite_id": 379,
+      "slot": 15,
+      "sunlit_ratio_pct": 73.76821651630812,
+      "sunlit_samples": 1063
+    },
+    {
+      "plane": 13,
+      "samples": 1441,
+      "satellite_id": 380,
+      "slot": 16,
+      "sunlit_ratio_pct": 73.83761276891047,
+      "sunlit_samples": 1064
+    },
+    {
+      "plane": 13,
+      "samples": 1441,
+      "satellite_id": 381,
+      "slot": 17,
+      "sunlit_ratio_pct": 73.56002775850104,
+      "sunlit_samples": 1060
+    },
+    {
+      "plane": 13,
+      "samples": 1441,
+      "satellite_id": 382,
+      "slot": 18,
+      "sunlit_ratio_pct": 72.9354614850798,
+      "sunlit_samples": 1051
+    },
+    {
+      "plane": 13,
+      "samples": 1441,
+      "satellite_id": 383,
+      "slot": 19,
+      "sunlit_ratio_pct": 72.1027064538515,
+      "sunlit_samples": 1039
+    },
+    {
+      "plane": 13,
+      "samples": 1441,
+      "satellite_id": 384,
+      "slot": 20,
+      "sunlit_ratio_pct": 71.61693268563498,
+      "sunlit_samples": 1032
+    },
+    {
+      "plane": 13,
+      "samples": 1441,
+      "satellite_id": 385,
+      "slot": 21,
+      "sunlit_ratio_pct": 71.13115891741846,
+      "sunlit_samples": 1025
+    },
+    {
+      "plane": 13,
+      "samples": 1441,
+      "satellite_id": 386,
+      "slot": 22,
+      "sunlit_ratio_pct": 70.64538514920194,
+      "sunlit_samples": 1018
+    },
+    {
+      "plane": 13,
+      "samples": 1441,
+      "satellite_id": 387,
+      "slot": 23,
+      "sunlit_ratio_pct": 70.15961138098542,
+      "sunlit_samples": 1011
+    },
+    {
+      "plane": 13,
+      "samples": 1441,
+      "satellite_id": 388,
+      "slot": 24,
+      "sunlit_ratio_pct": 70.0208188757807,
+      "sunlit_samples": 1009
+    },
+    {
+      "plane": 13,
+      "samples": 1441,
+      "satellite_id": 389,
+      "slot": 25,
+      "sunlit_ratio_pct": 70.22900763358778,
+      "sunlit_samples": 1012
+    },
+    {
+      "plane": 13,
+      "samples": 1441,
+      "satellite_id": 390,
+      "slot": 26,
+      "sunlit_ratio_pct": 70.57598889659958,
+      "sunlit_samples": 1017
+    },
+    {
+      "plane": 13,
+      "samples": 1441,
+      "satellite_id": 391,
+      "slot": 27,
+      "sunlit_ratio_pct": 70.57598889659958,
+      "sunlit_samples": 1017
+    },
+    {
+      "plane": 14,
+      "samples": 1441,
+      "satellite_id": 392,
+      "slot": 0,
+      "sunlit_ratio_pct": 68.35530881332409,
+      "sunlit_samples": 985
+    },
+    {
+      "plane": 14,
+      "samples": 1441,
+      "satellite_id": 393,
+      "slot": 1,
+      "sunlit_ratio_pct": 68.84108258154059,
+      "sunlit_samples": 992
+    },
+    {
+      "plane": 14,
+      "samples": 1441,
+      "satellite_id": 394,
+      "slot": 2,
+      "sunlit_ratio_pct": 69.60444136016655,
+      "sunlit_samples": 1003
+    },
+    {
+      "plane": 14,
+      "samples": 1441,
+      "satellite_id": 395,
+      "slot": 3,
+      "sunlit_ratio_pct": 70.29840388619014,
+      "sunlit_samples": 1013
+    },
+    {
+      "plane": 14,
+      "samples": 1441,
+      "satellite_id": 396,
+      "slot": 4,
+      "sunlit_ratio_pct": 70.64538514920194,
+      "sunlit_samples": 1018
+    },
+    {
+      "plane": 14,
+      "samples": 1441,
+      "satellite_id": 397,
+      "slot": 5,
+      "sunlit_ratio_pct": 70.78417765440666,
+      "sunlit_samples": 1020
+    },
+    {
+      "plane": 14,
+      "samples": 1441,
+      "satellite_id": 398,
+      "slot": 6,
+      "sunlit_ratio_pct": 71.20055517002082,
+      "sunlit_samples": 1026
+    },
+    {
+      "plane": 14,
+      "samples": 1441,
+      "satellite_id": 399,
+      "slot": 7,
+      "sunlit_ratio_pct": 71.68632893823734,
+      "sunlit_samples": 1033
+    },
+    {
+      "plane": 14,
+      "samples": 1441,
+      "satellite_id": 400,
+      "slot": 8,
+      "sunlit_ratio_pct": 71.82512144344206,
+      "sunlit_samples": 1035
+    },
+    {
+      "plane": 14,
+      "samples": 1441,
+      "satellite_id": 401,
+      "slot": 9,
+      "sunlit_ratio_pct": 71.82512144344206,
+      "sunlit_samples": 1035
+    },
+    {
+      "plane": 14,
+      "samples": 1441,
+      "satellite_id": 402,
+      "slot": 10,
+      "sunlit_ratio_pct": 71.82512144344206,
+      "sunlit_samples": 1035
+    },
+    {
+      "plane": 14,
+      "samples": 1441,
+      "satellite_id": 403,
+      "slot": 11,
+      "sunlit_ratio_pct": 71.82512144344206,
+      "sunlit_samples": 1035
+    },
+    {
+      "plane": 14,
+      "samples": 1441,
+      "satellite_id": 404,
+      "slot": 12,
+      "sunlit_ratio_pct": 72.31089521165858,
+      "sunlit_samples": 1042
+    },
+    {
+      "plane": 14,
+      "samples": 1441,
+      "satellite_id": 405,
+      "slot": 13,
+      "sunlit_ratio_pct": 72.31089521165858,
+      "sunlit_samples": 1042
+    },
+    {
+      "plane": 14,
+      "samples": 1441,
+      "satellite_id": 406,
+      "slot": 14,
+      "sunlit_ratio_pct": 71.96391394864678,
+      "sunlit_samples": 1037
+    },
+    {
+      "plane": 14,
+      "samples": 1441,
+      "satellite_id": 407,
+      "slot": 15,
+      "sunlit_ratio_pct": 71.26995142262318,
+      "sunlit_samples": 1027
+    },
+    {
+      "plane": 14,
+      "samples": 1441,
+      "satellite_id": 408,
+      "slot": 16,
+      "sunlit_ratio_pct": 70.78417765440666,
+      "sunlit_samples": 1020
+    },
+    {
+      "plane": 14,
+      "samples": 1441,
+      "satellite_id": 409,
+      "slot": 17,
+      "sunlit_ratio_pct": 70.29840388619014,
+      "sunlit_samples": 1013
+    },
+    {
+      "plane": 14,
+      "samples": 1441,
+      "satellite_id": 410,
+      "slot": 18,
+      "sunlit_ratio_pct": 69.81263011797363,
+      "sunlit_samples": 1006
+    },
+    {
+      "plane": 14,
+      "samples": 1441,
+      "satellite_id": 411,
+      "slot": 19,
+      "sunlit_ratio_pct": 69.32685634975711,
+      "sunlit_samples": 999
+    },
+    {
+      "plane": 14,
+      "samples": 1441,
+      "satellite_id": 412,
+      "slot": 20,
+      "sunlit_ratio_pct": 68.84108258154059,
+      "sunlit_samples": 992
+    },
+    {
+      "plane": 14,
+      "samples": 1441,
+      "satellite_id": 413,
+      "slot": 21,
+      "sunlit_ratio_pct": 68.91047883414295,
+      "sunlit_samples": 993
+    },
+    {
+      "plane": 14,
+      "samples": 1441,
+      "satellite_id": 414,
+      "slot": 22,
+      "sunlit_ratio_pct": 68.42470506592645,
+      "sunlit_samples": 986
+    },
+    {
+      "plane": 14,
+      "samples": 1441,
+      "satellite_id": 415,
+      "slot": 23,
+      "sunlit_ratio_pct": 68.14712005551701,
+      "sunlit_samples": 982
+    },
+    {
+      "plane": 14,
+      "samples": 1441,
+      "satellite_id": 416,
+      "slot": 24,
+      "sunlit_ratio_pct": 67.80013879250521,
+      "sunlit_samples": 977
+    },
+    {
+      "plane": 14,
+      "samples": 1441,
+      "satellite_id": 417,
+      "slot": 25,
+      "sunlit_ratio_pct": 67.80013879250521,
+      "sunlit_samples": 977
+    },
+    {
+      "plane": 14,
+      "samples": 1441,
+      "satellite_id": 418,
+      "slot": 26,
+      "sunlit_ratio_pct": 67.80013879250521,
+      "sunlit_samples": 977
+    },
+    {
+      "plane": 14,
+      "samples": 1441,
+      "satellite_id": 419,
+      "slot": 27,
+      "sunlit_ratio_pct": 67.86953504510757,
+      "sunlit_samples": 978
+    },
+    {
+      "plane": 15,
+      "samples": 1441,
+      "satellite_id": 420,
+      "slot": 0,
+      "sunlit_ratio_pct": 66.82859125607217,
+      "sunlit_samples": 963
+    },
+    {
+      "plane": 15,
+      "samples": 1441,
+      "satellite_id": 421,
+      "slot": 1,
+      "sunlit_ratio_pct": 67.31436502428869,
+      "sunlit_samples": 970
+    },
+    {
+      "plane": 15,
+      "samples": 1441,
+      "satellite_id": 422,
+      "slot": 2,
+      "sunlit_ratio_pct": 67.80013879250521,
+      "sunlit_samples": 977
+    },
+    {
+      "plane": 15,
+      "samples": 1441,
+      "satellite_id": 423,
+      "slot": 3,
+      "sunlit_ratio_pct": 68.28591256072173,
+      "sunlit_samples": 984
+    },
+    {
+      "plane": 15,
+      "samples": 1441,
+      "satellite_id": 424,
+      "slot": 4,
+      "sunlit_ratio_pct": 68.77168632893823,
+      "sunlit_samples": 991
+    },
+    {
+      "plane": 15,
+      "samples": 1441,
+      "satellite_id": 425,
+      "slot": 5,
+      "sunlit_ratio_pct": 69.74323386537127,
+      "sunlit_samples": 1005
+    },
+    {
+      "plane": 15,
+      "samples": 1441,
+      "satellite_id": 426,
+      "slot": 6,
+      "sunlit_ratio_pct": 70.22900763358778,
+      "sunlit_samples": 1012
+    },
+    {
+      "plane": 15,
+      "samples": 1441,
+      "satellite_id": 427,
+      "slot": 7,
+      "sunlit_ratio_pct": 70.22900763358778,
+      "sunlit_samples": 1012
+    },
+    {
+      "plane": 15,
+      "samples": 1441,
+      "satellite_id": 428,
+      "slot": 8,
+      "sunlit_ratio_pct": 69.95142262317835,
+      "sunlit_samples": 1008
+    },
+    {
+      "plane": 15,
+      "samples": 1441,
+      "satellite_id": 429,
+      "slot": 9,
+      "sunlit_ratio_pct": 69.88202637057599,
+      "sunlit_samples": 1007
+    },
+    {
+      "plane": 15,
+      "samples": 1441,
+      "satellite_id": 430,
+      "slot": 10,
+      "sunlit_ratio_pct": 69.88202637057599,
+      "sunlit_samples": 1007
+    },
+    {
+      "plane": 15,
+      "samples": 1441,
+      "satellite_id": 431,
+      "slot": 11,
+      "sunlit_ratio_pct": 69.88202637057599,
+      "sunlit_samples": 1007
+    },
+    {
+      "plane": 15,
+      "samples": 1441,
+      "satellite_id": 432,
+      "slot": 12,
+      "sunlit_ratio_pct": 69.88202637057599,
+      "sunlit_samples": 1007
+    },
+    {
+      "plane": 15,
+      "samples": 1441,
+      "satellite_id": 433,
+      "slot": 13,
+      "sunlit_ratio_pct": 69.53504510756419,
+      "sunlit_samples": 1002
+    },
+    {
+      "plane": 15,
+      "samples": 1441,
+      "satellite_id": 434,
+      "slot": 14,
+      "sunlit_ratio_pct": 69.60444136016655,
+      "sunlit_samples": 1003
+    },
+    {
+      "plane": 15,
+      "samples": 1441,
+      "satellite_id": 435,
+      "slot": 15,
+      "sunlit_ratio_pct": 69.11866759195003,
+      "sunlit_samples": 996
+    },
+    {
+      "plane": 15,
+      "samples": 1441,
+      "satellite_id": 436,
+      "slot": 16,
+      "sunlit_ratio_pct": 68.56349757113117,
+      "sunlit_samples": 988
+    },
+    {
+      "plane": 15,
+      "samples": 1441,
+      "satellite_id": 437,
+      "slot": 17,
+      "sunlit_ratio_pct": 67.80013879250521,
+      "sunlit_samples": 977
+    },
+    {
+      "plane": 15,
+      "samples": 1441,
+      "satellite_id": 438,
+      "slot": 18,
+      "sunlit_ratio_pct": 67.17557251908397,
+      "sunlit_samples": 968
+    },
+    {
+      "plane": 15,
+      "samples": 1441,
+      "satellite_id": 439,
+      "slot": 19,
+      "sunlit_ratio_pct": 66.68979875086745,
+      "sunlit_samples": 961
+    },
+    {
+      "plane": 15,
+      "samples": 1441,
+      "satellite_id": 440,
+      "slot": 20,
+      "sunlit_ratio_pct": 66.20402498265094,
+      "sunlit_samples": 954
+    },
+    {
+      "plane": 15,
+      "samples": 1441,
+      "satellite_id": 441,
+      "slot": 21,
+      "sunlit_ratio_pct": 65.71825121443442,
+      "sunlit_samples": 947
+    },
+    {
+      "plane": 15,
+      "samples": 1441,
+      "satellite_id": 442,
+      "slot": 22,
+      "sunlit_ratio_pct": 65.5794587092297,
+      "sunlit_samples": 945
+    },
+    {
+      "plane": 15,
+      "samples": 1441,
+      "satellite_id": 443,
+      "slot": 23,
+      "sunlit_ratio_pct": 66.13462873004858,
+      "sunlit_samples": 953
+    },
+    {
+      "plane": 15,
+      "samples": 1441,
+      "satellite_id": 444,
+      "slot": 24,
+      "sunlit_ratio_pct": 66.13462873004858,
+      "sunlit_samples": 953
+    },
+    {
+      "plane": 15,
+      "samples": 1441,
+      "satellite_id": 445,
+      "slot": 25,
+      "sunlit_ratio_pct": 66.13462873004858,
+      "sunlit_samples": 953
+    },
+    {
+      "plane": 15,
+      "samples": 1441,
+      "satellite_id": 446,
+      "slot": 26,
+      "sunlit_ratio_pct": 66.13462873004858,
+      "sunlit_samples": 953
+    },
+    {
+      "plane": 15,
+      "samples": 1441,
+      "satellite_id": 447,
+      "slot": 27,
+      "sunlit_ratio_pct": 66.34281748785565,
+      "sunlit_samples": 956
+    },
+    {
+      "plane": 16,
+      "samples": 1441,
+      "satellite_id": 448,
+      "slot": 0,
+      "sunlit_ratio_pct": 65.78764746703678,
+      "sunlit_samples": 948
+    },
+    {
+      "plane": 16,
+      "samples": 1441,
+      "satellite_id": 449,
+      "slot": 1,
+      "sunlit_ratio_pct": 66.2734212352533,
+      "sunlit_samples": 955
+    },
+    {
+      "plane": 16,
+      "samples": 1441,
+      "satellite_id": 450,
+      "slot": 2,
+      "sunlit_ratio_pct": 66.75919500346981,
+      "sunlit_samples": 962
+    },
+    {
+      "plane": 16,
+      "samples": 1441,
+      "satellite_id": 451,
+      "slot": 3,
+      "sunlit_ratio_pct": 67.52255378209577,
+      "sunlit_samples": 973
+    },
+    {
+      "plane": 16,
+      "samples": 1441,
+      "satellite_id": 452,
+      "slot": 4,
+      "sunlit_ratio_pct": 67.80013879250521,
+      "sunlit_samples": 977
+    },
+    {
+      "plane": 16,
+      "samples": 1441,
+      "satellite_id": 453,
+      "slot": 5,
+      "sunlit_ratio_pct": 68.14712005551701,
+      "sunlit_samples": 982
+    },
+    {
+      "plane": 16,
+      "samples": 1441,
+      "satellite_id": 454,
+      "slot": 6,
+      "sunlit_ratio_pct": 68.42470506592645,
+      "sunlit_samples": 986
+    },
+    {
+      "plane": 16,
+      "samples": 1441,
+      "satellite_id": 455,
+      "slot": 7,
+      "sunlit_ratio_pct": 68.42470506592645,
+      "sunlit_samples": 986
+    },
+    {
+      "plane": 16,
+      "samples": 1441,
+      "satellite_id": 456,
+      "slot": 8,
+      "sunlit_ratio_pct": 68.42470506592645,
+      "sunlit_samples": 986
+    },
+    {
+      "plane": 16,
+      "samples": 1441,
+      "satellite_id": 457,
+      "slot": 9,
+      "sunlit_ratio_pct": 68.42470506592645,
+      "sunlit_samples": 986
+    },
+    {
+      "plane": 16,
+      "samples": 1441,
+      "satellite_id": 458,
+      "slot": 10,
+      "sunlit_ratio_pct": 68.42470506592645,
+      "sunlit_samples": 986
+    },
+    {
+      "plane": 16,
+      "samples": 1441,
+      "satellite_id": 459,
+      "slot": 11,
+      "sunlit_ratio_pct": 68.42470506592645,
+      "sunlit_samples": 986
+    },
+    {
+      "plane": 16,
+      "samples": 1441,
+      "satellite_id": 460,
+      "slot": 12,
+      "sunlit_ratio_pct": 68.00832755031229,
+      "sunlit_samples": 980
+    },
+    {
+      "plane": 16,
+      "samples": 1441,
+      "satellite_id": 461,
+      "slot": 13,
+      "sunlit_ratio_pct": 67.73074253990285,
+      "sunlit_samples": 976
+    },
+    {
+      "plane": 16,
+      "samples": 1441,
+      "satellite_id": 462,
+      "slot": 14,
+      "sunlit_ratio_pct": 67.03678001387925,
+      "sunlit_samples": 966
+    },
+    {
+      "plane": 16,
+      "samples": 1441,
+      "satellite_id": 463,
+      "slot": 15,
+      "sunlit_ratio_pct": 66.55100624566273,
+      "sunlit_samples": 959
+    },
+    {
+      "plane": 16,
+      "samples": 1441,
+      "satellite_id": 464,
+      "slot": 16,
+      "sunlit_ratio_pct": 66.06523247744622,
+      "sunlit_samples": 952
+    },
+    {
+      "plane": 16,
+      "samples": 1441,
+      "satellite_id": 465,
+      "slot": 17,
+      "sunlit_ratio_pct": 65.5794587092297,
+      "sunlit_samples": 945
+    },
+    {
+      "plane": 16,
+      "samples": 1441,
+      "satellite_id": 466,
+      "slot": 18,
+      "sunlit_ratio_pct": 65.09368494101318,
+      "sunlit_samples": 938
+    },
+    {
+      "plane": 16,
+      "samples": 1441,
+      "satellite_id": 467,
+      "slot": 19,
+      "sunlit_ratio_pct": 64.60791117279666,
+      "sunlit_samples": 931
+    },
+    {
+      "plane": 16,
+      "samples": 1441,
+      "satellite_id": 468,
+      "slot": 20,
+      "sunlit_ratio_pct": 64.12213740458016,
+      "sunlit_samples": 924
+    },
+    {
+      "plane": 16,
+      "samples": 1441,
+      "satellite_id": 469,
+      "slot": 21,
+      "sunlit_ratio_pct": 63.91394864677307,
+      "sunlit_samples": 921
+    },
+    {
+      "plane": 16,
+      "samples": 1441,
+      "satellite_id": 470,
+      "slot": 22,
+      "sunlit_ratio_pct": 64.26092990978488,
+      "sunlit_samples": 926
+    },
+    {
+      "plane": 16,
+      "samples": 1441,
+      "satellite_id": 471,
+      "slot": 23,
+      "sunlit_ratio_pct": 63.98334489937543,
+      "sunlit_samples": 922
+    },
+    {
+      "plane": 16,
+      "samples": 1441,
+      "satellite_id": 472,
+      "slot": 24,
+      "sunlit_ratio_pct": 63.91394864677307,
+      "sunlit_samples": 921
+    },
+    {
+      "plane": 16,
+      "samples": 1441,
+      "satellite_id": 473,
+      "slot": 25,
+      "sunlit_ratio_pct": 64.33032616238724,
+      "sunlit_samples": 927
+    },
+    {
+      "plane": 16,
+      "samples": 1441,
+      "satellite_id": 474,
+      "slot": 26,
+      "sunlit_ratio_pct": 64.81609993060374,
+      "sunlit_samples": 934
+    },
+    {
+      "plane": 16,
+      "samples": 1441,
+      "satellite_id": 475,
+      "slot": 27,
+      "sunlit_ratio_pct": 65.30187369882026,
+      "sunlit_samples": 941
+    },
+    {
+      "plane": 17,
+      "samples": 1441,
+      "satellite_id": 476,
+      "slot": 0,
+      "sunlit_ratio_pct": 64.81609993060374,
+      "sunlit_samples": 934
+    },
+    {
+      "plane": 17,
+      "samples": 1441,
+      "satellite_id": 477,
+      "slot": 1,
+      "sunlit_ratio_pct": 65.64885496183206,
+      "sunlit_samples": 946
+    },
+    {
+      "plane": 17,
+      "samples": 1441,
+      "satellite_id": 478,
+      "slot": 2,
+      "sunlit_ratio_pct": 66.13462873004858,
+      "sunlit_samples": 953
+    },
+    {
+      "plane": 17,
+      "samples": 1441,
+      "satellite_id": 479,
+      "slot": 3,
+      "sunlit_ratio_pct": 66.6204024982651,
+      "sunlit_samples": 960
+    },
+    {
+      "plane": 17,
+      "samples": 1441,
+      "satellite_id": 480,
+      "slot": 4,
+      "sunlit_ratio_pct": 67.10617626648161,
+      "sunlit_samples": 967
+    },
+    {
+      "plane": 17,
+      "samples": 1441,
+      "satellite_id": 481,
+      "slot": 5,
+      "sunlit_ratio_pct": 67.45315752949341,
+      "sunlit_samples": 972
+    },
+    {
+      "plane": 17,
+      "samples": 1441,
+      "satellite_id": 482,
+      "slot": 6,
+      "sunlit_ratio_pct": 67.24496877168633,
+      "sunlit_samples": 969
+    },
+    {
+      "plane": 17,
+      "samples": 1441,
+      "satellite_id": 483,
+      "slot": 7,
+      "sunlit_ratio_pct": 66.96738376127689,
+      "sunlit_samples": 965
+    },
+    {
+      "plane": 17,
+      "samples": 1441,
+      "satellite_id": 484,
+      "slot": 8,
+      "sunlit_ratio_pct": 66.96738376127689,
+      "sunlit_samples": 965
+    },
+    {
+      "plane": 17,
+      "samples": 1441,
+      "satellite_id": 485,
+      "slot": 9,
+      "sunlit_ratio_pct": 66.96738376127689,
+      "sunlit_samples": 965
+    },
+    {
+      "plane": 17,
+      "samples": 1441,
+      "satellite_id": 486,
+      "slot": 10,
+      "sunlit_ratio_pct": 67.45315752949341,
+      "sunlit_samples": 972
+    },
+    {
+      "plane": 17,
+      "samples": 1441,
+      "satellite_id": 487,
+      "slot": 11,
+      "sunlit_ratio_pct": 66.96738376127689,
+      "sunlit_samples": 965
+    },
+    {
+      "plane": 17,
+      "samples": 1441,
+      "satellite_id": 488,
+      "slot": 12,
+      "sunlit_ratio_pct": 66.48160999306037,
+      "sunlit_samples": 958
+    },
+    {
+      "plane": 17,
+      "samples": 1441,
+      "satellite_id": 489,
+      "slot": 13,
+      "sunlit_ratio_pct": 65.99583622484386,
+      "sunlit_samples": 951
+    },
+    {
+      "plane": 17,
+      "samples": 1441,
+      "satellite_id": 490,
+      "slot": 14,
+      "sunlit_ratio_pct": 65.51006245662734,
+      "sunlit_samples": 944
+    },
+    {
+      "plane": 17,
+      "samples": 1441,
+      "satellite_id": 491,
+      "slot": 15,
+      "sunlit_ratio_pct": 64.8854961832061,
+      "sunlit_samples": 935
+    },
+    {
+      "plane": 17,
+      "samples": 1441,
+      "satellite_id": 492,
+      "slot": 16,
+      "sunlit_ratio_pct": 64.12213740458016,
+      "sunlit_samples": 924
+    },
+    {
+      "plane": 17,
+      "samples": 1441,
+      "satellite_id": 493,
+      "slot": 17,
+      "sunlit_ratio_pct": 63.56696738376127,
+      "sunlit_samples": 916
+    },
+    {
+      "plane": 17,
+      "samples": 1441,
+      "satellite_id": 494,
+      "slot": 18,
+      "sunlit_ratio_pct": 63.08119361554476,
+      "sunlit_samples": 909
+    },
+    {
+      "plane": 17,
+      "samples": 1441,
+      "satellite_id": 495,
+      "slot": 19,
+      "sunlit_ratio_pct": 63.0117973629424,
+      "sunlit_samples": 908
+    },
+    {
+      "plane": 17,
+      "samples": 1441,
+      "satellite_id": 496,
+      "slot": 20,
+      "sunlit_ratio_pct": 62.803608605135324,
+      "sunlit_samples": 905
+    },
+    {
+      "plane": 17,
+      "samples": 1441,
+      "satellite_id": 497,
+      "slot": 21,
+      "sunlit_ratio_pct": 62.803608605135324,
+      "sunlit_samples": 905
+    },
+    {
+      "plane": 17,
+      "samples": 1441,
+      "satellite_id": 498,
+      "slot": 22,
+      "sunlit_ratio_pct": 62.803608605135324,
+      "sunlit_samples": 905
+    },
+    {
+      "plane": 17,
+      "samples": 1441,
+      "satellite_id": 499,
+      "slot": 23,
+      "sunlit_ratio_pct": 62.803608605135324,
+      "sunlit_samples": 905
+    },
+    {
+      "plane": 17,
+      "samples": 1441,
+      "satellite_id": 500,
+      "slot": 24,
+      "sunlit_ratio_pct": 63.21998612074948,
+      "sunlit_samples": 911
+    },
+    {
+      "plane": 17,
+      "samples": 1441,
+      "satellite_id": 501,
+      "slot": 25,
+      "sunlit_ratio_pct": 63.42817487855656,
+      "sunlit_samples": 914
+    },
+    {
+      "plane": 17,
+      "samples": 1441,
+      "satellite_id": 502,
+      "slot": 26,
+      "sunlit_ratio_pct": 63.70575988896599,
+      "sunlit_samples": 918
+    },
+    {
+      "plane": 17,
+      "samples": 1441,
+      "satellite_id": 503,
+      "slot": 27,
+      "sunlit_ratio_pct": 64.19153365718252,
+      "sunlit_samples": 925
+    },
+    {
+      "plane": 18,
+      "samples": 1441,
+      "satellite_id": 504,
+      "slot": 0,
+      "sunlit_ratio_pct": 64.53851492019432,
+      "sunlit_samples": 930
+    },
+    {
+      "plane": 18,
+      "samples": 1441,
+      "satellite_id": 505,
+      "slot": 1,
+      "sunlit_ratio_pct": 65.02428868841082,
+      "sunlit_samples": 937
+    },
+    {
+      "plane": 18,
+      "samples": 1441,
+      "satellite_id": 506,
+      "slot": 2,
+      "sunlit_ratio_pct": 65.51006245662734,
+      "sunlit_samples": 944
+    },
+    {
+      "plane": 18,
+      "samples": 1441,
+      "satellite_id": 507,
+      "slot": 3,
+      "sunlit_ratio_pct": 65.99583622484386,
+      "sunlit_samples": 951
+    },
+    {
+      "plane": 18,
+      "samples": 1441,
+      "satellite_id": 508,
+      "slot": 4,
+      "sunlit_ratio_pct": 66.48160999306037,
+      "sunlit_samples": 958
+    },
+    {
+      "plane": 18,
+      "samples": 1441,
+      "satellite_id": 509,
+      "slot": 5,
+      "sunlit_ratio_pct": 66.48160999306037,
+      "sunlit_samples": 958
+    },
+    {
+      "plane": 18,
+      "samples": 1441,
+      "satellite_id": 510,
+      "slot": 6,
+      "sunlit_ratio_pct": 66.48160999306037,
+      "sunlit_samples": 958
+    },
+    {
+      "plane": 18,
+      "samples": 1441,
+      "satellite_id": 511,
+      "slot": 7,
+      "sunlit_ratio_pct": 66.48160999306037,
+      "sunlit_samples": 958
+    },
+    {
+      "plane": 18,
+      "samples": 1441,
+      "satellite_id": 512,
+      "slot": 8,
+      "sunlit_ratio_pct": 66.20402498265094,
+      "sunlit_samples": 954
+    },
+    {
+      "plane": 18,
+      "samples": 1441,
+      "satellite_id": 513,
+      "slot": 9,
+      "sunlit_ratio_pct": 66.41221374045801,
+      "sunlit_samples": 957
+    },
+    {
+      "plane": 18,
+      "samples": 1441,
+      "satellite_id": 514,
+      "slot": 10,
+      "sunlit_ratio_pct": 65.99583622484386,
+      "sunlit_samples": 951
+    },
+    {
+      "plane": 18,
+      "samples": 1441,
+      "satellite_id": 515,
+      "slot": 11,
+      "sunlit_ratio_pct": 65.51006245662734,
+      "sunlit_samples": 944
+    },
+    {
+      "plane": 18,
+      "samples": 1441,
+      "satellite_id": 516,
+      "slot": 12,
+      "sunlit_ratio_pct": 65.02428868841082,
+      "sunlit_samples": 937
+    },
+    {
+      "plane": 18,
+      "samples": 1441,
+      "satellite_id": 517,
+      "slot": 13,
+      "sunlit_ratio_pct": 64.53851492019432,
+      "sunlit_samples": 930
+    },
+    {
+      "plane": 18,
+      "samples": 1441,
+      "satellite_id": 518,
+      "slot": 14,
+      "sunlit_ratio_pct": 64.0527411519778,
+      "sunlit_samples": 923
+    },
+    {
+      "plane": 18,
+      "samples": 1441,
+      "satellite_id": 519,
+      "slot": 15,
+      "sunlit_ratio_pct": 63.56696738376127,
+      "sunlit_samples": 916
+    },
+    {
+      "plane": 18,
+      "samples": 1441,
+      "satellite_id": 520,
+      "slot": 16,
+      "sunlit_ratio_pct": 63.08119361554476,
+      "sunlit_samples": 909
+    },
+    {
+      "plane": 18,
+      "samples": 1441,
+      "satellite_id": 521,
+      "slot": 17,
+      "sunlit_ratio_pct": 62.387231089521165,
+      "sunlit_samples": 899
+    },
+    {
+      "plane": 18,
+      "samples": 1441,
+      "satellite_id": 522,
+      "slot": 18,
+      "sunlit_ratio_pct": 61.97085357390701,
+      "sunlit_samples": 893
+    },
+    {
+      "plane": 18,
+      "samples": 1441,
+      "satellite_id": 523,
+      "slot": 19,
+      "sunlit_ratio_pct": 61.69326856349757,
+      "sunlit_samples": 889
+    },
+    {
+      "plane": 18,
+      "samples": 1441,
+      "satellite_id": 524,
+      "slot": 20,
+      "sunlit_ratio_pct": 61.69326856349757,
+      "sunlit_samples": 889
+    },
+    {
+      "plane": 18,
+      "samples": 1441,
+      "satellite_id": 525,
+      "slot": 21,
+      "sunlit_ratio_pct": 61.69326856349757,
+      "sunlit_samples": 889
+    },
+    {
+      "plane": 18,
+      "samples": 1441,
+      "satellite_id": 526,
+      "slot": 22,
+      "sunlit_ratio_pct": 61.69326856349757,
+      "sunlit_samples": 889
+    },
+    {
+      "plane": 18,
+      "samples": 1441,
+      "satellite_id": 527,
+      "slot": 23,
+      "sunlit_ratio_pct": 62.179042331714086,
+      "sunlit_samples": 896
+    },
+    {
+      "plane": 18,
+      "samples": 1441,
+      "satellite_id": 528,
+      "slot": 24,
+      "sunlit_ratio_pct": 62.664816099930604,
+      "sunlit_samples": 903
+    },
+    {
+      "plane": 18,
+      "samples": 1441,
+      "satellite_id": 529,
+      "slot": 25,
+      "sunlit_ratio_pct": 63.15058986814712,
+      "sunlit_samples": 910
+    },
+    {
+      "plane": 18,
+      "samples": 1441,
+      "satellite_id": 530,
+      "slot": 26,
+      "sunlit_ratio_pct": 63.49757113115892,
+      "sunlit_samples": 915
+    },
+    {
+      "plane": 18,
+      "samples": 1441,
+      "satellite_id": 531,
+      "slot": 27,
+      "sunlit_ratio_pct": 63.84455239417071,
+      "sunlit_samples": 920
+    },
+    {
+      "plane": 19,
+      "samples": 1441,
+      "satellite_id": 532,
+      "slot": 0,
+      "sunlit_ratio_pct": 64.46911866759196,
+      "sunlit_samples": 929
+    },
+    {
+      "plane": 19,
+      "samples": 1441,
+      "satellite_id": 533,
+      "slot": 1,
+      "sunlit_ratio_pct": 64.67730742539902,
+      "sunlit_samples": 932
+    },
+    {
+      "plane": 19,
+      "samples": 1441,
+      "satellite_id": 534,
+      "slot": 2,
+      "sunlit_ratio_pct": 64.8854961832061,
+      "sunlit_samples": 935
+    },
+    {
+      "plane": 19,
+      "samples": 1441,
+      "satellite_id": 535,
+      "slot": 3,
+      "sunlit_ratio_pct": 65.78764746703678,
+      "sunlit_samples": 948
+    },
+    {
+      "plane": 19,
+      "samples": 1441,
+      "satellite_id": 536,
+      "slot": 4,
+      "sunlit_ratio_pct": 65.99583622484386,
+      "sunlit_samples": 951
+    },
+    {
+      "plane": 19,
+      "samples": 1441,
+      "satellite_id": 537,
+      "slot": 5,
+      "sunlit_ratio_pct": 65.99583622484386,
+      "sunlit_samples": 951
+    },
+    {
+      "plane": 19,
+      "samples": 1441,
+      "satellite_id": 538,
+      "slot": 6,
+      "sunlit_ratio_pct": 65.99583622484386,
+      "sunlit_samples": 951
+    },
+    {
+      "plane": 19,
+      "samples": 1441,
+      "satellite_id": 539,
+      "slot": 7,
+      "sunlit_ratio_pct": 65.99583622484386,
+      "sunlit_samples": 951
+    },
+    {
+      "plane": 19,
+      "samples": 1441,
+      "satellite_id": 540,
+      "slot": 8,
+      "sunlit_ratio_pct": 65.99583622484386,
+      "sunlit_samples": 951
+    },
+    {
+      "plane": 19,
+      "samples": 1441,
+      "satellite_id": 541,
+      "slot": 9,
+      "sunlit_ratio_pct": 65.51006245662734,
+      "sunlit_samples": 944
+    },
+    {
+      "plane": 19,
+      "samples": 1441,
+      "satellite_id": 542,
+      "slot": 10,
+      "sunlit_ratio_pct": 64.8854961832061,
+      "sunlit_samples": 935
+    },
+    {
+      "plane": 19,
+      "samples": 1441,
+      "satellite_id": 543,
+      "slot": 11,
+      "sunlit_ratio_pct": 64.12213740458016,
+      "sunlit_samples": 924
+    },
+    {
+      "plane": 19,
+      "samples": 1441,
+      "satellite_id": 544,
+      "slot": 12,
+      "sunlit_ratio_pct": 63.84455239417071,
+      "sunlit_samples": 920
+    },
+    {
+      "plane": 19,
+      "samples": 1441,
+      "satellite_id": 545,
+      "slot": 13,
+      "sunlit_ratio_pct": 63.63636363636363,
+      "sunlit_samples": 917
+    },
+    {
+      "plane": 19,
+      "samples": 1441,
+      "satellite_id": 546,
+      "slot": 14,
+      "sunlit_ratio_pct": 63.15058986814712,
+      "sunlit_samples": 910
+    },
+    {
+      "plane": 19,
+      "samples": 1441,
+      "satellite_id": 547,
+      "slot": 15,
+      "sunlit_ratio_pct": 62.664816099930604,
+      "sunlit_samples": 903
+    },
+    {
+      "plane": 19,
+      "samples": 1441,
+      "satellite_id": 548,
+      "slot": 16,
+      "sunlit_ratio_pct": 62.179042331714086,
+      "sunlit_samples": 896
+    },
+    {
+      "plane": 19,
+      "samples": 1441,
+      "satellite_id": 549,
+      "slot": 17,
+      "sunlit_ratio_pct": 61.69326856349757,
+      "sunlit_samples": 889
+    },
+    {
+      "plane": 19,
+      "samples": 1441,
+      "satellite_id": 550,
+      "slot": 18,
+      "sunlit_ratio_pct": 61.20749479528106,
+      "sunlit_samples": 882
+    },
+    {
+      "plane": 19,
+      "samples": 1441,
+      "satellite_id": 551,
+      "slot": 19,
+      "sunlit_ratio_pct": 61.06870229007634,
+      "sunlit_samples": 880
+    },
+    {
+      "plane": 19,
+      "samples": 1441,
+      "satellite_id": 552,
+      "slot": 20,
+      "sunlit_ratio_pct": 60.7911172796669,
+      "sunlit_samples": 876
+    },
+    {
+      "plane": 19,
+      "samples": 1441,
+      "satellite_id": 553,
+      "slot": 21,
+      "sunlit_ratio_pct": 60.72172102706454,
+      "sunlit_samples": 875
+    },
+    {
+      "plane": 19,
+      "samples": 1441,
+      "satellite_id": 554,
+      "slot": 22,
+      "sunlit_ratio_pct": 61.55447605829285,
+      "sunlit_samples": 887
+    },
+    {
+      "plane": 19,
+      "samples": 1441,
+      "satellite_id": 555,
+      "slot": 23,
+      "sunlit_ratio_pct": 62.04024982650937,
+      "sunlit_samples": 894
+    },
+    {
+      "plane": 19,
+      "samples": 1441,
+      "satellite_id": 556,
+      "slot": 24,
+      "sunlit_ratio_pct": 62.526023594725885,
+      "sunlit_samples": 901
+    },
+    {
+      "plane": 19,
+      "samples": 1441,
+      "satellite_id": 557,
+      "slot": 25,
+      "sunlit_ratio_pct": 63.0117973629424,
+      "sunlit_samples": 908
+    },
+    {
+      "plane": 19,
+      "samples": 1441,
+      "satellite_id": 558,
+      "slot": 26,
+      "sunlit_ratio_pct": 63.49757113115892,
+      "sunlit_samples": 915
+    },
+    {
+      "plane": 19,
+      "samples": 1441,
+      "satellite_id": 559,
+      "slot": 27,
+      "sunlit_ratio_pct": 63.98334489937543,
+      "sunlit_samples": 922
+    },
+    {
+      "plane": 20,
+      "samples": 1441,
+      "satellite_id": 560,
+      "slot": 0,
+      "sunlit_ratio_pct": 64.33032616238724,
+      "sunlit_samples": 927
+    },
+    {
+      "plane": 20,
+      "samples": 1441,
+      "satellite_id": 561,
+      "slot": 1,
+      "sunlit_ratio_pct": 64.81609993060374,
+      "sunlit_samples": 934
+    },
+    {
+      "plane": 20,
+      "samples": 1441,
+      "satellite_id": 562,
+      "slot": 2,
+      "sunlit_ratio_pct": 65.30187369882026,
+      "sunlit_samples": 941
+    },
+    {
+      "plane": 20,
+      "samples": 1441,
+      "satellite_id": 563,
+      "slot": 3,
+      "sunlit_ratio_pct": 65.5794587092297,
+      "sunlit_samples": 945
+    },
+    {
+      "plane": 20,
+      "samples": 1441,
+      "satellite_id": 564,
+      "slot": 4,
+      "sunlit_ratio_pct": 65.99583622484386,
+      "sunlit_samples": 951
+    },
+    {
+      "plane": 20,
+      "samples": 1441,
+      "satellite_id": 565,
+      "slot": 5,
+      "sunlit_ratio_pct": 65.9264399722415,
+      "sunlit_samples": 950
+    },
+    {
+      "plane": 20,
+      "samples": 1441,
+      "satellite_id": 566,
+      "slot": 6,
+      "sunlit_ratio_pct": 65.5794587092297,
+      "sunlit_samples": 945
+    },
+    {
+      "plane": 20,
+      "samples": 1441,
+      "satellite_id": 567,
+      "slot": 7,
+      "sunlit_ratio_pct": 65.51006245662734,
+      "sunlit_samples": 944
+    },
+    {
+      "plane": 20,
+      "samples": 1441,
+      "satellite_id": 568,
+      "slot": 8,
+      "sunlit_ratio_pct": 65.09368494101318,
+      "sunlit_samples": 938
+    },
+    {
+      "plane": 20,
+      "samples": 1441,
+      "satellite_id": 569,
+      "slot": 9,
+      "sunlit_ratio_pct": 64.60791117279666,
+      "sunlit_samples": 931
+    },
+    {
+      "plane": 20,
+      "samples": 1441,
+      "satellite_id": 570,
+      "slot": 10,
+      "sunlit_ratio_pct": 64.12213740458016,
+      "sunlit_samples": 924
+    },
+    {
+      "plane": 20,
+      "samples": 1441,
+      "satellite_id": 571,
+      "slot": 11,
+      "sunlit_ratio_pct": 63.63636363636363,
+      "sunlit_samples": 917
+    },
+    {
+      "plane": 20,
+      "samples": 1441,
+      "satellite_id": 572,
+      "slot": 12,
+      "sunlit_ratio_pct": 63.15058986814712,
+      "sunlit_samples": 910
+    },
+    {
+      "plane": 20,
+      "samples": 1441,
+      "satellite_id": 573,
+      "slot": 13,
+      "sunlit_ratio_pct": 63.0117973629424,
+      "sunlit_samples": 908
+    },
+    {
+      "plane": 20,
+      "samples": 1441,
+      "satellite_id": 574,
+      "slot": 14,
+      "sunlit_ratio_pct": 62.734212352532964,
+      "sunlit_samples": 904
+    },
+    {
+      "plane": 20,
+      "samples": 1441,
+      "satellite_id": 575,
+      "slot": 15,
+      "sunlit_ratio_pct": 61.90145732130465,
+      "sunlit_samples": 892
+    },
+    {
+      "plane": 20,
+      "samples": 1441,
+      "satellite_id": 576,
+      "slot": 16,
+      "sunlit_ratio_pct": 61.27689104788342,
+      "sunlit_samples": 883
+    },
+    {
+      "plane": 20,
+      "samples": 1441,
+      "satellite_id": 577,
+      "slot": 17,
+      "sunlit_ratio_pct": 60.7911172796669,
+      "sunlit_samples": 876
+    },
+    {
+      "plane": 20,
+      "samples": 1441,
+      "satellite_id": 578,
+      "slot": 18,
+      "sunlit_ratio_pct": 60.58292852185982,
+      "sunlit_samples": 873
+    },
+    {
+      "plane": 20,
+      "samples": 1441,
+      "satellite_id": 579,
+      "slot": 19,
+      "sunlit_ratio_pct": 60.58292852185982,
+      "sunlit_samples": 873
+    },
+    {
+      "plane": 20,
+      "samples": 1441,
+      "satellite_id": 580,
+      "slot": 20,
+      "sunlit_ratio_pct": 60.58292852185982,
+      "sunlit_samples": 873
+    },
+    {
+      "plane": 20,
+      "samples": 1441,
+      "satellite_id": 581,
+      "slot": 21,
+      "sunlit_ratio_pct": 60.99930603747398,
+      "sunlit_samples": 879
+    },
+    {
+      "plane": 20,
+      "samples": 1441,
+      "satellite_id": 582,
+      "slot": 22,
+      "sunlit_ratio_pct": 61.69326856349757,
+      "sunlit_samples": 889
+    },
+    {
+      "plane": 20,
+      "samples": 1441,
+      "satellite_id": 583,
+      "slot": 23,
+      "sunlit_ratio_pct": 62.456627342123525,
+      "sunlit_samples": 900
+    },
+    {
+      "plane": 20,
+      "samples": 1441,
+      "satellite_id": 584,
+      "slot": 24,
+      "sunlit_ratio_pct": 62.664816099930604,
+      "sunlit_samples": 903
+    },
+    {
+      "plane": 20,
+      "samples": 1441,
+      "satellite_id": 585,
+      "slot": 25,
+      "sunlit_ratio_pct": 62.87300485773768,
+      "sunlit_samples": 906
+    },
+    {
+      "plane": 20,
+      "samples": 1441,
+      "satellite_id": 586,
+      "slot": 26,
+      "sunlit_ratio_pct": 63.3587786259542,
+      "sunlit_samples": 913
+    },
+    {
+      "plane": 20,
+      "samples": 1441,
+      "satellite_id": 587,
+      "slot": 27,
+      "sunlit_ratio_pct": 63.84455239417071,
+      "sunlit_samples": 920
+    },
+    {
+      "plane": 21,
+      "samples": 1441,
+      "satellite_id": 588,
+      "slot": 0,
+      "sunlit_ratio_pct": 64.74670367800138,
+      "sunlit_samples": 933
+    },
+    {
+      "plane": 21,
+      "samples": 1441,
+      "satellite_id": 589,
+      "slot": 1,
+      "sunlit_ratio_pct": 65.2324774462179,
+      "sunlit_samples": 940
+    },
+    {
+      "plane": 21,
+      "samples": 1441,
+      "satellite_id": 590,
+      "slot": 2,
+      "sunlit_ratio_pct": 65.51006245662734,
+      "sunlit_samples": 944
+    },
+    {
+      "plane": 21,
+      "samples": 1441,
+      "satellite_id": 591,
+      "slot": 3,
+      "sunlit_ratio_pct": 65.44066620402498,
+      "sunlit_samples": 943
+    },
+    {
+      "plane": 21,
+      "samples": 1441,
+      "satellite_id": 592,
+      "slot": 4,
+      "sunlit_ratio_pct": 65.51006245662734,
+      "sunlit_samples": 944
+    },
+    {
+      "plane": 21,
+      "samples": 1441,
+      "satellite_id": 593,
+      "slot": 5,
+      "sunlit_ratio_pct": 65.51006245662734,
+      "sunlit_samples": 944
+    },
+    {
+      "plane": 21,
+      "samples": 1441,
+      "satellite_id": 594,
+      "slot": 6,
+      "sunlit_ratio_pct": 65.51006245662734,
+      "sunlit_samples": 944
+    },
+    {
+      "plane": 21,
+      "samples": 1441,
+      "satellite_id": 595,
+      "slot": 7,
+      "sunlit_ratio_pct": 65.16308119361554,
+      "sunlit_samples": 939
+    },
+    {
+      "plane": 21,
+      "samples": 1441,
+      "satellite_id": 596,
+      "slot": 8,
+      "sunlit_ratio_pct": 64.67730742539902,
+      "sunlit_samples": 932
+    },
+    {
+      "plane": 21,
+      "samples": 1441,
+      "satellite_id": 597,
+      "slot": 9,
+      "sunlit_ratio_pct": 64.19153365718252,
+      "sunlit_samples": 925
+    },
+    {
+      "plane": 21,
+      "samples": 1441,
+      "satellite_id": 598,
+      "slot": 10,
+      "sunlit_ratio_pct": 63.70575988896599,
+      "sunlit_samples": 918
+    },
+    {
+      "plane": 21,
+      "samples": 1441,
+      "satellite_id": 599,
+      "slot": 11,
+      "sunlit_ratio_pct": 63.21998612074948,
+      "sunlit_samples": 911
+    },
+    {
+      "plane": 21,
+      "samples": 1441,
+      "satellite_id": 600,
+      "slot": 12,
+      "sunlit_ratio_pct": 62.664816099930604,
+      "sunlit_samples": 903
+    },
+    {
+      "plane": 21,
+      "samples": 1441,
+      "satellite_id": 601,
+      "slot": 13,
+      "sunlit_ratio_pct": 62.248438584316446,
+      "sunlit_samples": 897
+    },
+    {
+      "plane": 21,
+      "samples": 1441,
+      "satellite_id": 602,
+      "slot": 14,
+      "sunlit_ratio_pct": 61.83206106870229,
+      "sunlit_samples": 891
+    },
+    {
+      "plane": 21,
+      "samples": 1441,
+      "satellite_id": 603,
+      "slot": 15,
+      "sunlit_ratio_pct": 61.34628730048578,
+      "sunlit_samples": 884
+    },
+    {
+      "plane": 21,
+      "samples": 1441,
+      "satellite_id": 604,
+      "slot": 16,
+      "sunlit_ratio_pct": 60.86051353226926,
+      "sunlit_samples": 877
+    },
+    {
+      "plane": 21,
+      "samples": 1441,
+      "satellite_id": 605,
+      "slot": 17,
+      "sunlit_ratio_pct": 60.58292852185982,
+      "sunlit_samples": 873
+    },
+    {
+      "plane": 21,
+      "samples": 1441,
+      "satellite_id": 606,
+      "slot": 18,
+      "sunlit_ratio_pct": 60.58292852185982,
+      "sunlit_samples": 873
+    },
+    {
+      "plane": 21,
+      "samples": 1441,
+      "satellite_id": 607,
+      "slot": 19,
+      "sunlit_ratio_pct": 60.58292852185982,
+      "sunlit_samples": 873
+    },
+    {
+      "plane": 21,
+      "samples": 1441,
+      "satellite_id": 608,
+      "slot": 20,
+      "sunlit_ratio_pct": 60.92990978487162,
+      "sunlit_samples": 878
+    },
+    {
+      "plane": 21,
+      "samples": 1441,
+      "satellite_id": 609,
+      "slot": 21,
+      "sunlit_ratio_pct": 61.41568355308814,
+      "sunlit_samples": 885
+    },
+    {
+      "plane": 21,
+      "samples": 1441,
+      "satellite_id": 610,
+      "slot": 22,
+      "sunlit_ratio_pct": 61.76266481609993,
+      "sunlit_samples": 890
+    },
+    {
+      "plane": 21,
+      "samples": 1441,
+      "satellite_id": 611,
+      "slot": 23,
+      "sunlit_ratio_pct": 62.317834836918806,
+      "sunlit_samples": 898
+    },
+    {
+      "plane": 21,
+      "samples": 1441,
+      "satellite_id": 612,
+      "slot": 24,
+      "sunlit_ratio_pct": 62.803608605135324,
+      "sunlit_samples": 905
+    },
+    {
+      "plane": 21,
+      "samples": 1441,
+      "satellite_id": 613,
+      "slot": 25,
+      "sunlit_ratio_pct": 63.28938237335184,
+      "sunlit_samples": 912
+    },
+    {
+      "plane": 21,
+      "samples": 1441,
+      "satellite_id": 614,
+      "slot": 26,
+      "sunlit_ratio_pct": 63.77515614156835,
+      "sunlit_samples": 919
+    },
+    {
+      "plane": 21,
+      "samples": 1441,
+      "satellite_id": 615,
+      "slot": 27,
+      "sunlit_ratio_pct": 64.26092990978488,
+      "sunlit_samples": 926
+    },
+    {
+      "plane": 22,
+      "samples": 1441,
+      "satellite_id": 616,
+      "slot": 0,
+      "sunlit_ratio_pct": 65.16308119361554,
+      "sunlit_samples": 939
+    },
+    {
+      "plane": 22,
+      "samples": 1441,
+      "satellite_id": 617,
+      "slot": 1,
+      "sunlit_ratio_pct": 65.51006245662734,
+      "sunlit_samples": 944
+    },
+    {
+      "plane": 22,
+      "samples": 1441,
+      "satellite_id": 618,
+      "slot": 2,
+      "sunlit_ratio_pct": 65.51006245662734,
+      "sunlit_samples": 944
+    },
+    {
+      "plane": 22,
+      "samples": 1441,
+      "satellite_id": 619,
+      "slot": 3,
+      "sunlit_ratio_pct": 65.51006245662734,
+      "sunlit_samples": 944
+    },
+    {
+      "plane": 22,
+      "samples": 1441,
+      "satellite_id": 620,
+      "slot": 4,
+      "sunlit_ratio_pct": 65.5794587092297,
+      "sunlit_samples": 945
+    },
+    {
+      "plane": 22,
+      "samples": 1441,
+      "satellite_id": 621,
+      "slot": 5,
+      "sunlit_ratio_pct": 65.51006245662734,
+      "sunlit_samples": 944
+    },
+    {
+      "plane": 22,
+      "samples": 1441,
+      "satellite_id": 622,
+      "slot": 6,
+      "sunlit_ratio_pct": 65.2324774462179,
+      "sunlit_samples": 940
+    },
+    {
+      "plane": 22,
+      "samples": 1441,
+      "satellite_id": 623,
+      "slot": 7,
+      "sunlit_ratio_pct": 64.74670367800138,
+      "sunlit_samples": 933
+    },
+    {
+      "plane": 22,
+      "samples": 1441,
+      "satellite_id": 624,
+      "slot": 8,
+      "sunlit_ratio_pct": 64.26092990978488,
+      "sunlit_samples": 926
+    },
+    {
+      "plane": 22,
+      "samples": 1441,
+      "satellite_id": 625,
+      "slot": 9,
+      "sunlit_ratio_pct": 63.77515614156835,
+      "sunlit_samples": 919
+    },
+    {
+      "plane": 22,
+      "samples": 1441,
+      "satellite_id": 626,
+      "slot": 10,
+      "sunlit_ratio_pct": 63.28938237335184,
+      "sunlit_samples": 912
+    },
+    {
+      "plane": 22,
+      "samples": 1441,
+      "satellite_id": 627,
+      "slot": 11,
+      "sunlit_ratio_pct": 62.803608605135324,
+      "sunlit_samples": 905
+    },
+    {
+      "plane": 22,
+      "samples": 1441,
+      "satellite_id": 628,
+      "slot": 12,
+      "sunlit_ratio_pct": 62.317834836918806,
+      "sunlit_samples": 898
+    },
+    {
+      "plane": 22,
+      "samples": 1441,
+      "satellite_id": 629,
+      "slot": 13,
+      "sunlit_ratio_pct": 61.90145732130465,
+      "sunlit_samples": 892
+    },
+    {
+      "plane": 22,
+      "samples": 1441,
+      "satellite_id": 630,
+      "slot": 14,
+      "sunlit_ratio_pct": 61.41568355308814,
+      "sunlit_samples": 885
+    },
+    {
+      "plane": 22,
+      "samples": 1441,
+      "satellite_id": 631,
+      "slot": 15,
+      "sunlit_ratio_pct": 60.92990978487162,
+      "sunlit_samples": 878
+    },
+    {
+      "plane": 22,
+      "samples": 1441,
+      "satellite_id": 632,
+      "slot": 16,
+      "sunlit_ratio_pct": 60.58292852185982,
+      "sunlit_samples": 873
+    },
+    {
+      "plane": 22,
+      "samples": 1441,
+      "satellite_id": 633,
+      "slot": 17,
+      "sunlit_ratio_pct": 60.58292852185982,
+      "sunlit_samples": 873
+    },
+    {
+      "plane": 22,
+      "samples": 1441,
+      "satellite_id": 634,
+      "slot": 18,
+      "sunlit_ratio_pct": 60.58292852185982,
+      "sunlit_samples": 873
+    },
+    {
+      "plane": 22,
+      "samples": 1441,
+      "satellite_id": 635,
+      "slot": 19,
+      "sunlit_ratio_pct": 60.86051353226926,
+      "sunlit_samples": 877
+    },
+    {
+      "plane": 22,
+      "samples": 1441,
+      "satellite_id": 636,
+      "slot": 20,
+      "sunlit_ratio_pct": 61.34628730048578,
+      "sunlit_samples": 884
+    },
+    {
+      "plane": 22,
+      "samples": 1441,
+      "satellite_id": 637,
+      "slot": 21,
+      "sunlit_ratio_pct": 61.83206106870229,
+      "sunlit_samples": 891
+    },
+    {
+      "plane": 22,
+      "samples": 1441,
+      "satellite_id": 638,
+      "slot": 22,
+      "sunlit_ratio_pct": 62.387231089521165,
+      "sunlit_samples": 899
+    },
+    {
+      "plane": 22,
+      "samples": 1441,
+      "satellite_id": 639,
+      "slot": 23,
+      "sunlit_ratio_pct": 62.803608605135324,
+      "sunlit_samples": 905
+    },
+    {
+      "plane": 22,
+      "samples": 1441,
+      "satellite_id": 640,
+      "slot": 24,
+      "sunlit_ratio_pct": 63.21998612074948,
+      "sunlit_samples": 911
+    },
+    {
+      "plane": 22,
+      "samples": 1441,
+      "satellite_id": 641,
+      "slot": 25,
+      "sunlit_ratio_pct": 63.70575988896599,
+      "sunlit_samples": 918
+    },
+    {
+      "plane": 22,
+      "samples": 1441,
+      "satellite_id": 642,
+      "slot": 26,
+      "sunlit_ratio_pct": 64.19153365718252,
+      "sunlit_samples": 925
+    },
+    {
+      "plane": 22,
+      "samples": 1441,
+      "satellite_id": 643,
+      "slot": 27,
+      "sunlit_ratio_pct": 64.67730742539902,
+      "sunlit_samples": 932
+    },
+    {
+      "plane": 23,
+      "samples": 1441,
+      "satellite_id": 644,
+      "slot": 0,
+      "sunlit_ratio_pct": 65.51006245662734,
+      "sunlit_samples": 944
+    },
+    {
+      "plane": 23,
+      "samples": 1441,
+      "satellite_id": 645,
+      "slot": 1,
+      "sunlit_ratio_pct": 65.51006245662734,
+      "sunlit_samples": 944
+    },
+    {
+      "plane": 23,
+      "samples": 1441,
+      "satellite_id": 646,
+      "slot": 2,
+      "sunlit_ratio_pct": 65.51006245662734,
+      "sunlit_samples": 944
+    },
+    {
+      "plane": 23,
+      "samples": 1441,
+      "satellite_id": 647,
+      "slot": 3,
+      "sunlit_ratio_pct": 65.51006245662734,
+      "sunlit_samples": 944
+    },
+    {
+      "plane": 23,
+      "samples": 1441,
+      "satellite_id": 648,
+      "slot": 4,
+      "sunlit_ratio_pct": 65.51006245662734,
+      "sunlit_samples": 944
+    },
+    {
+      "plane": 23,
+      "samples": 1441,
+      "satellite_id": 649,
+      "slot": 5,
+      "sunlit_ratio_pct": 65.2324774462179,
+      "sunlit_samples": 940
+    },
+    {
+      "plane": 23,
+      "samples": 1441,
+      "satellite_id": 650,
+      "slot": 6,
+      "sunlit_ratio_pct": 65.02428868841082,
+      "sunlit_samples": 937
+    },
+    {
+      "plane": 23,
+      "samples": 1441,
+      "satellite_id": 651,
+      "slot": 7,
+      "sunlit_ratio_pct": 64.81609993060374,
+      "sunlit_samples": 934
+    },
+    {
+      "plane": 23,
+      "samples": 1441,
+      "satellite_id": 652,
+      "slot": 8,
+      "sunlit_ratio_pct": 64.0527411519778,
+      "sunlit_samples": 923
+    },
+    {
+      "plane": 23,
+      "samples": 1441,
+      "satellite_id": 653,
+      "slot": 9,
+      "sunlit_ratio_pct": 63.3587786259542,
+      "sunlit_samples": 913
+    },
+    {
+      "plane": 23,
+      "samples": 1441,
+      "satellite_id": 654,
+      "slot": 10,
+      "sunlit_ratio_pct": 62.87300485773768,
+      "sunlit_samples": 906
+    },
+    {
+      "plane": 23,
+      "samples": 1441,
+      "satellite_id": 655,
+      "slot": 11,
+      "sunlit_ratio_pct": 62.387231089521165,
+      "sunlit_samples": 899
+    },
+    {
+      "plane": 23,
+      "samples": 1441,
+      "satellite_id": 656,
+      "slot": 12,
+      "sunlit_ratio_pct": 61.90145732130465,
+      "sunlit_samples": 892
+    },
+    {
+      "plane": 23,
+      "samples": 1441,
+      "satellite_id": 657,
+      "slot": 13,
+      "sunlit_ratio_pct": 61.41568355308814,
+      "sunlit_samples": 885
+    },
+    {
+      "plane": 23,
+      "samples": 1441,
+      "satellite_id": 658,
+      "slot": 14,
+      "sunlit_ratio_pct": 60.92990978487162,
+      "sunlit_samples": 878
+    },
+    {
+      "plane": 23,
+      "samples": 1441,
+      "satellite_id": 659,
+      "slot": 15,
+      "sunlit_ratio_pct": 60.72172102706454,
+      "sunlit_samples": 875
+    },
+    {
+      "plane": 23,
+      "samples": 1441,
+      "satellite_id": 660,
+      "slot": 16,
+      "sunlit_ratio_pct": 61.1380985426787,
+      "sunlit_samples": 881
+    },
+    {
+      "plane": 23,
+      "samples": 1441,
+      "satellite_id": 661,
+      "slot": 17,
+      "sunlit_ratio_pct": 60.99930603747398,
+      "sunlit_samples": 879
+    },
+    {
+      "plane": 23,
+      "samples": 1441,
+      "satellite_id": 662,
+      "slot": 18,
+      "sunlit_ratio_pct": 60.7911172796669,
+      "sunlit_samples": 876
+    },
+    {
+      "plane": 23,
+      "samples": 1441,
+      "satellite_id": 663,
+      "slot": 19,
+      "sunlit_ratio_pct": 61.27689104788342,
+      "sunlit_samples": 883
+    },
+    {
+      "plane": 23,
+      "samples": 1441,
+      "satellite_id": 664,
+      "slot": 20,
+      "sunlit_ratio_pct": 61.76266481609993,
+      "sunlit_samples": 890
+    },
+    {
+      "plane": 23,
+      "samples": 1441,
+      "satellite_id": 665,
+      "slot": 21,
+      "sunlit_ratio_pct": 62.248438584316446,
+      "sunlit_samples": 897
+    },
+    {
+      "plane": 23,
+      "samples": 1441,
+      "satellite_id": 666,
+      "slot": 22,
+      "sunlit_ratio_pct": 62.734212352532964,
+      "sunlit_samples": 904
+    },
+    {
+      "plane": 23,
+      "samples": 1441,
+      "satellite_id": 667,
+      "slot": 23,
+      "sunlit_ratio_pct": 63.21998612074948,
+      "sunlit_samples": 911
+    },
+    {
+      "plane": 23,
+      "samples": 1441,
+      "satellite_id": 668,
+      "slot": 24,
+      "sunlit_ratio_pct": 63.70575988896599,
+      "sunlit_samples": 918
+    },
+    {
+      "plane": 23,
+      "samples": 1441,
+      "satellite_id": 669,
+      "slot": 25,
+      "sunlit_ratio_pct": 64.60791117279666,
+      "sunlit_samples": 931
+    },
+    {
+      "plane": 23,
+      "samples": 1441,
+      "satellite_id": 670,
+      "slot": 26,
+      "sunlit_ratio_pct": 65.16308119361554,
+      "sunlit_samples": 939
+    },
+    {
+      "plane": 23,
+      "samples": 1441,
+      "satellite_id": 671,
+      "slot": 27,
+      "sunlit_ratio_pct": 65.16308119361554,
+      "sunlit_samples": 939
+    },
+    {
+      "plane": 24,
+      "samples": 1441,
+      "satellite_id": 672,
+      "slot": 0,
+      "sunlit_ratio_pct": 65.51006245662734,
+      "sunlit_samples": 944
+    },
+    {
+      "plane": 24,
+      "samples": 1441,
+      "satellite_id": 673,
+      "slot": 1,
+      "sunlit_ratio_pct": 65.78764746703678,
+      "sunlit_samples": 948
+    },
+    {
+      "plane": 24,
+      "samples": 1441,
+      "satellite_id": 674,
+      "slot": 2,
+      "sunlit_ratio_pct": 65.99583622484386,
+      "sunlit_samples": 951
+    },
+    {
+      "plane": 24,
+      "samples": 1441,
+      "satellite_id": 675,
+      "slot": 3,
+      "sunlit_ratio_pct": 65.99583622484386,
+      "sunlit_samples": 951
+    },
+    {
+      "plane": 24,
+      "samples": 1441,
+      "satellite_id": 676,
+      "slot": 4,
+      "sunlit_ratio_pct": 65.78764746703678,
+      "sunlit_samples": 948
+    },
+    {
+      "plane": 24,
+      "samples": 1441,
+      "satellite_id": 677,
+      "slot": 5,
+      "sunlit_ratio_pct": 65.09368494101318,
+      "sunlit_samples": 938
+    },
+    {
+      "plane": 24,
+      "samples": 1441,
+      "satellite_id": 678,
+      "slot": 6,
+      "sunlit_ratio_pct": 64.33032616238724,
+      "sunlit_samples": 927
+    },
+    {
+      "plane": 24,
+      "samples": 1441,
+      "satellite_id": 679,
+      "slot": 7,
+      "sunlit_ratio_pct": 63.84455239417071,
+      "sunlit_samples": 920
+    },
+    {
+      "plane": 24,
+      "samples": 1441,
+      "satellite_id": 680,
+      "slot": 8,
+      "sunlit_ratio_pct": 63.3587786259542,
+      "sunlit_samples": 913
+    },
+    {
+      "plane": 24,
+      "samples": 1441,
+      "satellite_id": 681,
+      "slot": 9,
+      "sunlit_ratio_pct": 62.87300485773768,
+      "sunlit_samples": 906
+    },
+    {
+      "plane": 24,
+      "samples": 1441,
+      "satellite_id": 682,
+      "slot": 10,
+      "sunlit_ratio_pct": 62.526023594725885,
+      "sunlit_samples": 901
+    },
+    {
+      "plane": 24,
+      "samples": 1441,
+      "satellite_id": 683,
+      "slot": 11,
+      "sunlit_ratio_pct": 62.456627342123525,
+      "sunlit_samples": 900
+    },
+    {
+      "plane": 24,
+      "samples": 1441,
+      "satellite_id": 684,
+      "slot": 12,
+      "sunlit_ratio_pct": 61.97085357390701,
+      "sunlit_samples": 893
+    },
+    {
+      "plane": 24,
+      "samples": 1441,
+      "satellite_id": 685,
+      "slot": 13,
+      "sunlit_ratio_pct": 61.48507980569049,
+      "sunlit_samples": 886
+    },
+    {
+      "plane": 24,
+      "samples": 1441,
+      "satellite_id": 686,
+      "slot": 14,
+      "sunlit_ratio_pct": 61.06870229007634,
+      "sunlit_samples": 880
+    },
+    {
+      "plane": 24,
+      "samples": 1441,
+      "satellite_id": 687,
+      "slot": 15,
+      "sunlit_ratio_pct": 60.58292852185982,
+      "sunlit_samples": 873
+    },
+    {
+      "plane": 24,
+      "samples": 1441,
+      "satellite_id": 688,
+      "slot": 16,
+      "sunlit_ratio_pct": 60.58292852185982,
+      "sunlit_samples": 873
+    },
+    {
+      "plane": 24,
+      "samples": 1441,
+      "satellite_id": 689,
+      "slot": 17,
+      "sunlit_ratio_pct": 60.7911172796669,
+      "sunlit_samples": 876
+    },
+    {
+      "plane": 24,
+      "samples": 1441,
+      "satellite_id": 690,
+      "slot": 18,
+      "sunlit_ratio_pct": 61.27689104788342,
+      "sunlit_samples": 883
+    },
+    {
+      "plane": 24,
+      "samples": 1441,
+      "satellite_id": 691,
+      "slot": 19,
+      "sunlit_ratio_pct": 61.76266481609993,
+      "sunlit_samples": 890
+    },
+    {
+      "plane": 24,
+      "samples": 1441,
+      "satellite_id": 692,
+      "slot": 20,
+      "sunlit_ratio_pct": 62.664816099930604,
+      "sunlit_samples": 903
+    },
+    {
+      "plane": 24,
+      "samples": 1441,
+      "satellite_id": 693,
+      "slot": 21,
+      "sunlit_ratio_pct": 63.21998612074948,
+      "sunlit_samples": 911
+    },
+    {
+      "plane": 24,
+      "samples": 1441,
+      "satellite_id": 694,
+      "slot": 22,
+      "sunlit_ratio_pct": 63.70575988896599,
+      "sunlit_samples": 918
+    },
+    {
+      "plane": 24,
+      "samples": 1441,
+      "satellite_id": 695,
+      "slot": 23,
+      "sunlit_ratio_pct": 64.19153365718252,
+      "sunlit_samples": 925
+    },
+    {
+      "plane": 24,
+      "samples": 1441,
+      "satellite_id": 696,
+      "slot": 24,
+      "sunlit_ratio_pct": 64.26092990978488,
+      "sunlit_samples": 926
+    },
+    {
+      "plane": 24,
+      "samples": 1441,
+      "satellite_id": 697,
+      "slot": 25,
+      "sunlit_ratio_pct": 64.60791117279666,
+      "sunlit_samples": 931
+    },
+    {
+      "plane": 24,
+      "samples": 1441,
+      "satellite_id": 698,
+      "slot": 26,
+      "sunlit_ratio_pct": 65.09368494101318,
+      "sunlit_samples": 938
+    },
+    {
+      "plane": 24,
+      "samples": 1441,
+      "satellite_id": 699,
+      "slot": 27,
+      "sunlit_ratio_pct": 65.51006245662734,
+      "sunlit_samples": 944
+    },
+    {
+      "plane": 25,
+      "samples": 1441,
+      "satellite_id": 700,
+      "slot": 0,
+      "sunlit_ratio_pct": 65.99583622484386,
+      "sunlit_samples": 951
+    },
+    {
+      "plane": 25,
+      "samples": 1441,
+      "satellite_id": 701,
+      "slot": 1,
+      "sunlit_ratio_pct": 65.99583622484386,
+      "sunlit_samples": 951
+    },
+    {
+      "plane": 25,
+      "samples": 1441,
+      "satellite_id": 702,
+      "slot": 2,
+      "sunlit_ratio_pct": 65.99583622484386,
+      "sunlit_samples": 951
+    },
+    {
+      "plane": 25,
+      "samples": 1441,
+      "satellite_id": 703,
+      "slot": 3,
+      "sunlit_ratio_pct": 65.78764746703678,
+      "sunlit_samples": 948
+    },
+    {
+      "plane": 25,
+      "samples": 1441,
+      "satellite_id": 704,
+      "slot": 4,
+      "sunlit_ratio_pct": 64.8854961832061,
+      "sunlit_samples": 935
+    },
+    {
+      "plane": 25,
+      "samples": 1441,
+      "satellite_id": 705,
+      "slot": 5,
+      "sunlit_ratio_pct": 64.33032616238724,
+      "sunlit_samples": 927
+    },
+    {
+      "plane": 25,
+      "samples": 1441,
+      "satellite_id": 706,
+      "slot": 6,
+      "sunlit_ratio_pct": 63.84455239417071,
+      "sunlit_samples": 920
+    },
+    {
+      "plane": 25,
+      "samples": 1441,
+      "satellite_id": 707,
+      "slot": 7,
+      "sunlit_ratio_pct": 63.3587786259542,
+      "sunlit_samples": 913
+    },
+    {
+      "plane": 25,
+      "samples": 1441,
+      "satellite_id": 708,
+      "slot": 8,
+      "sunlit_ratio_pct": 63.42817487855656,
+      "sunlit_samples": 914
+    },
+    {
+      "plane": 25,
+      "samples": 1441,
+      "satellite_id": 709,
+      "slot": 9,
+      "sunlit_ratio_pct": 62.94240111034004,
+      "sunlit_samples": 907
+    },
+    {
+      "plane": 25,
+      "samples": 1441,
+      "satellite_id": 710,
+      "slot": 10,
+      "sunlit_ratio_pct": 62.456627342123525,
+      "sunlit_samples": 900
+    },
+    {
+      "plane": 25,
+      "samples": 1441,
+      "satellite_id": 711,
+      "slot": 11,
+      "sunlit_ratio_pct": 61.97085357390701,
+      "sunlit_samples": 893
+    },
+    {
+      "plane": 25,
+      "samples": 1441,
+      "satellite_id": 712,
+      "slot": 12,
+      "sunlit_ratio_pct": 61.48507980569049,
+      "sunlit_samples": 886
+    },
+    {
+      "plane": 25,
+      "samples": 1441,
+      "satellite_id": 713,
+      "slot": 13,
+      "sunlit_ratio_pct": 60.92990978487162,
+      "sunlit_samples": 878
+    },
+    {
+      "plane": 25,
+      "samples": 1441,
+      "satellite_id": 714,
+      "slot": 14,
+      "sunlit_ratio_pct": 60.58292852185982,
+      "sunlit_samples": 873
+    },
+    {
+      "plane": 25,
+      "samples": 1441,
+      "satellite_id": 715,
+      "slot": 15,
+      "sunlit_ratio_pct": 60.58292852185982,
+      "sunlit_samples": 873
+    },
+    {
+      "plane": 25,
+      "samples": 1441,
+      "satellite_id": 716,
+      "slot": 16,
+      "sunlit_ratio_pct": 60.7911172796669,
+      "sunlit_samples": 876
+    },
+    {
+      "plane": 25,
+      "samples": 1441,
+      "satellite_id": 717,
+      "slot": 17,
+      "sunlit_ratio_pct": 61.62387231089521,
+      "sunlit_samples": 888
+    },
+    {
+      "plane": 25,
+      "samples": 1441,
+      "satellite_id": 718,
+      "slot": 18,
+      "sunlit_ratio_pct": 62.248438584316446,
+      "sunlit_samples": 897
+    },
+    {
+      "plane": 25,
+      "samples": 1441,
+      "satellite_id": 719,
+      "slot": 19,
+      "sunlit_ratio_pct": 62.734212352532964,
+      "sunlit_samples": 904
+    },
+    {
+      "plane": 25,
+      "samples": 1441,
+      "satellite_id": 720,
+      "slot": 20,
+      "sunlit_ratio_pct": 63.21998612074948,
+      "sunlit_samples": 911
+    },
+    {
+      "plane": 25,
+      "samples": 1441,
+      "satellite_id": 721,
+      "slot": 21,
+      "sunlit_ratio_pct": 63.70575988896599,
+      "sunlit_samples": 918
+    },
+    {
+      "plane": 25,
+      "samples": 1441,
+      "satellite_id": 722,
+      "slot": 22,
+      "sunlit_ratio_pct": 64.12213740458016,
+      "sunlit_samples": 924
+    },
+    {
+      "plane": 25,
+      "samples": 1441,
+      "satellite_id": 723,
+      "slot": 23,
+      "sunlit_ratio_pct": 64.12213740458016,
+      "sunlit_samples": 924
+    },
+    {
+      "plane": 25,
+      "samples": 1441,
+      "satellite_id": 724,
+      "slot": 24,
+      "sunlit_ratio_pct": 64.60791117279666,
+      "sunlit_samples": 931
+    },
+    {
+      "plane": 25,
+      "samples": 1441,
+      "satellite_id": 725,
+      "slot": 25,
+      "sunlit_ratio_pct": 65.09368494101318,
+      "sunlit_samples": 938
+    },
+    {
+      "plane": 25,
+      "samples": 1441,
+      "satellite_id": 726,
+      "slot": 26,
+      "sunlit_ratio_pct": 65.71825121443442,
+      "sunlit_samples": 947
+    },
+    {
+      "plane": 25,
+      "samples": 1441,
+      "satellite_id": 727,
+      "slot": 27,
+      "sunlit_ratio_pct": 65.99583622484386,
+      "sunlit_samples": 951
+    },
+    {
+      "plane": 26,
+      "samples": 1441,
+      "satellite_id": 728,
+      "slot": 0,
+      "sunlit_ratio_pct": 65.99583622484386,
+      "sunlit_samples": 951
+    },
+    {
+      "plane": 26,
+      "samples": 1441,
+      "satellite_id": 729,
+      "slot": 1,
+      "sunlit_ratio_pct": 65.99583622484386,
+      "sunlit_samples": 951
+    },
+    {
+      "plane": 26,
+      "samples": 1441,
+      "satellite_id": 730,
+      "slot": 2,
+      "sunlit_ratio_pct": 65.78764746703678,
+      "sunlit_samples": 948
+    },
+    {
+      "plane": 26,
+      "samples": 1441,
+      "satellite_id": 731,
+      "slot": 3,
+      "sunlit_ratio_pct": 64.81609993060374,
+      "sunlit_samples": 934
+    },
+    {
+      "plane": 26,
+      "samples": 1441,
+      "satellite_id": 732,
+      "slot": 4,
+      "sunlit_ratio_pct": 64.33032616238724,
+      "sunlit_samples": 927
+    },
+    {
+      "plane": 26,
+      "samples": 1441,
+      "satellite_id": 733,
+      "slot": 5,
+      "sunlit_ratio_pct": 63.84455239417071,
+      "sunlit_samples": 920
+    },
+    {
+      "plane": 26,
+      "samples": 1441,
+      "satellite_id": 734,
+      "slot": 6,
+      "sunlit_ratio_pct": 63.56696738376127,
+      "sunlit_samples": 916
+    },
+    {
+      "plane": 26,
+      "samples": 1441,
+      "satellite_id": 735,
+      "slot": 7,
+      "sunlit_ratio_pct": 63.42817487855656,
+      "sunlit_samples": 914
+    },
+    {
+      "plane": 26,
+      "samples": 1441,
+      "satellite_id": 736,
+      "slot": 8,
+      "sunlit_ratio_pct": 62.94240111034004,
+      "sunlit_samples": 907
+    },
+    {
+      "plane": 26,
+      "samples": 1441,
+      "satellite_id": 737,
+      "slot": 9,
+      "sunlit_ratio_pct": 62.456627342123525,
+      "sunlit_samples": 900
+    },
+    {
+      "plane": 26,
+      "samples": 1441,
+      "satellite_id": 738,
+      "slot": 10,
+      "sunlit_ratio_pct": 61.97085357390701,
+      "sunlit_samples": 893
+    },
+    {
+      "plane": 26,
+      "samples": 1441,
+      "satellite_id": 739,
+      "slot": 11,
+      "sunlit_ratio_pct": 61.48507980569049,
+      "sunlit_samples": 886
+    },
+    {
+      "plane": 26,
+      "samples": 1441,
+      "satellite_id": 740,
+      "slot": 12,
+      "sunlit_ratio_pct": 60.72172102706454,
+      "sunlit_samples": 875
+    },
+    {
+      "plane": 26,
+      "samples": 1441,
+      "satellite_id": 741,
+      "slot": 13,
+      "sunlit_ratio_pct": 60.58292852185982,
+      "sunlit_samples": 873
+    },
+    {
+      "plane": 26,
+      "samples": 1441,
+      "satellite_id": 742,
+      "slot": 14,
+      "sunlit_ratio_pct": 60.58292852185982,
+      "sunlit_samples": 873
+    },
+    {
+      "plane": 26,
+      "samples": 1441,
+      "satellite_id": 743,
+      "slot": 15,
+      "sunlit_ratio_pct": 60.7911172796669,
+      "sunlit_samples": 876
+    },
+    {
+      "plane": 26,
+      "samples": 1441,
+      "satellite_id": 744,
+      "slot": 16,
+      "sunlit_ratio_pct": 61.76266481609993,
+      "sunlit_samples": 890
+    },
+    {
+      "plane": 26,
+      "samples": 1441,
+      "satellite_id": 745,
+      "slot": 17,
+      "sunlit_ratio_pct": 62.248438584316446,
+      "sunlit_samples": 897
+    },
+    {
+      "plane": 26,
+      "samples": 1441,
+      "satellite_id": 746,
+      "slot": 18,
+      "sunlit_ratio_pct": 62.734212352532964,
+      "sunlit_samples": 904
+    },
+    {
+      "plane": 26,
+      "samples": 1441,
+      "satellite_id": 747,
+      "slot": 19,
+      "sunlit_ratio_pct": 63.21998612074948,
+      "sunlit_samples": 911
+    },
+    {
+      "plane": 26,
+      "samples": 1441,
+      "satellite_id": 748,
+      "slot": 20,
+      "sunlit_ratio_pct": 63.70575988896599,
+      "sunlit_samples": 918
+    },
+    {
+      "plane": 26,
+      "samples": 1441,
+      "satellite_id": 749,
+      "slot": 21,
+      "sunlit_ratio_pct": 63.98334489937543,
+      "sunlit_samples": 922
+    },
+    {
+      "plane": 26,
+      "samples": 1441,
+      "satellite_id": 750,
+      "slot": 22,
+      "sunlit_ratio_pct": 64.12213740458016,
+      "sunlit_samples": 924
+    },
+    {
+      "plane": 26,
+      "samples": 1441,
+      "satellite_id": 751,
+      "slot": 23,
+      "sunlit_ratio_pct": 64.60791117279666,
+      "sunlit_samples": 931
+    },
+    {
+      "plane": 26,
+      "samples": 1441,
+      "satellite_id": 752,
+      "slot": 24,
+      "sunlit_ratio_pct": 65.09368494101318,
+      "sunlit_samples": 938
+    },
+    {
+      "plane": 26,
+      "samples": 1441,
+      "satellite_id": 753,
+      "slot": 25,
+      "sunlit_ratio_pct": 65.9264399722415,
+      "sunlit_samples": 950
+    },
+    {
+      "plane": 26,
+      "samples": 1441,
+      "satellite_id": 754,
+      "slot": 26,
+      "sunlit_ratio_pct": 65.99583622484386,
+      "sunlit_samples": 951
+    },
+    {
+      "plane": 26,
+      "samples": 1441,
+      "satellite_id": 755,
+      "slot": 27,
+      "sunlit_ratio_pct": 65.99583622484386,
+      "sunlit_samples": 951
+    },
+    {
+      "plane": 27,
+      "samples": 1441,
+      "satellite_id": 756,
+      "slot": 0,
+      "sunlit_ratio_pct": 65.78764746703678,
+      "sunlit_samples": 948
+    },
+    {
+      "plane": 27,
+      "samples": 1441,
+      "satellite_id": 757,
+      "slot": 1,
+      "sunlit_ratio_pct": 65.30187369882026,
+      "sunlit_samples": 941
+    },
+    {
+      "plane": 27,
+      "samples": 1441,
+      "satellite_id": 758,
+      "slot": 2,
+      "sunlit_ratio_pct": 64.81609993060374,
+      "sunlit_samples": 934
+    },
+    {
+      "plane": 27,
+      "samples": 1441,
+      "satellite_id": 759,
+      "slot": 3,
+      "sunlit_ratio_pct": 64.33032616238724,
+      "sunlit_samples": 927
+    },
+    {
+      "plane": 27,
+      "samples": 1441,
+      "satellite_id": 760,
+      "slot": 4,
+      "sunlit_ratio_pct": 63.84455239417071,
+      "sunlit_samples": 920
+    },
+    {
+      "plane": 27,
+      "samples": 1441,
+      "satellite_id": 761,
+      "slot": 5,
+      "sunlit_ratio_pct": 63.70575988896599,
+      "sunlit_samples": 918
+    },
+    {
+      "plane": 27,
+      "samples": 1441,
+      "satellite_id": 762,
+      "slot": 6,
+      "sunlit_ratio_pct": 63.42817487855656,
+      "sunlit_samples": 914
+    },
+    {
+      "plane": 27,
+      "samples": 1441,
+      "satellite_id": 763,
+      "slot": 7,
+      "sunlit_ratio_pct": 62.94240111034004,
+      "sunlit_samples": 907
+    },
+    {
+      "plane": 27,
+      "samples": 1441,
+      "satellite_id": 764,
+      "slot": 8,
+      "sunlit_ratio_pct": 62.456627342123525,
+      "sunlit_samples": 900
+    },
+    {
+      "plane": 27,
+      "samples": 1441,
+      "satellite_id": 765,
+      "slot": 9,
+      "sunlit_ratio_pct": 61.97085357390701,
+      "sunlit_samples": 893
+    },
+    {
+      "plane": 27,
+      "samples": 1441,
+      "satellite_id": 766,
+      "slot": 10,
+      "sunlit_ratio_pct": 60.99930603747398,
+      "sunlit_samples": 879
+    },
+    {
+      "plane": 27,
+      "samples": 1441,
+      "satellite_id": 767,
+      "slot": 11,
+      "sunlit_ratio_pct": 60.58292852185982,
+      "sunlit_samples": 873
+    },
+    {
+      "plane": 27,
+      "samples": 1441,
+      "satellite_id": 768,
+      "slot": 12,
+      "sunlit_ratio_pct": 60.58292852185982,
+      "sunlit_samples": 873
+    },
+    {
+      "plane": 27,
+      "samples": 1441,
+      "satellite_id": 769,
+      "slot": 13,
+      "sunlit_ratio_pct": 60.58292852185982,
+      "sunlit_samples": 873
+    },
+    {
+      "plane": 27,
+      "samples": 1441,
+      "satellite_id": 770,
+      "slot": 14,
+      "sunlit_ratio_pct": 60.92990978487162,
+      "sunlit_samples": 878
+    },
+    {
+      "plane": 27,
+      "samples": 1441,
+      "satellite_id": 771,
+      "slot": 15,
+      "sunlit_ratio_pct": 61.76266481609993,
+      "sunlit_samples": 890
+    },
+    {
+      "plane": 27,
+      "samples": 1441,
+      "satellite_id": 772,
+      "slot": 16,
+      "sunlit_ratio_pct": 62.248438584316446,
+      "sunlit_samples": 897
+    },
+    {
+      "plane": 27,
+      "samples": 1441,
+      "satellite_id": 773,
+      "slot": 17,
+      "sunlit_ratio_pct": 62.734212352532964,
+      "sunlit_samples": 904
+    },
+    {
+      "plane": 27,
+      "samples": 1441,
+      "satellite_id": 774,
+      "slot": 18,
+      "sunlit_ratio_pct": 63.21998612074948,
+      "sunlit_samples": 911
+    },
+    {
+      "plane": 27,
+      "samples": 1441,
+      "satellite_id": 775,
+      "slot": 19,
+      "sunlit_ratio_pct": 63.21998612074948,
+      "sunlit_samples": 911
+    },
+    {
+      "plane": 27,
+      "samples": 1441,
+      "satellite_id": 776,
+      "slot": 20,
+      "sunlit_ratio_pct": 63.63636363636363,
+      "sunlit_samples": 917
+    },
+    {
+      "plane": 27,
+      "samples": 1441,
+      "satellite_id": 777,
+      "slot": 21,
+      "sunlit_ratio_pct": 64.12213740458016,
+      "sunlit_samples": 924
+    },
+    {
+      "plane": 27,
+      "samples": 1441,
+      "satellite_id": 778,
+      "slot": 22,
+      "sunlit_ratio_pct": 64.60791117279666,
+      "sunlit_samples": 931
+    },
+    {
+      "plane": 27,
+      "samples": 1441,
+      "satellite_id": 779,
+      "slot": 23,
+      "sunlit_ratio_pct": 65.09368494101318,
+      "sunlit_samples": 938
+    },
+    {
+      "plane": 27,
+      "samples": 1441,
+      "satellite_id": 780,
+      "slot": 24,
+      "sunlit_ratio_pct": 65.99583622484386,
+      "sunlit_samples": 951
+    },
+    {
+      "plane": 27,
+      "samples": 1441,
+      "satellite_id": 781,
+      "slot": 25,
+      "sunlit_ratio_pct": 65.99583622484386,
+      "sunlit_samples": 951
+    },
+    {
+      "plane": 27,
+      "samples": 1441,
+      "satellite_id": 782,
+      "slot": 26,
+      "sunlit_ratio_pct": 65.99583622484386,
+      "sunlit_samples": 951
+    },
+    {
+      "plane": 27,
+      "samples": 1441,
+      "satellite_id": 783,
+      "slot": 27,
+      "sunlit_ratio_pct": 65.99583622484386,
+      "sunlit_samples": 951
+    }
+  ],
+  "satellites": 784,
+  "schema_version": 1
+}

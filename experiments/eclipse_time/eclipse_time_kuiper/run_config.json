@@ -18,19 +18,19 @@
     "tx_power_w": 10.0
   },
   "orbit": {
-    "altitude_km": 550.0,
-    "inclination_deg": 53.05,
+    "altitude_km": 590.0,
+    "inclination_deg": 33.0,
     "orbit_model": "circular",
-    "planes": 72,
-    "satellites": 1584,
+    "planes": 28,
+    "satellites": 784,
     "walker_phase": 1
   },
   "output": {
-    "path": "eclipse_time"
+    "path": "eclipse_time_kuiper"
   },
   "run": {
     "description": "No-task eclipse-duration experiment for the configured constellation",
-    "name": "eclipse_time"
+    "name": "kuiper_784"
   },
   "scheduler": {
     "battery_weight": 5.0,
