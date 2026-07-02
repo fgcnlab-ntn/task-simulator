@@ -1,5 +1,6 @@
 import importlib.util
 import math
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -11,6 +12,12 @@ SPEC.loader.exec_module(demand_energy_sweep)
 
 
 class DemandEnergySweepTests(unittest.TestCase):
+    def test_default_output_is_breach_ratio_experiment_dir(self) -> None:
+        self.assertEqual(
+            demand_energy_sweep.DEFAULT_OUTPUT,
+            Path("experiments/breach_ratio/demand_energy_sweep"),
+        )
+
     def test_one_circular_orbit_duration_rounds_to_step(self) -> None:
         values = {
             "orbit_model": "circular",
@@ -87,6 +94,7 @@ class DemandEnergySweepTests(unittest.TestCase):
             slot_interval_s=30,
             duration_s=60,
             deadline_s=None,
+            cpu_power_w=25.0,
         )
 
         self.assertEqual(args.scheduler, "local")
@@ -95,6 +103,7 @@ class DemandEnergySweepTests(unittest.TestCase):
         self.assertEqual(args.task_output_bits, 0.0)
         self.assertEqual(args.task_interval_s, 30)
         self.assertTrue(math.isclose(args.task_deadline_s, 1.0e12))
+        self.assertEqual(args.satellite_cpu_power_w, 25.0)
 
     def test_scenario_args_can_split_global_total_demand(self) -> None:
         values = {
@@ -165,6 +174,76 @@ class DemandEnergySweepTests(unittest.TestCase):
             args.task_generation_mode,
             "demand-points-fixed-weighted-all",
         )
+
+
+    def test_config_float_values_accepts_scalar_or_list(self) -> None:
+        self.assertEqual(
+            demand_energy_sweep.config_float_values(30.0, "compute.cpu_power_w"),
+            [30.0],
+        )
+        self.assertEqual(
+            demand_energy_sweep.config_float_values([10, 20.5], "compute.cpu_power_w"),
+            [10.0, 20.5],
+        )
+
+    def test_scenario_output_dir_separates_constellation_and_cpu_power(self) -> None:
+        path = demand_energy_sweep.scenario_output_dir(
+            Path("output/root"),
+            1.0e8,
+            30,
+            cpu_power_w=20.0,
+            constellation="Kuiper 784",
+        )
+
+        self.assertEqual(
+            path,
+            Path("output/root/runs/kuiper_784/cpu_20w/data_1e08_bits/slot_30s"),
+        )
+
+    def test_write_line_outputs_groups_by_constellation_slot_and_cpu(self) -> None:
+        rows = [
+            {
+                "constellation": "Starlink 1584",
+                "cpu_power_w": 10.0,
+                "data_size_bits": 1.0e6,
+                "slot_interval_s": 30,
+                "unique_breached_ratio": 0.1,
+                "unique_breached_satellites": 1,
+                "unique_eclipse_breached_ratio": 0.1,
+                "unique_eclipse_breached_satellites": 1,
+                "tasks_generated": 10,
+                "tasks_completed": 9,
+                "tasks_failed": 1,
+                "tasks_pending": 0,
+                "run_dir": "run/a",
+            },
+            {
+                "constellation": "Starlink 1584",
+                "cpu_power_w": 20.0,
+                "data_size_bits": 1.0e6,
+                "slot_interval_s": 30,
+                "unique_breached_ratio": 0.2,
+                "unique_breached_satellites": 2,
+                "unique_eclipse_breached_ratio": 0.2,
+                "unique_eclipse_breached_satellites": 2,
+                "tasks_generated": 10,
+                "tasks_completed": 8,
+                "tasks_failed": 2,
+                "tasks_pending": 0,
+                "run_dir": "run/b",
+            },
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            prefix = Path(tmp) / "battery_breach_ratio_line"
+            demand_energy_sweep.write_line_outputs(prefix, rows)
+
+            csv_text = prefix.with_suffix(".csv").read_text()
+            svg_text = prefix.with_suffix(".svg").read_text()
+
+        self.assertIn("cpu_power_w", csv_text)
+        self.assertIn("10W", svg_text)
+        self.assertIn("20W", svg_text)
+        self.assertIn("polyline", svg_text)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,0 @@
-data_size_label,data_size_mb,data_size_bits,slot_interval_s,unique_breached_satellites,unique_breached_ratio,unique_eclipse_breached_satellites,unique_eclipse_breached_ratio,tasks_failed,run_dir,source_csv
-10M,10.0,80000000.0,30,0,0.0,0,0.0,32448,output/demand_energy_sweep_global_5deg_30s_small/runs/data_8e07_bits/slot_30s,output/demand_energy_sweep_global_5deg_30s_small/demand_energy_sweep.csv
-20M,20.0,160000000.0,30,418,0.2638888888888889,418,0.2638888888888889,32448,output/demand_energy_sweep_global_5deg_30s_mid/runs/data_1p6e08_bits/slot_30s,output/demand_energy_sweep_global_5deg_30s_mid/demand_energy_sweep.csv
-30M,30.0,240000000.0,30,960,0.6060606060606061,959,0.6054292929292929,32448,output/demand_energy_sweep_global_5deg_30s_mid/runs/data_2p4e08_bits/slot_30s,output/demand_energy_sweep_global_5deg_30s_mid/demand_energy_sweep.csv
-40M,40.0,320000000.0,30,1154,0.7285353535353535,1150,0.726010101010101,32448,output/demand_energy_sweep_global_5deg_30s_mid/runs/data_3p2e08_bits/slot_30s,output/demand_energy_sweep_global_5deg_30s_mid/demand_energy_sweep.csv
-100M,100.0,800000000.0,30,1582,0.9987373737373737,1567,0.9892676767676768,32448,output/demand_energy_sweep_global_5deg_30s_small/runs/data_8e08_bits/slot_30s,output/demand_energy_sweep_global_5deg_30s_small/demand_energy_sweep.csv

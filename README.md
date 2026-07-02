@@ -76,8 +76,7 @@ Deterministic demand-load sweep for fixed data size and time-slot intervals:
 ```bash
 python3 tools/demand_energy_sweep.py \
   --data-sizes-bits 1e6,1e7,1e8 \
-  --slot-intervals-s 30,60,120,300 \
-  --out output/demand_energy_sweep
+  --slot-intervals-s 30,60,120,300
 ```
 
 Population-weighted demand inputs use WorldPop 2025 R2025A constrained 1 km
@@ -191,12 +190,14 @@ The `P_cut` experiment writes outputs under `experiments/P_cut`, including
 `p_cut_results.csv`, `p_cut_results.jsonl`, safe-battery energy plots,
 combined energy plots, and constellation P_cut tables.
 
-The demand energy sweep writes `demand_energy_sweep.csv`,
-`demand_energy_sweep.jsonl`, `demand_energy_sweep_summary.json`,
-`battery_breach_ratio_heatmap.svg`, and one full simulator run directory per
-scenario. Each scenario runs `demand-points-fixed-all`: every ground point
-creates one fixed-size task at each selected time slot, and the nearest visible
-satellite executes it locally.
+The demand energy sweep writes outputs under `experiments/breach_ratio` by
+default: `demand_energy_sweep.csv`, `demand_energy_sweep.jsonl`,
+`demand_energy_sweep_summary.json`, and `battery_breach_ratio_line.csv/json/svg`.
+If `compute.cpu_power_w` is a list in the config, the sweep uses each listed CPU
+power and draws one line per power; with multiple slot intervals it writes one
+SVG per constellation/slot pair. Each scenario runs `demand-points-fixed-all`:
+every ground point creates one fixed-size task at each selected time slot, and
+the nearest visible satellite executes it locally.
 
 `states.jsonl` stores one JSON object per simulation step, including the ECI Sun
 direction needed to reproduce TLE snapshot plots without reopening the BSP

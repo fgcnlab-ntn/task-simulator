@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="520" viewBox="0 0 960 520">
+  <style>text { font-family: -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif; fill: #222; font-size: 13px; } .title { font-size: 21px; font-weight: 700; } .label { font-size: 15px; font-weight: 600; }</style>
+  <rect width="100%" height="100%" fill="white" />
+  <text class="title" x="480.0" y="30" text-anchor="middle">Iridium 66: battery breach ratio by CPU power</text>
+  <text x="480.0" y="52" text-anchor="middle" fill="#666">input data size per 30s slot</text>
+  <line x1="82" y1="434" x2="780" y2="434" stroke="#999" />
+  <line x1="82" y1="72" x2="82" y2="434" stroke="#999" />
+  <line x1="82" y1="434.0" x2="780" y2="434.0" stroke="#e5e5e5" />
+  <text x="72" y="438.0" text-anchor="end">0.0</text>
+  <line x1="82" y1="382.3" x2="780" y2="382.3" stroke="#e5e5e5" />
+  <text x="72" y="386.3" text-anchor="end">0.1</text>
+  <line x1="82" y1="330.6" x2="780" y2="330.6" stroke="#e5e5e5" />
+  <text x="72" y="334.6" text-anchor="end">0.2</text>
+  <line x1="82" y1="278.9" x2="780" y2="278.9" stroke="#e5e5e5" />
+  <text x="72" y="282.9" text-anchor="end">0.3</text>
+  <line x1="82" y1="227.1" x2="780" y2="227.1" stroke="#e5e5e5" />
+  <text x="72" y="231.1" text-anchor="end">0.4</text>
+  <line x1="82" y1="175.4" x2="780" y2="175.4" stroke="#e5e5e5" />
+  <text x="72" y="179.4" text-anchor="end">0.5</text>
+  <line x1="82" y1="123.7" x2="780" y2="123.7" stroke="#e5e5e5" />
+  <text x="72" y="127.7" text-anchor="end">0.6</text>
+  <line x1="82" y1="72.0" x2="780" y2="72.0" stroke="#e5e5e5" />
+  <text x="72" y="76.0" text-anchor="end">0.7</text>
+  <line x1="82.0" y1="434" x2="82.0" y2="439" stroke="#999" />
+  <text x="82.0" y="458" text-anchor="middle">5GB</text>
+  <line x1="221.6" y1="434" x2="221.6" y2="439" stroke="#999" />
+  <text x="221.6" y="458" text-anchor="middle">10GB</text>
+  <line x1="361.2" y1="434" x2="361.2" y2="439" stroke="#999" />
+  <text x="361.2" y="458" text-anchor="middle">15GB</text>
+  <line x1="500.8" y1="434" x2="500.8" y2="439" stroke="#999" />
+  <text x="500.8" y="458" text-anchor="middle">20GB</text>
+  <line x1="640.4" y1="434" x2="640.4" y2="439" stroke="#999" />
+  <text x="640.4" y="458" text-anchor="middle">25GB</text>
+  <line x1="780.0" y1="434" x2="780.0" y2="439" stroke="#999" />
+  <text x="780.0" y="458" text-anchor="middle">30GB</text>
+  <polyline points="82.0,434.0 221.6,434.0 361.2,434.0 500.8,434.0 640.4,434.0 780.0,434.0" fill="none" stroke="#1f77b4" stroke-width="2.5" />
+  <circle cx="82.0" cy="434.0" r="4" fill="#1f77b4"><title>CPU 20W, 5GB, breach ratio 0.0000</title></circle>
+  <circle cx="221.6" cy="434.0" r="4" fill="#1f77b4"><title>CPU 20W, 10GB, breach ratio 0.0000</title></circle>
+  <circle cx="361.2" cy="434.0" r="4" fill="#1f77b4"><title>CPU 20W, 15GB, breach ratio 0.0000</title></circle>
+  <circle cx="500.8" cy="434.0" r="4" fill="#1f77b4"><title>CPU 20W, 20GB, breach ratio 0.0000</title></circle>
+  <circle cx="640.4" cy="434.0" r="4" fill="#1f77b4"><title>CPU 20W, 25GB, breach ratio 0.0000</title></circle>
+  <circle cx="780.0" cy="434.0" r="4" fill="#1f77b4"><title>CPU 20W, 30GB, breach ratio 0.0000</title></circle>
+  <line x1="808" y1="72" x2="838" y2="72" stroke="#1f77b4" stroke-width="2.5" />
+  <text x="846" y="76">20W</text>
+  <polyline points="82.0,355.6 221.6,355.6 361.2,355.6 500.8,355.6 640.4,355.6 780.0,355.6" fill="none" stroke="#d62728" stroke-width="2.5" />
+  <circle cx="82.0" cy="355.6" r="4" fill="#d62728"><title>CPU 30W, 5GB, breach ratio 0.1515</title></circle>
+  <circle cx="221.6" cy="355.6" r="4" fill="#d62728"><title>CPU 30W, 10GB, breach ratio 0.1515</title></circle>
+  <circle cx="361.2" cy="355.6" r="4" fill="#d62728"><title>CPU 30W, 15GB, breach ratio 0.1515</title></circle>
+  <circle cx="500.8" cy="355.6" r="4" fill="#d62728"><title>CPU 30W, 20GB, breach ratio 0.1515</title></circle>
+  <circle cx="640.4" cy="355.6" r="4" fill="#d62728"><title>CPU 30W, 25GB, breach ratio 0.1515</title></circle>
+  <circle cx="780.0" cy="355.6" r="4" fill="#d62728"><title>CPU 30W, 30GB, breach ratio 0.1515</title></circle>
+  <line x1="808" y1="96" x2="838" y2="96" stroke="#d62728" stroke-width="2.5" />
+  <text x="846" y="100">30W</text>
+  <polyline points="82.0,340.0 221.6,316.5 361.2,308.6 500.8,308.6 640.4,308.6 780.0,308.6" fill="none" stroke="#2ca02c" stroke-width="2.5" />
+  <circle cx="82.0" cy="340.0" r="4" fill="#2ca02c"><title>CPU 40W, 5GB, breach ratio 0.1818</title></circle>
+  <circle cx="221.6" cy="316.5" r="4" fill="#2ca02c"><title>CPU 40W, 10GB, breach ratio 0.2273</title></circle>
+  <circle cx="361.2" cy="308.6" r="4" fill="#2ca02c"><title>CPU 40W, 15GB, breach ratio 0.2424</title></circle>
+  <circle cx="500.8" cy="308.6" r="4" fill="#2ca02c"><title>CPU 40W, 20GB, breach ratio 0.2424</title></circle>
+  <circle cx="640.4" cy="308.6" r="4" fill="#2ca02c"><title>CPU 40W, 25GB, breach ratio 0.2424</title></circle>
+  <circle cx="780.0" cy="308.6" r="4" fill="#2ca02c"><title>CPU 40W, 30GB, breach ratio 0.2424</title></circle>
+  <line x1="808" y1="120" x2="838" y2="120" stroke="#2ca02c" stroke-width="2.5" />
+  <text x="846" y="124">40W</text>
+  <polyline points="82.0,183.3 221.6,120.6 361.2,112.7 500.8,112.7 640.4,112.7 780.0,112.7" fill="none" stroke="#9467bd" stroke-width="2.5" />
+  <circle cx="82.0" cy="183.3" r="4" fill="#9467bd"><title>CPU 50W, 5GB, breach ratio 0.4848</title></circle>
+  <circle cx="221.6" cy="120.6" r="4" fill="#9467bd"><title>CPU 50W, 10GB, breach ratio 0.6061</title></circle>
+  <circle cx="361.2" cy="112.7" r="4" fill="#9467bd"><title>CPU 50W, 15GB, breach ratio 0.6212</title></circle>
+  <circle cx="500.8" cy="112.7" r="4" fill="#9467bd"><title>CPU 50W, 20GB, breach ratio 0.6212</title></circle>
+  <circle cx="640.4" cy="112.7" r="4" fill="#9467bd"><title>CPU 50W, 25GB, breach ratio 0.6212</title></circle>
+  <circle cx="780.0" cy="112.7" r="4" fill="#9467bd"><title>CPU 50W, 30GB, breach ratio 0.6212</title></circle>
+  <line x1="808" y1="144" x2="838" y2="144" stroke="#9467bd" stroke-width="2.5" />
+  <text x="846" y="148">50W</text>
+  <text class="label" x="431.0" y="498" text-anchor="middle">data size per time slot</text>
+  <text class="label" transform="translate(24 253.0) rotate(-90)" text-anchor="middle">breach ratio</text>
+</svg>
