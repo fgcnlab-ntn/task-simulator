@@ -1,0 +1,14 @@
+scope,cpu_power_w,cpu_energy_j,idle_energy_j,total_eclipse_energy_j,eclipse_duration_s
+single_satellite,0.0,0.0,7680.0,7680.0,1920
+single_satellite,5.0,9600.0,7680.0,17280.0,1920
+single_satellite,10.0,19200.0,7680.0,26880.0,1920
+single_satellite,15.0,28800.0,7680.0,36480.0,1920
+single_satellite,20.0,38400.0,7680.0,46080.0,1920
+single_satellite,25.0,48000.0,7680.0,55680.0,1920
+single_satellite,30.0,57600.0,7680.0,65280.0,1920
+single_satellite,35.0,67200.0,7680.0,74880.0,1920
+single_satellite,40.0,76800.0,7680.0,84480.0,1920
+single_satellite,45.0,86400.0,7680.0,94080.0,1920
+single_satellite,50.0,96000.0,7680.0,103680.0,1920
+single_satellite,55.0,105600.0,7680.0,113280.0,1920
+single_satellite,60.0,115200.0,7680.0,122880.0,1920

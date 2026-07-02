@@ -18,7 +18,7 @@ from satmulator.runlog import write_json
 
 DEFAULT_BATTERY_CONFIG = Path("configs/template.json")
 DEFAULT_ECLIPSE_ROOT = Path("experiments/eclipse_time")
-DEFAULT_OUTPUT = Path("P_cut")
+DEFAULT_OUTPUT = Path("experiments/P_cut")
 DEFAULT_SAFE_BATTERY_PCTS = tuple(float(value) for value in range(90, -10, -10))
 DEFAULT_CONSTELLATIONS = (
     ("Starlink 1584", "eclipse_time_starlink"),

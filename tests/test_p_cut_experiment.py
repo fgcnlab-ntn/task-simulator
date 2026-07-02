@@ -46,6 +46,16 @@ class PCutExperimentTests(unittest.TestCase):
         self.assertEqual(axis_max, 200)
         self.assertEqual(ticks, [0, 50, 100, 150, 200])
 
+    def test_p_cut_power_subtracts_idle_energy(self) -> None:
+        self.assertEqual(
+            p_cut_experiment.p_cut_power_w(
+                safe_energy_j=108000.0,
+                idle_energy_j=7680.0,
+                eclipse_seconds=1920.0,
+            ),
+            52.25,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

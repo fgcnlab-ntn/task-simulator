@@ -4,7 +4,7 @@
     "harvest_w": 120.0,
     "idle_w": 4.0,
     "initial_pct": 100.0,
-    "min_safe_pct": 20.0
+    "min_safe_pct": 70.0
   },
   "compute": {
     "cpu_frequency_hz": 1000000000.0,
@@ -26,7 +26,7 @@
     "walker_phase": 1
   },
   "output": {
-    "path": "P_cut"
+    "path": "experiments/P_cut"
   },
   "run": {
     "description": "Single-satellite CPU-power sweep with full CPU utilization during eclipse",

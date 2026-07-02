@@ -68,7 +68,7 @@ CPU-power sweep for one satellite keeping its CPU fully active through a
 32-minute eclipse interval:
 
 ```bash
-python3 tools/p_cut_experiment.py --out P_cut
+python3 tools/p_cut_experiment.py --out experiments/P_cut
 ```
 
 Deterministic demand-load sweep for fixed data size and time-slot intervals:
@@ -187,8 +187,9 @@ Each run writes:
 JSON/JSONL files are the structured experiment log. SVG files are quick
 inspection outputs.
 
-The `P_cut` experiment writes `p_cut_results.csv`, `p_cut_results.jsonl`,
-`p_cut_summary.json`, and `p_cut_energy.svg`.
+The `P_cut` experiment writes outputs under `experiments/P_cut`, including
+`p_cut_results.csv`, `p_cut_results.jsonl`, safe-battery energy plots,
+combined energy plots, and constellation P_cut tables.
 
 The demand energy sweep writes `demand_energy_sweep.csv`,
 `demand_energy_sweep.jsonl`, `demand_energy_sweep_summary.json`,
