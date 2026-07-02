@@ -23,6 +23,9 @@ DEFAULT_CONFIG = Path("configs/demand_points.json")
 DEFAULT_OUTPUT = Path("experiments/breach_ratio/demand_energy_sweep")
 DEFAULT_DATA_SIZES_BITS = (1.0e6, 1.0e7, 1.0e8)
 DEFAULT_SLOT_INTERVALS_S = (30, 60, 120, 300)
+BREACH_RATIO_AXIS_MIN = 0.0
+BREACH_RATIO_AXIS_MAX = 1.0
+BREACH_RATIO_TICK_STEP = 0.1
 
 
 def config_float_values(value: object, name: str) -> list[float]:
@@ -519,16 +522,17 @@ def write_line_svg(path: Path, rows: list[dict[str, object]]) -> None:
         )
         for row in rows
     }
-    max_ratio = max([0.01] + [float(row["unique_breached_ratio"]) for row in rows])
-    y_max = min(1.0, max(0.1, math.ceil(max_ratio * 10.0) / 10.0))
+    y_min = BREACH_RATIO_AXIS_MIN
+    y_max = BREACH_RATIO_AXIS_MAX
+    y_range = y_max - y_min
     denom_x = max(1, len(data_sizes) - 1)
 
     def x_pos(index: int) -> float:
         return margin_l + index * plot_w / denom_x
 
     def y_pos(ratio: float) -> float:
-        ratio = max(0.0, min(y_max, ratio))
-        return margin_t + plot_h - ratio / y_max * plot_h
+        ratio = max(y_min, min(y_max, ratio))
+        return margin_t + plot_h - (ratio - y_min) / y_range * plot_h
 
     colors = [
         "#1f77b4",
@@ -565,10 +569,10 @@ def write_line_svg(path: Path, rows: list[dict[str, object]]) -> None:
         f'  <line x1="{margin_l}" y1="{margin_t}" x2="{margin_l}" y2="{height - margin_b}" stroke="#999" />\n'
     )
 
-    tick_step = 0.1
-    tick_count = int(round(y_max / tick_step))
+    tick_step = BREACH_RATIO_TICK_STEP
+    tick_count = int(round((y_max - y_min) / tick_step))
     for tick in range(0, tick_count + 1):
-        ratio = tick * tick_step
+        ratio = y_min + tick * tick_step
         y = y_pos(ratio)
         lines.append(
             f'  <line x1="{margin_l}" y1="{y:.1f}" x2="{width - margin_r}" y2="{y:.1f}" stroke="#e5e5e5" />\n'

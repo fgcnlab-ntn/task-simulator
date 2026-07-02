@@ -244,6 +244,8 @@ class DemandEnergySweepTests(unittest.TestCase):
         self.assertIn("10W", svg_text)
         self.assertIn("20W", svg_text)
         self.assertIn("polyline", svg_text)
+        self.assertIn(">0.0</text>", svg_text)
+        self.assertIn(">1.0</text>", svg_text)
 
 
 if __name__ == "__main__":
