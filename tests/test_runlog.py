@@ -188,6 +188,50 @@ class RunLogTests(unittest.TestCase):
                 1,
             )
 
+    def test_summary_records_paper_objective(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            start = dt.datetime(2026, 6, 14, tzinfo=dt.timezone.utc)
+            log = RunLog(output, start, {"objective": {"alpha": 0.25}})
+            safe_eclipse = replace(
+                sample_state(0),
+                sunlit=False,
+                safe_battery=True,
+            )
+            unsafe_eclipse = replace(
+                sample_state(0),
+                sat_id=1,
+                sunlit=False,
+                safe_battery=False,
+                battery_j=60.0,
+                battery_pct=60.0,
+            )
+            later_unsafe_eclipse = replace(unsafe_eclipse, time_s=30)
+
+            log.write_task_event({"type": "task_generated", "time_s": 0, "task_id": 1})
+            log.write_task_event({"type": "task_generated", "time_s": 0, "task_id": 2})
+            log.write_task_event({"type": "task_failed", "time_s": 30, "task_id": 2})
+            log.write_step([safe_eclipse, unsafe_eclipse])
+            log.write_step([later_unsafe_eclipse])
+            log.complete()
+
+            records = list(iter_state_steps(output))
+            self.assertEqual(
+                records[0]["battery_violation_summary"]["unsafe_eclipse_ratio"],
+                0.5,
+            )
+            summary = json.loads((output / "summary.json").read_text())
+            self.assertEqual(
+                summary["objective"],
+                {
+                    "alpha": 0.25,
+                    "avg_eclipse_unsafe_ratio": 0.75,
+                    "task_failure_ratio": 0.5,
+                    "pending_policy": "count_as_success",
+                    "value": 0.5625,
+                },
+            )
+
     def test_task_summary_counts_pending_from_lifecycle_events(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory)

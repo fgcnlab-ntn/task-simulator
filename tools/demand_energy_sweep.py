@@ -236,6 +236,7 @@ def scenario_args(
     cpu_power_w: float | None = None,
 ) -> SimpleNamespace:
     values = base_values.copy()
+    values.setdefault("objective_alpha", 0.5)
     values.update(
         {
             "run_name": "demand_energy_sweep",

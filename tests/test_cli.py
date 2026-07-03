@@ -15,6 +15,7 @@ from satmulator.cli import (
     parse_args,
     run,
     validate_args,
+    walker_raan_spread_deg,
 )
 
 
@@ -28,6 +29,12 @@ class EffectiveRunConfigTests(unittest.TestCase):
     def test_grid_is_the_default_isl_topology(self) -> None:
         self.assertEqual(DEFAULT_CONFIG["isl_topology"], "grid")
         self.assertEqual(DEFAULT_CONFIG["isl_max_range_km"], 5000.0)
+
+    def test_objective_alpha_is_a_formal_config_section(self) -> None:
+        self.assertEqual(DEFAULT_CONFIG["objective_alpha"], 0.5)
+        self.assertEqual(load_json_config(Path("configs/template.json"))["objective_alpha"], 0.5)
+        with self.assertRaisesRegex(ValueError, "objective.alpha"):
+            validate_args(args_for(objective_alpha=1.1))
 
     def test_loads_json_config(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -134,6 +141,59 @@ class EffectiveRunConfigTests(unittest.TestCase):
                 "walker_phase": 1,
             },
         )
+        self.assertEqual(config["objective"], {"alpha": 0.5})
+
+    def test_oneweb_648_config_uses_walker_delta_layout(self) -> None:
+        args = args_for(**load_standalone_json_config(Path("configs/oneweb_648.json")))
+
+        self.assertEqual(args.orbit_model, "circular")
+        self.assertEqual(args.satellites, 648)
+        self.assertEqual(args.planes, 18)
+        self.assertEqual(args.satellites // args.planes, 36)
+        self.assertEqual(args.walker_phase, 1)
+        self.assertEqual(args.altitude_km, 1200.0)
+        self.assertEqual(args.inclination_deg, 87.9)
+
+    def test_kuiper_784_config_uses_walker_delta_layout(self) -> None:
+        args = args_for(**load_standalone_json_config(Path("configs/kuiper_784.json")))
+
+        self.assertEqual(args.orbit_model, "circular")
+        self.assertEqual(args.satellites, 784)
+        self.assertEqual(args.planes, 28)
+        self.assertEqual(args.satellites // args.planes, 28)
+        self.assertEqual(args.walker_phase, 1)
+        self.assertEqual(args.altitude_km, 590.0)
+        self.assertEqual(args.inclination_deg, 33.0)
+
+    def test_kuiper_1156_high_inclination_config_uses_walker_delta_layout(self) -> None:
+        args = args_for(
+            **load_standalone_json_config(
+                Path("configs/kuiper_1156_630km_51p9deg.json")
+            )
+        )
+
+        self.assertEqual(args.orbit_model, "circular")
+        self.assertEqual(args.satellites, 1156)
+        self.assertEqual(args.planes, 34)
+        self.assertEqual(args.satellites // args.planes, 34)
+        self.assertEqual(args.walker_phase, 1)
+        self.assertEqual(args.altitude_km, 630.0)
+        self.assertEqual(args.inclination_deg, 51.9)
+
+    def test_iridium_66_config_uses_walker_star_layout(self) -> None:
+        args = args_for(**load_standalone_json_config(Path("configs/iridium_66.json")))
+
+        self.assertEqual(args.orbit_model, "circular")
+        self.assertEqual(args.satellites, 66)
+        self.assertEqual(args.planes, 6)
+        self.assertEqual(args.satellites // args.planes, 11)
+        self.assertEqual(args.walker_phase, 2)
+        self.assertEqual(args.altitude_km, 780.0)
+        self.assertEqual(args.inclination_deg, 86.4)
+
+    def test_iridium_uses_walker_star_raan_spread(self) -> None:
+        self.assertEqual(walker_raan_spread_deg(args_for(run_name="iridium_66")), 180.0)
+        self.assertEqual(walker_raan_spread_deg(args_for(run_name="template")), 360.0)
 
     def test_run_config_records_demand_point_provenance(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

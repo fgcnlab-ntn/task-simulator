@@ -67,6 +67,7 @@ DEFAULT_CONFIG = {
     "scheduler_load_weight": 0.1,
     "scheduler_eclipse_local_penalty": 2.0,
     "scheduler_low_battery_threshold_pct": 35.0,
+    "objective_alpha": 0.5,
 }
 
 
@@ -133,6 +134,9 @@ CONFIG_SECTIONS = {
         "load_weight": "scheduler_load_weight",
         "eclipse_local_penalty": "scheduler_eclipse_local_penalty",
         "low_battery_threshold_pct": "scheduler_low_battery_threshold_pct",
+    },
+    "objective": {
+        "alpha": "objective_alpha",
     },
     "output": {"path": "out"},
 }
@@ -313,6 +317,14 @@ def validate_args(args: argparse.Namespace) -> None:
         raise ValueError(
             "scheduler.low_battery_threshold_pct must be within [0, 100]"
         )
+    if not 0.0 <= args.objective_alpha <= 1.0:
+        raise ValueError("objective.alpha must be within [0, 1]")
+
+
+def walker_raan_spread_deg(args: argparse.Namespace) -> float:
+    """Return the RAAN spread for the built-in Walker constellation presets."""
+
+    return 180.0 if str(args.run_name).lower().startswith("iridium") else 360.0
 
 
 def build_configs(
@@ -449,6 +461,9 @@ def effective_run_config(args: argparse.Namespace) -> dict:
             "eclipse_local_penalty": args.scheduler_eclipse_local_penalty,
             "low_battery_threshold_pct": args.scheduler_low_battery_threshold_pct,
         },
+        "objective": {
+            "alpha": args.objective_alpha,
+        },
         "output": {
             "path": str(args.out),
         },
@@ -495,6 +510,7 @@ def run(args: argparse.Namespace) -> int:
                 inclination_deg=args.inclination_deg,
                 sun_position_file=args.sun_position_file,
                 walker_phase=args.walker_phase,
+                raan_spread_deg=walker_raan_spread_deg(args),
                 **common,
             )
 

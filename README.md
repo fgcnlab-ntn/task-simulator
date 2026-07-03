@@ -10,8 +10,10 @@ The current model supports:
 - per-satellite battery state
 - deterministic and demand-point task generation
 - local and nearest-sunlit schedulers
+- per-satellite FIFO execution queues for assigned tasks
 - four-neighbor grid or fully-connected ISL routing with per-hop accounting
 - target load limits in CPU cycles per slot
+- objective summary for eclipse unsafe ratio and task failure ratio
 - structured JSON/JSONL logs and SVG outputs for quick inspection
 
 It does not yet model queueing, link contention, or thermal throttling dynamics.
@@ -132,6 +134,7 @@ The effective merged config is written to:
 - default ISL cost: 1 Gbps transfer rate, 10 W transmit power
 - default scheduler target load limit: 4e9 CPU cycles per slot
 - scheduler: `local`
+- objective weight `alpha`: 0.5
 
 `configs/oneweb_648.json` is the matching OneWeb ideal Walker Delta scenario:
 
@@ -180,11 +183,35 @@ Each run writes:
 - `run.json` — structured run status, effective config, and satellite catalog
 - `states.jsonl` — one append-safe satellite-state record per simulation step
 - `tasks.jsonl` — append-safe task lifecycle events
-- `summary.json` — final structured result summary
+- `summary.json` — final structured result summary, including the objective
+  value below
 - `*.svg` — quick visual checks for orbit, battery, sunlight, and task results
 
 JSON/JSONL files are the structured experiment log. SVG files are quick
 inspection outputs.
+
+The standalone config has an `objective` section:
+
+```json
+"objective": {
+  "alpha": 0.5
+}
+```
+
+`alpha` must be within `[0, 1]`. It affects only the reported simulator
+objective summary; it does not change scheduler behavior. The objective in
+`summary.json` is:
+
+```text
+alpha * avg_eclipse_unsafe_ratio + (1 - alpha) * task_failure_ratio
+```
+
+`avg_eclipse_unsafe_ratio` is the mean over simulation steps of
+`unsafe eclipse satellites / eclipse satellites`. `task_failure_ratio` is
+`failed / generated` using the task lifecycle counters already reported in the
+same summary. Tasks that are still pending when the simulation ends are counted
+as non-failed for the objective summary; `summary.json` records this as
+`pending_policy: "count_as_success"`.
 
 The `P_cut` experiment writes outputs under `experiments/P_cut`, including
 `p_cut_results.csv`, `p_cut_results.jsonl`, safe-battery energy plots,
