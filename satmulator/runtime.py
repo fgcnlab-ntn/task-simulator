@@ -5,7 +5,7 @@ import random
 from dataclasses import dataclass, field
 from typing import Callable
 
-from .models import BatteryConfig, SatelliteState, SatelliteView, Task
+from .models import BatteryConfig, Route, SatelliteState, SatelliteView, Task
 
 
 Vector3 = tuple[float, float, float]
@@ -27,7 +27,7 @@ class SatelliteRuntime:
     slot: int
     battery_j: float
     load: float = 0.0
-    running_tasks: list[int] = field(default_factory=list)
+    task_queue: list[RunningTask] = field(default_factory=list)
     pos_km: Vector3 = (0.0, 0.0, 0.0)
     vel_km_s: Vector3 = (0.0, 0.0, 0.0)
     lat_deg: float | None = None
@@ -108,6 +108,28 @@ class SatelliteRuntime:
 
 
 @dataclass
+class RunningTask:
+    task: Task
+    route: Route
+    mode: str
+    total_compute_time_s: float
+    remaining_compute_time_s: float
+    executed_compute_time_s: float
+    transmission_time_s: float
+    transmission_energy_by_sat: dict[int, float]
+    energy_by_sat: dict[int, float]
+    score: float = 0.0
+
+    @property
+    def source_sat(self) -> int:
+        return self.route.source_sat
+
+    @property
+    def target_sat(self) -> int:
+        return self.route.target_sat
+
+
+@dataclass
 class EnvironmentRuntime:
     """Mutable simulation state shared by orbit, scheduler, and accounting."""
 
@@ -121,6 +143,12 @@ class EnvironmentRuntime:
     deferred_tasks: list[Task] = field(default_factory=list)
     failed_tasks: list[int] = field(default_factory=list)
     task_event_sink: TaskEventSink | None = None
+
+    @property
+    def running_tasks(self) -> list[RunningTask]:
+        """Flattened view of per-satellite execution queues."""
+
+        return [task for sat in self.satellites for task in sat.task_queue]
 
     def views(self) -> list[SatelliteView]:
         return [sat.view() for sat in self.satellites]

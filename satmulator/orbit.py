@@ -29,7 +29,7 @@ from .models import (
     TaskRecord,
 )
 from .route_cost import compute_cycles, estimate_route_cost
-from .runtime import EnvironmentRuntime, SatelliteRuntime, TaskEventSink
+from .runtime import EnvironmentRuntime, RunningTask, SatelliteRuntime, TaskEventSink
 from .scheduler import Scheduler
 from .workload import generate_step_tasks, validate_task_config
 
@@ -113,10 +113,21 @@ def apply_step(
     tasks: list[Task],
     assignments: list[Assignment],
     expired_tasks: list[Task] | None = None,
+    scheduler_config: SchedulerConfig | None = None,
 ) -> tuple[list[SatelliteState], list[TaskRecord]]:
     stats_by_sat = {sat.sat_id: SatelliteStepStats() for sat in env.satellites}
     records: list[TaskRecord] = []
     task_by_id = {task.task_id: task for task in tasks}
+    cpu_time_left_s = {
+        sat.sat_id: step_s
+        * (
+            1.0
+            if scheduler_config is None
+            else scheduler_config.cpu_utilization_limit
+        )
+        for sat in env.satellites
+    }
+    satellite_by_id = {sat.sat_id: sat for sat in env.satellites}
 
     def remaining_deadline_s(task: Task) -> float:
         return task.created_time_s + task.deadline_s - env.time_s
@@ -232,7 +243,6 @@ def apply_step(
             waiting_time_s=waiting_time_s,
         )
         source_stats = stats_by_sat[assignment.source_sat]
-        target_stats = stats_by_sat[assignment.target_sat]
 
         # Slack-aware defer action.
         # A deferred task does not consume task energy and is not counted as failed.
@@ -308,49 +318,165 @@ def apply_step(
             )
             continue
 
-        # Existing local / one-hop offload are now represented as route costs.
         cost = estimate_route_cost(
             task=task,
             route=assignment.route,
             compute_config=compute_config,
             isl_config=isl_config,
         )
+        transmission_energy_by_sat = {
+            sat_id: energy_j
+            for sat_id, energy_j in cost.energy_by_sat.items()
+            if sat_id != assignment.target_sat
+        }
+        satellite_by_id[assignment.target_sat].task_queue.append(
+            RunningTask(
+                task=task,
+                route=assignment.route,
+                mode=assignment.mode,
+                total_compute_time_s=cost.compute_time_s,
+                remaining_compute_time_s=cost.compute_time_s,
+                executed_compute_time_s=0.0,
+                transmission_time_s=cost.transmission_time_s,
+                transmission_energy_by_sat=transmission_energy_by_sat,
+                energy_by_sat={},
+                score=assignment.score,
+            )
+        )
 
-        failed_reason = ""
-        is_completed = True
-        energy_by_sat: dict[int, float] = {}
+    def accumulated_energy(running: RunningTask) -> tuple[float, float, float]:
+        source_energy_j = running.energy_by_sat.get(running.source_sat, 0.0)
+        target_energy_j = (
+            0.0
+            if running.target_sat == running.source_sat
+            else running.energy_by_sat.get(running.target_sat, 0.0)
+        )
+        return source_energy_j, target_energy_j, sum(running.energy_by_sat.values())
 
-        total_time_s = waiting_time_s + cost.total_time_s
+    def fail_running_task(
+        running: RunningTask,
+        *,
+        waiting_time_s: float,
+        compute_time_s: float,
+        transmission_time_s: float,
+        total_time_s: float,
+    ) -> None:
+        source_energy_j, target_energy_j, total_energy_j = accumulated_energy(running)
+        stats_by_sat[running.source_sat].failed_tasks += 1
+        env.failed_tasks.append(running.task.task_id)
+        env.emit_task_event(
+            "task_failed",
+            running.task.task_id,
+            source_sat=running.source_sat,
+            target_sat=running.target_sat,
+            route=list(running.route.nodes),
+            mode=running.mode,
+            reason="deadline",
+            waiting_time_s=waiting_time_s,
+            executed_compute_time_s=running.executed_compute_time_s,
+            remaining_compute_time_s=running.remaining_compute_time_s,
+            transmission_time_s=transmission_time_s,
+            total_time_s=total_time_s,
+            score=running.score,
+        )
+        records.append(
+            make_task_record(
+                task=running.task,
+                source_sat=running.source_sat,
+                target_sat=running.target_sat,
+                mode=running.mode,
+                waiting_time_s=waiting_time_s,
+                compute_time_s=compute_time_s,
+                transmission_time_s=transmission_time_s,
+                total_time_s=total_time_s,
+                energy_j=source_energy_j,
+                completed=False,
+                failed_reason="deadline",
+                source_energy_j=source_energy_j,
+                target_energy_j=target_energy_j,
+                total_energy_j=total_energy_j,
+                status="failed",
+                score=running.score,
+            )
+        )
 
-        if total_time_s > task.deadline_s:
-            is_completed = False
-            failed_reason = "deadline"
-        else:
-            energy_by_sat = cost.energy_by_sat
+    for sat in env.satellites:
+        cpu_time_capacity = max(0.0, cpu_time_left_s[sat.sat_id])
+        cpu_time_left = cpu_time_capacity
+        while sat.task_queue:
+            running = sat.task_queue[0]
+            task = running.task
+            waiting_time_s = env.time_s - task.created_time_s
 
-        if is_completed:
-            source_stats.completed_tasks += 1
+            if remaining_deadline_s(task) <= 0.0 and running.remaining_compute_time_s > 0.0:
+                fail_running_task(
+                    running,
+                    waiting_time_s=waiting_time_s,
+                    compute_time_s=running.executed_compute_time_s,
+                    transmission_time_s=0.0,
+                    total_time_s=waiting_time_s,
+                )
+                sat.task_queue.pop(0)
+                continue
+
+            if cpu_time_left <= 1.0e-12:
+                break
+
+            elapsed_cpu_time_s = cpu_time_capacity - cpu_time_left
+            target_cpu_time_s = min(running.remaining_compute_time_s, cpu_time_left)
+            cpu_time_left -= target_cpu_time_s
+            running.remaining_compute_time_s -= target_cpu_time_s
+
+            energy_by_sat = dict(running.transmission_energy_by_sat)
+            running.transmission_energy_by_sat.clear()
+            compute_energy_j = target_cpu_time_s * compute_config.cpu_power_w
+            if compute_energy_j:
+                energy_by_sat[running.target_sat] = (
+                    energy_by_sat.get(running.target_sat, 0.0) + compute_energy_j
+                )
             for sat_id, energy_j in energy_by_sat.items():
                 stats_by_sat[sat_id].task_energy_j += energy_j
-            source_energy_j = energy_by_sat.get(assignment.source_sat, 0.0)
-            target_energy_j = (
-                0.0
-                if assignment.target_sat == assignment.source_sat
-                else energy_by_sat.get(assignment.target_sat, 0.0)
+                running.energy_by_sat[sat_id] = (
+                    running.energy_by_sat.get(sat_id, 0.0) + energy_j
+                )
+
+            running.executed_compute_time_s += target_cpu_time_s
+
+            if running.remaining_compute_time_s > 1.0e-12:
+                break
+
+            finish_time_s = (
+                env.time_s
+                + elapsed_cpu_time_s
+                + target_cpu_time_s
+                + running.transmission_time_s
             )
-            total_energy_j = sum(energy_by_sat.values())
+            total_time_s = finish_time_s - task.created_time_s
+            if total_time_s > task.deadline_s:
+                fail_running_task(
+                    running,
+                    waiting_time_s=waiting_time_s,
+                    compute_time_s=running.executed_compute_time_s,
+                    transmission_time_s=running.transmission_time_s,
+                    total_time_s=total_time_s,
+                )
+                sat.task_queue.pop(0)
+                continue
+
+            stats_by_sat[running.source_sat].completed_tasks += 1
             env.completed_tasks.append(task.task_id)
-            status = "completed"
+            source_energy_j, target_energy_j, total_energy_j = accumulated_energy(running)
             env.emit_task_event(
                 "task_completed",
                 task.task_id,
-                source_sat=assignment.source_sat,
-                target_sat=assignment.target_sat,
-                route=list(assignment.route.nodes),
-                mode=assignment.mode,
+                source_sat=running.source_sat,
+                target_sat=running.target_sat,
+                route=list(running.route.nodes),
+                mode=running.mode,
                 waiting_time_s=waiting_time_s,
-                compute_time_s=cost.compute_time_s,
-                transmission_time_s=cost.transmission_time_s,
+                executed_compute_time_s=running.executed_compute_time_s,
+                remaining_compute_time_s=0.0,
+                transmission_time_s=running.transmission_time_s,
                 total_time_s=total_time_s,
                 energy_j={
                     "source": source_energy_j,
@@ -359,50 +485,32 @@ def apply_step(
                 },
                 energy_by_sat={
                     str(sat_id): energy_j
-                    for sat_id, energy_j in energy_by_sat.items()
+                    for sat_id, energy_j in running.energy_by_sat.items()
                 },
-                score=assignment.score,
+                score=running.score,
             )
-        else:
-            source_stats.failed_tasks += 1
-            env.failed_tasks.append(task.task_id)
-            status = "failed"
-            source_energy_j = 0.0
-            target_energy_j = 0.0
-            total_energy_j = 0.0
-            env.emit_task_event(
-                "task_failed",
-                task.task_id,
-                source_sat=assignment.source_sat,
-                target_sat=assignment.target_sat,
-                route=list(assignment.route.nodes),
-                mode=assignment.mode,
-                reason=failed_reason,
-                score=assignment.score,
-                waiting_time_s=waiting_time_s,
-                total_time_s=total_time_s,
+            records.append(
+                make_task_record(
+                    task=task,
+                    source_sat=running.source_sat,
+                    target_sat=running.target_sat,
+                    mode=running.mode,
+                    waiting_time_s=waiting_time_s,
+                    compute_time_s=running.executed_compute_time_s,
+                    transmission_time_s=running.transmission_time_s,
+                    total_time_s=total_time_s,
+                    energy_j=source_energy_j,
+                    completed=True,
+                    failed_reason="",
+                    source_energy_j=source_energy_j,
+                    target_energy_j=target_energy_j,
+                    total_energy_j=total_energy_j,
+                    status="completed",
+                    score=running.score,
+                )
             )
-
-        records.append(
-            make_task_record(
-                task=task,
-                source_sat=assignment.source_sat,
-                target_sat=assignment.target_sat,
-                mode=assignment.mode,
-                waiting_time_s=waiting_time_s,
-                compute_time_s=cost.compute_time_s,
-                transmission_time_s=cost.transmission_time_s,
-                total_time_s=total_time_s,
-                energy_j=source_energy_j,
-                completed=is_completed,
-                failed_reason=failed_reason,
-                source_energy_j=source_energy_j,
-                target_energy_j=target_energy_j,
-                total_energy_j=total_energy_j,
-                status=status,
-                score=assignment.score,
-            )
-        )
+            sat.task_queue.pop(0)
+        cpu_time_left_s[sat.sat_id] = cpu_time_left
 
     states: list[SatelliteState] = []
 
@@ -456,6 +564,7 @@ def iter_circular_states(
     scheduler: Scheduler,
     scheduler_config: SchedulerConfig,
     walker_phase: int = 0,
+    raan_spread_deg: float = 360.0,
     task_event_sink: TaskEventSink | None = None,
     step_sink: StepSink | None = None,
 ) -> Iterable[tuple[list[SatelliteState], list[TaskRecord]]]:
@@ -465,6 +574,8 @@ def iter_circular_states(
         raise ValueError("planes must be positive and divide satellites")
     if step_s <= 0:
         raise ValueError("step must be positive")
+    if not 0.0 < raan_spread_deg <= 360.0:
+        raise ValueError("RAAN spread must be within (0, 360]")
 
     validate_battery_config(battery)
     validate_compute_config(compute_config)
@@ -473,6 +584,7 @@ def iter_circular_states(
     sats_per_plane = satellites // planes
     radius_km = EARTH_RADIUS_KM + altitude_km
     inclination_rad = math.radians(inclination_deg)
+    raan_spread_rad = math.radians(raan_spread_deg)
     mean_motion = math.sqrt(EARTH_MU_KM3_S2 / (radius_km**3))
     sun_ephemeris = (
         None
@@ -513,7 +625,7 @@ def iter_circular_states(
             raise ValueError("Sun vector norm must be positive")
 
         for plane in range(planes):
-            raan = 2.0 * math.pi * plane / planes
+            raan = raan_spread_rad * plane / planes
             plane_phase = 2.0 * math.pi * walker_phase * plane / satellites
 
             for slot in range(sats_per_plane):
@@ -567,6 +679,7 @@ def iter_circular_states(
             tasks=tasks,
             assignments=assignments,
             expired_tasks=expired_tasks,
+            scheduler_config=scheduler_config,
         )
 
         if step_sink is not None:
@@ -706,6 +819,7 @@ def iter_tle_states(
             tasks=tasks,
             assignments=assignments,
             expired_tasks=expired_tasks,
+            scheduler_config=scheduler_config,
         )
 
         if step_sink is not None:
