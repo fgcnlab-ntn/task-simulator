@@ -1,6 +1,5 @@
 import unittest
 
-from satmulator.isl import fully_connected_isl_graph
 from satmulator.models import (
     Assignment,
     BatteryConfig,
@@ -8,14 +7,11 @@ from satmulator.models import (
     DemandDistribution,
     ISLConfig,
     Route,
-    SatelliteView,
-    SchedulerConfig,
     Task,
     TaskConfig,
 )
 from satmulator.orbit import apply_step
 from satmulator.runtime import EnvironmentRuntime, SatelliteRuntime
-from satmulator.scheduler import SlackAwareScheduler
 
 
 def task_config() -> TaskConfig:
@@ -334,65 +330,6 @@ class BatteryDoDTests(unittest.TestCase):
         self.assertEqual(records[0].failed_reason, "deadline")
         self.assertEqual(records[0].compute_time_s, 40.0)
         self.assertEqual(states[0].failed_tasks, 1)
-
-    def test_slack_aware_does_not_treat_dod_as_hard_limit(self) -> None:
-        battery = BatteryConfig(
-            capacity_j=100.0,
-            initial_j=100.0,
-            min_safe_j=20.0,
-            harvest_w=0.0,
-            idle_w=0.0,
-        )
-        views = [
-            SatelliteView(
-                sat_id=0,
-                x_km=0.0,
-                y_km=0.0,
-                z_km=0.0,
-                sunlit=False,
-                battery_j=100.0,
-            ),
-            SatelliteView(
-                sat_id=1,
-                x_km=1.0,
-                y_km=0.0,
-                z_km=0.0,
-                sunlit=True,
-                battery_j=25.0,
-            ),
-        ]
-        task = Task(
-            task_id=1,
-            created_time_s=30,
-            source_sat=0,
-            input_bits=10.0,
-            output_bits=0.0,
-            deadline_s=30.0,
-        )
-
-        assignments = SlackAwareScheduler().assign_tasks(
-            tasks=[task],
-            satellite_views=views,
-            time_s=30,
-            step_s=30,
-            battery=battery,
-            compute_config=compute_config(),
-            task_config=task_config(),
-            isl_config=ISLConfig(1.0, 0.0),
-            isl_graph=fully_connected_isl_graph(views),
-            scheduler_config=SchedulerConfig(
-                name="slack-aware",
-                time_weight=0.0,
-                energy_weight=0.0,
-                battery_weight=0.0,
-                load_weight=0.0,
-                eclipse_local_penalty=100.0,
-            ),
-        )
-
-        self.assertEqual(assignments[0].route.nodes, (0, 1))
-        self.assertEqual(assignments[0].mode, "offload")
-
 
 if __name__ == "__main__":
     unittest.main()

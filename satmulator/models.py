@@ -68,14 +68,6 @@ class ISLConfig:
 class SchedulerConfig:
     name: str
     cpu_utilization_limit: float = 1.0
-    defer_penalty: float = 3.0
-    fail_penalty: float = 1000.0
-    time_weight: float = 1.0
-    energy_weight: float = 2.0
-    battery_weight: float = 5.0
-    load_weight: float = 0.1
-    eclipse_local_penalty: float = 2.0
-    low_battery_threshold_pct: float = 35.0
 
 
 @dataclass(frozen=True)

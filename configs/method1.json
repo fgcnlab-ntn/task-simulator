@@ -56,15 +56,7 @@
   },
   "scheduler": {
     "name": "method1",
-    "cpu_utilization_limit": 1.0,
-    "defer_penalty": 3.0,
-    "fail_penalty": 1000.0,
-    "time_weight": 1.0,
-    "energy_weight": 2.0,
-    "battery_weight": 5.0,
-    "load_weight": 0.1,
-    "eclipse_local_penalty": 2.0,
-    "low_battery_threshold_pct": 35.0
+    "cpu_utilization_limit": 1.0
   },
   "objective": {
     "alpha": 0.5

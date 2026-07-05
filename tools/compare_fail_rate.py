@@ -15,7 +15,7 @@ def load_summary(output_dir: Path) -> dict:
 
 def default_method_label(output_dir: Path) -> str:
     name = output_dir.name
-    return name.replace("_", "-").replace("slack-aware", "slack-aware")
+    return name.replace("_", "-")
 
 
 def load_fail_rate(output_dir: Path, label: str | None = None) -> dict:
@@ -183,7 +183,7 @@ def main() -> int:
         type=Path,
         help=(
             "Output directories, e.g. "
-            "output/compare/local output/compare/nearest_sunlit output/compare/slack_aware"
+            "output/compare/local output/compare/nearest_sunlit output/compare/method1"
         ),
     )
     parser.add_argument(

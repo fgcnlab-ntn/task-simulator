@@ -77,14 +77,6 @@ class DemandEnergySweepTests(unittest.TestCase):
             "isl_max_range_km": 5000.0,
             "out": Path("output/base"),
             "scheduler_cpu_utilization_limit": 1.0,
-            "scheduler_defer_penalty": 3.0,
-            "scheduler_fail_penalty": 1000.0,
-            "scheduler_time_weight": 1.0,
-            "scheduler_energy_weight": 2.0,
-            "scheduler_battery_weight": 5.0,
-            "scheduler_load_weight": 0.1,
-            "scheduler_eclipse_local_penalty": 2.0,
-            "scheduler_low_battery_threshold_pct": 35.0,
         }
 
         args = demand_energy_sweep.scenario_args(
@@ -150,14 +142,6 @@ class DemandEnergySweepTests(unittest.TestCase):
             "isl_max_range_km": 5000.0,
             "out": Path("output/base"),
             "scheduler_cpu_utilization_limit": 1.0,
-            "scheduler_defer_penalty": 3.0,
-            "scheduler_fail_penalty": 1000.0,
-            "scheduler_time_weight": 1.0,
-            "scheduler_energy_weight": 2.0,
-            "scheduler_battery_weight": 5.0,
-            "scheduler_load_weight": 0.1,
-            "scheduler_eclipse_local_penalty": 2.0,
-            "scheduler_low_battery_threshold_pct": 35.0,
         }
 
         args = demand_energy_sweep.scenario_args(

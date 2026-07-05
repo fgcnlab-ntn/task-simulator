@@ -144,7 +144,7 @@ def main() -> int:
         "runs",
         nargs="+",
         type=Path,
-        help="Output directories, e.g. output/compare/local output/compare/slack_aware",
+        help="Output directories, e.g. output/compare/local output/compare/method1",
     )
     parser.add_argument(
         "--out",

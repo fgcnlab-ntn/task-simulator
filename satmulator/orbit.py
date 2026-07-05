@@ -188,7 +188,7 @@ def apply_step(
 
     # Expired tasks can come from two places:
     # 1. demand-point workload pending tasks with no coverage
-    # 2. slack-aware deferred tasks whose deadline has expired
+    # 2. deferred tasks whose deadline has expired
     for task in expired_tasks:
         waiting_time_s = env.time_s - task.created_time_s
         env.failed_tasks.append(task.task_id)
@@ -244,7 +244,7 @@ def apply_step(
         )
         source_stats = stats_by_sat[assignment.source_sat]
 
-        # Slack-aware defer action.
+        # Scheduler defer action.
         # A deferred task does not consume task energy and is not counted as failed.
         if assignment.mode == "defer":
             env.deferred_tasks.append(task)
@@ -280,7 +280,7 @@ def apply_step(
             )
             continue
 
-        # Slack-aware explicit fail action.
+        # Scheduler explicit fail action.
         if assignment.mode == "fail":
             source_stats.failed_tasks += 1
             env.failed_tasks.append(task.task_id)

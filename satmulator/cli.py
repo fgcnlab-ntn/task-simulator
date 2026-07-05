@@ -59,14 +59,6 @@ DEFAULT_CONFIG = {
     "isl_max_range_km": 5000.0,
     "out": "output/minimal_orbit",
     "scheduler_cpu_utilization_limit": 1.0,
-    "scheduler_defer_penalty": 3.0,
-    "scheduler_fail_penalty": 1000.0,
-    "scheduler_time_weight": 1.0,
-    "scheduler_energy_weight": 2.0,
-    "scheduler_battery_weight": 5.0,
-    "scheduler_load_weight": 0.1,
-    "scheduler_eclipse_local_penalty": 2.0,
-    "scheduler_low_battery_threshold_pct": 35.0,
     "objective_alpha": 0.5,
 }
 
@@ -126,14 +118,6 @@ CONFIG_SECTIONS = {
     "scheduler": {
         "name": "scheduler",
         "cpu_utilization_limit": "scheduler_cpu_utilization_limit",
-        "defer_penalty": "scheduler_defer_penalty",
-        "fail_penalty": "scheduler_fail_penalty",
-        "time_weight": "scheduler_time_weight",
-        "energy_weight": "scheduler_energy_weight",
-        "battery_weight": "scheduler_battery_weight",
-        "load_weight": "scheduler_load_weight",
-        "eclipse_local_penalty": "scheduler_eclipse_local_penalty",
-        "low_battery_threshold_pct": "scheduler_low_battery_threshold_pct",
     },
     "objective": {
         "alpha": "objective_alpha",
@@ -311,12 +295,6 @@ def validate_args(args: argparse.Namespace) -> None:
         )
     if not 0.0 < args.scheduler_cpu_utilization_limit <= 1.0:
         raise ValueError("scheduler.cpu_utilization_limit must be within (0, 1]")
-    if args.scheduler_fail_penalty < 0 or args.scheduler_defer_penalty < 0:
-        raise ValueError("scheduler penalties must be non-negative")
-    if not 0 <= args.scheduler_low_battery_threshold_pct <= 100:
-        raise ValueError(
-            "scheduler.low_battery_threshold_pct must be within [0, 100]"
-        )
     if not 0.0 <= args.objective_alpha <= 1.0:
         raise ValueError("objective.alpha must be within [0, 1]")
 
@@ -369,14 +347,6 @@ def build_configs(
     scheduler_config = SchedulerConfig(
         name=args.scheduler,
         cpu_utilization_limit=args.scheduler_cpu_utilization_limit,
-        defer_penalty=args.scheduler_defer_penalty,
-        fail_penalty=args.scheduler_fail_penalty,
-        time_weight=args.scheduler_time_weight,
-        energy_weight=args.scheduler_energy_weight,
-        battery_weight=args.scheduler_battery_weight,
-        load_weight=args.scheduler_load_weight,
-        eclipse_local_penalty=args.scheduler_eclipse_local_penalty,
-        low_battery_threshold_pct=args.scheduler_low_battery_threshold_pct,
     )
     return battery, compute_config, task_config, isl_config, scheduler_config
 
@@ -452,14 +422,6 @@ def effective_run_config(args: argparse.Namespace) -> dict:
         "scheduler": {
             "name": args.scheduler,
             "cpu_utilization_limit": args.scheduler_cpu_utilization_limit,
-            "defer_penalty": args.scheduler_defer_penalty,
-            "fail_penalty": args.scheduler_fail_penalty,
-            "time_weight": args.scheduler_time_weight,
-            "energy_weight": args.scheduler_energy_weight,
-            "battery_weight": args.scheduler_battery_weight,
-            "load_weight": args.scheduler_load_weight,
-            "eclipse_local_penalty": args.scheduler_eclipse_local_penalty,
-            "low_battery_threshold_pct": args.scheduler_low_battery_threshold_pct,
         },
         "objective": {
             "alpha": args.objective_alpha,
