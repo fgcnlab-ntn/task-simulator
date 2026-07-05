@@ -196,6 +196,7 @@ class SatelliteView:
     sunlit: bool
     battery_j: float = 0.0
     load: float = 0.0
+    queue_backlog_s: float = 0.0
     plane: int | None = None
     slot: int | None = None
 

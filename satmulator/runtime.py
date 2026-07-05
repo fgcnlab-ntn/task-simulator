@@ -61,6 +61,9 @@ class SatelliteRuntime:
             sunlit=self.sunlit,
             battery_j=self.battery_j,
             load=self.load,
+            queue_backlog_s=sum(
+                task.remaining_compute_time_s for task in self.task_queue
+            ),
             plane=self.plane,
             slot=self.slot,
         )
