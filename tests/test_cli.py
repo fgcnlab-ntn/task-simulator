@@ -216,7 +216,7 @@ class EffectiveRunConfigTests(unittest.TestCase):
             self.assertEqual(provenance["total_weight"], 10.0)
             self.assertEqual(provenance["conversion"], metadata)
 
-    def test_run_does_not_write_experiment_csv_files(self) -> None:
+    def test_run_writes_logs_without_derived_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory)
             run(
@@ -232,6 +232,7 @@ class EffectiveRunConfigTests(unittest.TestCase):
             )
 
             self.assertFalse(list(output.glob("*.csv")))
+            self.assertFalse(list(output.glob("*.svg")))
             self.assertTrue((output / "run.json").exists())
             self.assertFalse((output / "run_config.json").exists())
             self.assertTrue((output / "states.jsonl").exists())

@@ -531,7 +531,6 @@ def run(args: argparse.Namespace) -> int:
 
     assert first is not None and last is not None
 
-    render_run_plots(args.out)
     summary = json.loads((args.out / "summary.json").read_text())
     task_summary = summary["tasks"]
     battery_violations = summary.get("battery_violations", {})
@@ -569,10 +568,7 @@ def run(args: argparse.Namespace) -> int:
         f"{battery_violations.get('unique_eclipse_breached_satellites', 0)}"
     )
     print(f"  output: {args.out.resolve()}")
-    print(
-        "  open snapshot_start.svg, snapshot_end.svg, sunlight_summary.svg, "
-        "battery_summary.svg, or task_summary.svg to see results"
-    )
+    print("  run --plot-run on this output directory to generate SVG plots")
     return 0
 
 

@@ -185,10 +185,13 @@ Each run writes:
 - `tasks.jsonl` — append-safe task lifecycle events
 - `summary.json` — final structured result summary, including the objective
   value below
-- `*.svg` — quick visual checks for orbit, battery, sunlight, and task results
 
-JSON/JSONL files are the structured experiment log. SVG files are quick
-inspection outputs.
+JSON/JSONL files are the structured experiment log. SVG plots are derived
+artifacts and are generated separately from an existing run:
+
+```bash
+python3 minimal_orbit.py --plot-run output/minimal_orbit
+```
 
 The standalone config has an `objective` section:
 
