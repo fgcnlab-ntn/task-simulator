@@ -23,6 +23,16 @@ class RouteCost:
         return self.energy_by_sat.get(sat_id, 0.0)
 
 
+@dataclass(frozen=True)
+class RouteTiming:
+    compute_time_s: float
+    transmission_time_s: float
+
+    @property
+    def total_time_s(self) -> float:
+        return self.compute_time_s + self.transmission_time_s
+
+
 def add_energy(energy_by_sat: dict[int, float], sat_id: int, energy_j: float) -> None:
     if energy_j == 0.0:
         return
@@ -49,6 +59,24 @@ def task_compute_time_s(task: Task, compute_config: ComputeConfig) -> float:
     return compute_cycles(task, compute_config) / compute_config.cpu_frequency_hz
 
 
+def estimate_route_timing(
+    *,
+    task: Task,
+    route: Route,
+    compute_config: ComputeConfig,
+    isl_config: ISLConfig,
+) -> RouteTiming:
+    compute_time_s = task_compute_time_s(task, compute_config)
+    transmission_time_s = route.hop_count * (
+        transfer_time_s(task.input_bits, isl_config)
+        + transfer_time_s(task.output_bits, isl_config)
+    )
+    return RouteTiming(
+        compute_time_s=compute_time_s,
+        transmission_time_s=transmission_time_s,
+    )
+
+
 def estimate_route_cost(
     *,
     task: Task,
@@ -64,15 +92,20 @@ def estimate_route_cost(
     historical one-hop model.
     """
 
-    compute_time_s = task_compute_time_s(task, compute_config)
-    compute_energy_j = compute_time_s * compute_config.cpu_power_w
+    timing = estimate_route_timing(
+        task=task,
+        route=route,
+        compute_config=compute_config,
+        isl_config=isl_config,
+    )
+    compute_energy_j = timing.compute_time_s * compute_config.cpu_power_w
     energy_by_sat: dict[int, float] = {}
 
     add_energy(energy_by_sat, route.target_sat, compute_energy_j)
 
     if route.hop_count == 0:
         return RouteCost(
-            compute_time_s=compute_time_s,
+            compute_time_s=timing.compute_time_s,
             transmission_time_s=0.0,
             energy_by_sat=energy_by_sat,
         )
@@ -95,12 +128,8 @@ def estimate_route_cost(
             output_tx_energy_j,
         )
 
-    transmission_time_s = route.hop_count * (
-        transfer_time_s(task.input_bits, isl_config)
-        + transfer_time_s(task.output_bits, isl_config)
-    )
     return RouteCost(
-        compute_time_s=compute_time_s,
-        transmission_time_s=transmission_time_s,
+        compute_time_s=timing.compute_time_s,
+        transmission_time_s=timing.transmission_time_s,
         energy_by_sat=energy_by_sat,
     )

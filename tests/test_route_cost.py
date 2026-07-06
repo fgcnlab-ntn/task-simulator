@@ -1,7 +1,7 @@
 import unittest
 
 from satmulator.models import ComputeConfig, DemandDistribution, ISLConfig, Route, Task, TaskConfig
-from satmulator.route_cost import estimate_route_cost
+from satmulator.route_cost import estimate_route_cost, estimate_route_timing
 
 
 def task_config() -> TaskConfig:
@@ -76,6 +76,18 @@ class RouteCostTests(unittest.TestCase):
         self.assertEqual(cost.energy_by_sat, {0: 20.0, 1: 502.0})
         self.assertEqual(cost.total_energy_j, 522.0)
 
+    def test_route_timing_omits_energy_breakdown(self) -> None:
+        timing = estimate_route_timing(
+            task=self.task,
+            route=Route((0, 2, 1)),
+            compute_config=self.compute,
+            isl_config=self.isl,
+        )
+
+        self.assertEqual(timing.compute_time_s, 10.0)
+        self.assertEqual(timing.transmission_time_s, 22.0)
+        self.assertEqual(timing.total_time_s, 32.0)
+
     def test_multi_hop_charges_relay_for_forward_and_return(self) -> None:
         cost = estimate_route_cost(
             task=self.task,
@@ -109,6 +121,14 @@ class RouteCostTests(unittest.TestCase):
 
         self.assertEqual(cost.compute_time_s, 5.0)
         self.assertEqual(cost.energy_by_sat, {0: 250.0})
+
+        timing = estimate_route_timing(
+            task=explicit,
+            route=Route((0,)),
+            compute_config=self.compute,
+            isl_config=self.isl,
+        )
+        self.assertEqual(timing.compute_time_s, 5.0)
 
 
 if __name__ == "__main__":
