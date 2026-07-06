@@ -89,6 +89,27 @@ class RouteCostTests(unittest.TestCase):
         self.assertEqual(cost.energy_by_sat[2], 22.0)
         self.assertEqual(cost.energy_by_sat[1], 502.0)
 
+    def test_explicit_compute_time_overrides_cycle_model(self) -> None:
+        explicit = Task(
+            task_id=2,
+            created_time_s=0,
+            source_sat=0,
+            input_bits=100.0,
+            output_bits=10.0,
+            deadline_s=30.0,
+            compute_time_s=5.0,
+        )
+
+        cost = estimate_route_cost(
+            task=explicit,
+            route=Route((0,)),
+            compute_config=self.compute,
+            isl_config=self.isl,
+        )
+
+        self.assertEqual(cost.compute_time_s, 5.0)
+        self.assertEqual(cost.energy_by_sat, {0: 250.0})
+
 
 if __name__ == "__main__":
     unittest.main()

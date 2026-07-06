@@ -47,6 +47,7 @@ class TaskConfig:
     deadline_s: float
     demand_distribution: DemandDistribution
     min_elevation_deg: float
+    compute_time_s: float | None = None
 
 
 @dataclass(frozen=True)
@@ -80,6 +81,7 @@ class Task:
     deadline_s: float
     lat_deg: float | None = None
     lon_deg: float | None = None
+    compute_time_s: float | None = None
 
 
 @dataclass(frozen=True)
