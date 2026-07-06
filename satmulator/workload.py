@@ -92,6 +92,9 @@ def validate_task_config(task_config: TaskConfig) -> None:
         raise ValueError("tasks per satellite must be non-negative")
     if task_config.input_bits < 0 or task_config.output_bits < 0:
         raise ValueError("task input/output bits must be non-negative")
+    compute_time_s = getattr(task_config, "compute_time_s", None)
+    if compute_time_s is not None and compute_time_s <= 0:
+        raise ValueError("task compute_time_s must be positive")
     if task_config.deadline_s <= 0:
         raise ValueError("task deadline must be positive")
     if not 0.0 <= task_config.min_elevation_deg <= 90.0:
@@ -367,6 +370,7 @@ def generate_satellite_deterministic_tasks(
                 input_bits=task_config.input_bits,
                 output_bits=task_config.output_bits,
                 deadline_s=task_config.deadline_s,
+                compute_time_s=getattr(task_config, "compute_time_s", None),
             )
             tasks.append(task)
             emit_generated_task(env, task, compute_config)
@@ -400,6 +404,7 @@ def generate_demand_point_tasks(
             deadline_s=task_config.deadline_s,
             lat_deg=point.lat_deg,
             lon_deg=point.lon_deg,
+            compute_time_s=getattr(task_config, "compute_time_s", None),
         )
         tasks.append(task)
         emit_generated_task(env, task, compute_config)
@@ -445,6 +450,7 @@ def generate_fixed_all_demand_point_tasks(
             deadline_s=task_config.deadline_s,
             lat_deg=point.lat_deg,
             lon_deg=point.lon_deg,
+            compute_time_s=getattr(task_config, "compute_time_s", None),
         )
         emit_generated_task(env, task, compute_config)
         env.next_task_id += 1
@@ -486,6 +492,7 @@ def emit_generated_task(
         ),
         workload={
             "compute_cycles": compute_cycles(task, compute_config),
+            "compute_time_s": task.compute_time_s,
             "input_bits": task.input_bits,
             "output_bits": task.output_bits,
         },
@@ -502,16 +509,34 @@ def resolve_pending_tasks(
     ready: list[Task] = []
     expired: list[Task] = []
     still_pending: list[Task] = []
+
+    unique_points_by_coord: dict[tuple[float, float], DemandPoint] = {}
     for task in env.pending_tasks:
         if task.lat_deg is None or task.lon_deg is None:
             raise ValueError("pending demand-point task requires latitude and longitude")
-        point = DemandPoint(lat_deg=task.lat_deg, lon_deg=task.lon_deg, weight=1.0)
-        source_sat = nearest_satellite_id(
-            env.satellites,
-            point,
-            env.time_utc,
-            task_config.min_elevation_deg,
+        coord = (task.lat_deg, task.lon_deg)
+        unique_points_by_coord.setdefault(
+            coord,
+            DemandPoint(lat_deg=task.lat_deg, lon_deg=task.lon_deg, weight=1.0),
         )
+
+    unique_coords = tuple(unique_points_by_coord)
+    source_by_coord = dict(
+        zip(
+            unique_coords,
+            nearest_satellite_ids_vectorized(
+                env.satellites,
+                tuple(unique_points_by_coord.values()),
+                env.time_utc,
+                task_config.min_elevation_deg,
+            ),
+        )
+    )
+
+    for task in env.pending_tasks:
+        assert task.lat_deg is not None
+        assert task.lon_deg is not None
+        source_sat = source_by_coord[(task.lat_deg, task.lon_deg)]
         if source_sat is not None:
             env.emit_task_event(
                 "task_coverage_acquired",
@@ -529,6 +554,7 @@ def resolve_pending_tasks(
                     deadline_s=task.deadline_s,
                     lat_deg=task.lat_deg,
                     lon_deg=task.lon_deg,
+                    compute_time_s=task.compute_time_s,
                 )
             )
         elif env.time_s - task.created_time_s >= task.deadline_s:

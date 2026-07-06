@@ -3,6 +3,7 @@ import math
 import random
 import unittest
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from satmulator.models import DemandPoint, Task
 from satmulator.runtime import EnvironmentRuntime, SatelliteRuntime
@@ -227,6 +228,36 @@ class DemandPointCoordinateTests(unittest.TestCase):
         self.assertEqual(ready, [])
         self.assertEqual(expired, [task])
         self.assertEqual(env.pending_tasks, [])
+
+    def test_pending_coverage_vectorizes_unique_coordinates(self) -> None:
+        first = Task(0, 0, None, 1.0, 0.0, 120.0, 1.0, 2.0)
+        second = Task(1, 0, None, 1.0, 0.0, 120.0, 1.0, 2.0)
+        third = Task(2, 0, None, 1.0, 0.0, 120.0, 3.0, 4.0)
+        env = EnvironmentRuntime(
+            satellites=[],
+            time_s=30,
+            time_utc=dt.datetime(2026, 6, 7, 12, tzinfo=dt.timezone.utc),
+            pending_tasks=[first, second, third],
+        )
+        config = SimpleNamespace(min_elevation_deg=30.0)
+
+        with patch(
+            "satmulator.workload.nearest_satellite_ids_vectorized",
+            return_value=[7, None],
+        ) as nearest:
+            ready, expired = resolve_pending_tasks(env, config)
+
+        nearest.assert_called_once()
+        _satellites, points, _time_utc, min_elevation = nearest.call_args.args
+        self.assertEqual(
+            [(point.lat_deg, point.lon_deg) for point in points],
+            [(1.0, 2.0), (3.0, 4.0)],
+        )
+        self.assertEqual(min_elevation, 30.0)
+        self.assertEqual([task.task_id for task in ready], [0, 1])
+        self.assertEqual([task.source_sat for task in ready], [7, 7])
+        self.assertEqual(expired, [])
+        self.assertEqual(env.pending_tasks, [third])
 
     def test_fixed_all_demand_generates_one_task_per_point_without_pending(self) -> None:
         time_utc = dt.datetime(2026, 6, 7, 12, tzinfo=dt.timezone.utc)
