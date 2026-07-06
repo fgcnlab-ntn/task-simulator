@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections import deque
+
 from .battery import projected_battery_after_step
 from .isl import ISLGraph, shortest_route
 from .models import (
@@ -13,7 +15,7 @@ from .models import (
     Task,
     TaskConfig,
 )
-from .route_cost import estimate_route_cost
+from .route_cost import RouteCost, estimate_route_cost
 
 
 def distance_km(a: SatelliteView, b: SatelliteView) -> float:
@@ -28,6 +30,35 @@ def route_or_raise(graph: ISLGraph, source_sat: int, target_sat: int) -> Route:
     if route is None:
         raise ValueError(f"no ISL route from {source_sat} to {target_sat}")
     return route
+
+
+def routes_from_source(graph: ISLGraph, source_sat: int) -> dict[int, Route]:
+    """Return shortest routes from one source to every reachable satellite."""
+
+    if source_sat not in graph.adjacency:
+        return {}
+
+    parents: dict[int, int | None] = {source_sat: None}
+    queue: deque[int] = deque([source_sat])
+
+    while queue:
+        current = queue.popleft()
+        for neighbor in graph.neighbors(current):
+            if neighbor in parents:
+                continue
+            parents[neighbor] = current
+            queue.append(neighbor)
+
+    routes: dict[int, Route] = {}
+    for target_sat in parents:
+        nodes = [target_sat]
+        current = target_sat
+        while parents[current] is not None:
+            current = parents[current]
+            nodes.append(current)
+        nodes.reverse()
+        routes[target_sat] = Route(tuple(nodes))
+    return routes
 
 
 class Scheduler:
@@ -283,6 +314,385 @@ class Method1Scheduler(Scheduler):
         return assignments
 
 
+class PhoenixLiteScheduler(Scheduler):
+    """PHOENIX-inspired scheduler without ground-station support.
+
+    This is deliberately not the full PHOENIX paper algorithm.  The simulator
+    has no ground-station model and no per-task scheduled start time, so the
+    only honest approximation is:
+
+    * prefer local execution when the source is sunlit;
+    * defer eclipse-side local work by one simulator step when that can still
+      meet the task deadline;
+    * otherwise offload to a reachable sunlit peer, balancing by orbit plane
+      and then choosing the highest-battery feasible satellite.
+    """
+
+    name = "phoenix"
+
+    def __init__(self) -> None:
+        self.task_count_by_plane: dict[int, int] = {}
+
+    def assign_task(
+        self,
+        *,
+        task: Task,
+        satellite_views: list[SatelliteView],
+        isl_graph: ISLGraph,
+    ) -> Assignment:
+        assert task.source_sat is not None
+        by_id = {sat.sat_id: sat for sat in satellite_views}
+        source = by_id[task.source_sat]
+        if source.sunlit:
+            return Assignment(
+                task_id=task.task_id,
+                route=route_or_raise(isl_graph, source.sat_id, source.sat_id),
+                mode="local",
+            )
+        return NearestSunlitScheduler().assign_task(
+            task=task,
+            satellite_views=satellite_views,
+            isl_graph=isl_graph,
+        )
+
+    def _candidate_finish_time(
+        self,
+        *,
+        task: Task,
+        route: Route,
+        target: SatelliteView,
+        time_s: int,
+        reserved_available_time: dict[int, float],
+        compute_config: ComputeConfig,
+        isl_config: ISLConfig,
+    ) -> tuple[float, RouteCost] | None:
+        cost = estimate_route_cost(
+            task=task,
+            route=route,
+            compute_config=compute_config,
+            isl_config=isl_config,
+        )
+        arrival_time = float(time_s) + cost.transmission_time_s
+        start_time = max(arrival_time, reserved_available_time[target.sat_id])
+        finish_time = start_time + cost.compute_time_s
+        deadline_time = task.created_time_s + task.deadline_s
+        if finish_time > deadline_time:
+            return None
+        return finish_time, cost
+
+    def _defer_is_deadline_safe(
+        self,
+        *,
+        task: Task,
+        source: SatelliteView,
+        time_s: int,
+        step_s: int,
+        compute_config: ComputeConfig,
+        isl_config: ISLConfig,
+    ) -> bool:
+        local_route = Route((source.sat_id,))
+        cost = estimate_route_cost(
+            task=task,
+            route=local_route,
+            compute_config=compute_config,
+            isl_config=isl_config,
+        )
+        finish_after_one_step_wait = (
+            float(time_s) + step_s + source.queue_backlog_s + cost.compute_time_s
+        )
+        return finish_after_one_step_wait <= task.created_time_s + task.deadline_s
+
+    @staticmethod
+    def _plane_of(sat: SatelliteView) -> int | None:
+        if sat.plane is None or sat.plane < 0:
+            return None
+        return sat.plane
+
+    def _plane_sunlit_counts(
+        self,
+        satellite_views: list[SatelliteView],
+    ) -> dict[int, int]:
+        counts: dict[int, int] = {}
+        for sat in satellite_views:
+            plane = self._plane_of(sat)
+            if plane is None:
+                continue
+            counts.setdefault(plane, 0)
+            if sat.sunlit:
+                counts[plane] += 1
+        return counts
+
+    def _preferred_planes(
+        self,
+        satellite_views: list[SatelliteView],
+    ) -> list[int]:
+        sunlit_counts = self._plane_sunlit_counts(satellite_views)
+        return sorted(
+            sunlit_counts,
+            key=lambda plane: (
+                self.task_count_by_plane.get(plane, 0)
+                / max(1, sunlit_counts[plane]),
+                self.task_count_by_plane.get(plane, 0),
+                plane,
+            ),
+        )
+
+    def _best_peer_in_planes(
+        self,
+        *,
+        task: Task,
+        source: SatelliteView,
+        satellite_views: list[SatelliteView],
+        routes_by_target: dict[int, Route],
+        time_s: int,
+        reserved_available_time: dict[int, float],
+        compute_config: ComputeConfig,
+        isl_config: ISLConfig,
+        planes: set[int] | None,
+    ) -> tuple[Assignment, float] | None:
+        best_assignment = None
+        best_finish = None
+        best_key = None
+
+        for target in satellite_views:
+            if target.sat_id == source.sat_id:
+                continue
+            if not target.sunlit:
+                continue
+            target_plane = self._plane_of(target)
+            if planes is not None and target_plane not in planes:
+                continue
+
+            route = routes_by_target.get(target.sat_id)
+            if route is None:
+                continue
+
+            feasible = self._candidate_finish_time(
+                task=task,
+                route=route,
+                target=target,
+                time_s=time_s,
+                reserved_available_time=reserved_available_time,
+                compute_config=compute_config,
+                isl_config=isl_config,
+            )
+            if feasible is None:
+                continue
+            finish_time, _cost = feasible
+
+            key = (
+                -target.battery_j,
+                finish_time,
+                route.hop_count,
+                target.sat_id,
+            )
+            if best_key is None or key < best_key:
+                best_key = key
+                best_assignment = Assignment(
+                    task_id=task.task_id,
+                    route=route,
+                    mode="offload",
+                    score=finish_time,
+                )
+                best_finish = finish_time
+
+        if best_assignment is None:
+            return None
+        assert best_finish is not None
+        return best_assignment, best_finish
+
+    def _choose_peer(
+        self,
+        *,
+        task: Task,
+        source: SatelliteView,
+        satellite_views: list[SatelliteView],
+        isl_graph: ISLGraph,
+        time_s: int,
+        reserved_available_time: dict[int, float],
+        compute_config: ComputeConfig,
+        isl_config: ISLConfig,
+    ) -> tuple[Assignment, float] | None:
+        preferred_planes = self._preferred_planes(satellite_views)
+        routes_by_target = routes_from_source(isl_graph, source.sat_id)
+
+        for plane in preferred_planes:
+            best = self._best_peer_in_planes(
+                task=task,
+                source=source,
+                satellite_views=satellite_views,
+                routes_by_target=routes_by_target,
+                time_s=time_s,
+                reserved_available_time=reserved_available_time,
+                compute_config=compute_config,
+                isl_config=isl_config,
+                planes={plane},
+            )
+            if best is not None:
+                return best
+
+        return self._best_peer_in_planes(
+            task=task,
+            source=source,
+            satellite_views=satellite_views,
+            routes_by_target=routes_by_target,
+            time_s=time_s,
+            reserved_available_time=reserved_available_time,
+            compute_config=compute_config,
+            isl_config=isl_config,
+            planes=None,
+        )
+
+    def _choose_local(
+        self,
+        *,
+        task: Task,
+        source: SatelliteView,
+        isl_graph: ISLGraph,
+        time_s: int,
+        reserved_available_time: dict[int, float],
+        compute_config: ComputeConfig,
+        isl_config: ISLConfig,
+        mode: str,
+    ) -> tuple[Assignment, float] | None:
+        route = route_or_raise(isl_graph, source.sat_id, source.sat_id)
+        feasible = self._candidate_finish_time(
+            task=task,
+            route=route,
+            target=source,
+            time_s=time_s,
+            reserved_available_time=reserved_available_time,
+            compute_config=compute_config,
+            isl_config=isl_config,
+        )
+        if feasible is None:
+            return None
+        finish_time, _cost = feasible
+        return (
+            Assignment(
+                task_id=task.task_id,
+                route=route,
+                mode=mode,
+                score=finish_time,
+            ),
+            finish_time,
+        )
+
+    def _remember_assignment(
+        self,
+        assignment: Assignment,
+        by_id: dict[int, SatelliteView],
+    ) -> None:
+        target = by_id[assignment.target_sat]
+        plane = self._plane_of(target)
+        if plane is not None:
+            self.task_count_by_plane[plane] = self.task_count_by_plane.get(plane, 0) + 1
+
+    def assign_tasks(
+        self,
+        *,
+        tasks,
+        satellite_views,
+        time_s,
+        step_s,
+        battery,
+        compute_config,
+        task_config,
+        isl_config,
+        isl_graph,
+        scheduler_config,
+    ):
+        by_id = {sat.sat_id: sat for sat in satellite_views}
+        reserved_available_time = {
+            sat.sat_id: float(time_s) + sat.queue_backlog_s
+            for sat in satellite_views
+        }
+        ordered_tasks = sorted(
+            tasks,
+            key=lambda task: (task.created_time_s + task.deadline_s, task.task_id),
+        )
+
+        assignments = []
+
+        for task in ordered_tasks:
+            assert task.source_sat is not None
+            source = by_id[task.source_sat]
+
+            chosen = None
+
+            if source.sunlit:
+                chosen = self._choose_local(
+                    task=task,
+                    source=source,
+                    isl_graph=isl_graph,
+                    time_s=time_s,
+                    reserved_available_time=reserved_available_time,
+                    compute_config=compute_config,
+                    isl_config=isl_config,
+                    mode="local",
+                )
+            elif self._defer_is_deadline_safe(
+                task=task,
+                source=source,
+                time_s=time_s,
+                step_s=step_s,
+                compute_config=compute_config,
+                isl_config=isl_config,
+            ):
+                assignments.append(
+                    Assignment(
+                        task_id=task.task_id,
+                        route=route_or_raise(isl_graph, source.sat_id, source.sat_id),
+                        mode="defer",
+                        score=float(time_s + step_s),
+                    )
+                )
+                continue
+
+            if chosen is None:
+                chosen = self._choose_peer(
+                    task=task,
+                    source=source,
+                    satellite_views=satellite_views,
+                    isl_graph=isl_graph,
+                    time_s=time_s,
+                    reserved_available_time=reserved_available_time,
+                    compute_config=compute_config,
+                    isl_config=isl_config,
+                )
+
+            if chosen is None:
+                chosen = self._choose_local(
+                    task=task,
+                    source=source,
+                    isl_graph=isl_graph,
+                    time_s=time_s,
+                    reserved_available_time=reserved_available_time,
+                    compute_config=compute_config,
+                    isl_config=isl_config,
+                    mode="local",
+                )
+
+            if chosen is None:
+                assignments.append(
+                    Assignment(
+                        task_id=task.task_id,
+                        route=route_or_raise(isl_graph, source.sat_id, source.sat_id),
+                        mode="fail",
+                        score=float("inf"),
+                        failed_reason="no_feasible_candidate",
+                    )
+                )
+                continue
+
+            assignment, finish_time = chosen
+            assignments.append(assignment)
+            reserved_available_time[assignment.target_sat] = finish_time
+            self._remember_assignment(assignment, by_id)
+
+        return assignments
+
+
 def create_scheduler(name: str) -> Scheduler:
     if name == LocalOnlyScheduler.name:
         return LocalOnlyScheduler()
@@ -290,4 +700,6 @@ def create_scheduler(name: str) -> Scheduler:
         return NearestSunlitScheduler()
     if name == Method1Scheduler.name:
         return Method1Scheduler()
+    if name == PhoenixLiteScheduler.name:
+        return PhoenixLiteScheduler()
     raise ValueError(f"unknown scheduler: {name}")
