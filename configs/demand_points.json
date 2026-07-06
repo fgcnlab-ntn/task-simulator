@@ -89,5 +89,8 @@
   },
   "output": {
     "path": "output/demand_points"
+  },
+  "logging": {
+    "task_events": "full"
   }
 }

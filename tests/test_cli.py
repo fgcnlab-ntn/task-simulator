@@ -9,6 +9,7 @@ from pathlib import Path
 from satmulator.cli import (
     CONFIG_SECTIONS,
     DEFAULT_CONFIG,
+    OPTIONAL_CONFIG_KEYS,
     effective_run_config,
     load_json_config,
     load_standalone_json_config,
@@ -97,18 +98,26 @@ class EffectiveRunConfigTests(unittest.TestCase):
                 config = json.loads(path.read_text())
                 self.assertEqual(set(config), required_sections)
                 for section, mapping in CONFIG_SECTIONS.items():
-                    self.assertEqual(set(config[section]), set(mapping))
+                    expected_keys = set(mapping)
+                    optional_keys = OPTIONAL_CONFIG_KEYS.get(section, set())
+                    actual_keys = set(config[section])
+                    self.assertTrue(expected_keys - optional_keys <= actual_keys)
+                    self.assertTrue(actual_keys <= expected_keys)
                 args = args_for(**load_standalone_json_config(path))
                 validate_args(args)
-                task_cycles = (
-                    args.task_input_bits * args.compute_cycles_per_input_bit
+                task_compute_time_s = (
+                    args.task_compute_time_s
+                    if args.task_compute_time_s is not None
+                    else (
+                        args.task_input_bits
+                        * args.compute_cycles_per_input_bit
+                        / args.satellite_cpu_frequency_hz
+                    )
                 )
-                slot_capacity = (
-                    args.satellite_cpu_frequency_hz
-                    * args.step_s
-                    * args.scheduler_cpu_utilization_limit
+                self.assertLessEqual(
+                    task_compute_time_s,
+                    args.step_s * args.scheduler_cpu_utilization_limit,
                 )
-                self.assertLessEqual(task_cycles, slot_capacity)
 
     def test_tle_orbit_config_omits_circular_only_fields(self) -> None:
         config = effective_run_config(
@@ -142,6 +151,11 @@ class EffectiveRunConfigTests(unittest.TestCase):
             },
         )
         self.assertEqual(config["objective"], {"alpha": 0.5})
+        self.assertEqual(config["logging"], {"task_events": "full"})
+
+    def test_logging_task_events_is_validated(self) -> None:
+        with self.assertRaisesRegex(ValueError, "logging.task_events"):
+            validate_args(args_for(logging_task_events="chatty"))
 
     def test_oneweb_648_config_uses_walker_delta_layout(self) -> None:
         args = args_for(**load_standalone_json_config(Path("configs/oneweb_648.json")))

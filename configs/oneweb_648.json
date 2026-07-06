@@ -89,5 +89,8 @@
   },
   "output": {
     "path": "output/oneweb_648"
+  },
+  "logging": {
+    "task_events": "full"
   }
 }

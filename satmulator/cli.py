@@ -47,6 +47,7 @@ DEFAULT_CONFIG = {
     "task_output_bits": 1.0e6,
     "task_output_bits_choices": [1.0e5, 1.0e6, 1.0e7],
     "task_output_bits_weights": [0.6, 0.3, 0.1],
+    "task_compute_time_s": None,
     "task_demand_points_file": None,
     "task_min_elevation_deg": 30.0,
     "task_deadline_s": 120.0,
@@ -58,6 +59,7 @@ DEFAULT_CONFIG = {
     "isl_topology": "grid",
     "isl_max_range_km": 5000.0,
     "out": "output/minimal_orbit",
+    "logging_task_events": "full",
     "scheduler_cpu_utilization_limit": 1.0,
     "objective_alpha": 0.5,
 }
@@ -100,6 +102,7 @@ CONFIG_SECTIONS = {
         "output_bits": "task_output_bits",
         "output_bits_choices": "task_output_bits_choices",
         "output_bits_weights": "task_output_bits_weights",
+        "compute_time_s": "task_compute_time_s",
         "demand_points_file": "task_demand_points_file",
         "min_elevation_deg": "task_min_elevation_deg",
         "deadline_s": "task_deadline_s",
@@ -123,6 +126,13 @@ CONFIG_SECTIONS = {
         "alpha": "objective_alpha",
     },
     "output": {"path": "out"},
+    "logging": {
+        "task_events": "logging_task_events",
+    },
+}
+
+OPTIONAL_CONFIG_KEYS = {
+    "task": {"compute_time_s"},
 }
 
 def parse_args() -> argparse.Namespace:
@@ -207,9 +217,11 @@ def load_standalone_json_config(path: Path) -> dict:
         if not isinstance(value, dict):
             raise ValueError(f"config section {section!r} must be an object")
         expected_keys = set(mapping)
+        optional_keys = OPTIONAL_CONFIG_KEYS.get(section, set())
         actual_keys = set(value)
-        if actual_keys != expected_keys:
-            missing = sorted(expected_keys - actual_keys)
+        required_keys = expected_keys - optional_keys
+        if not required_keys <= actual_keys <= expected_keys:
+            missing = sorted(required_keys - actual_keys)
             extra = sorted(actual_keys - expected_keys)
             details = []
             if missing:
@@ -230,7 +242,8 @@ def resolve_config(cli_args: argparse.Namespace) -> argparse.Namespace:
     config_path = cli_values.pop("config", None)
     plot_run = cli_values.pop("plot_run", None)
     if config_path is not None:
-        values = load_standalone_json_config(config_path)
+        values = DEFAULT_CONFIG.copy()
+        values.update(load_standalone_json_config(config_path))
     else:
         values = DEFAULT_CONFIG.copy()
     values.update(
@@ -270,6 +283,9 @@ def validate_args(args: argparse.Namespace) -> None:
         raise ValueError("task.tasks_per_sat must be non-negative")
     if args.task_deadline_s <= 0:
         raise ValueError("task.deadline_s must be positive")
+    task_compute_time_s = getattr(args, "task_compute_time_s", None)
+    if task_compute_time_s is not None and task_compute_time_s <= 0:
+        raise ValueError("task.compute_time_s must be positive")
     if not 0.0 <= args.task_min_elevation_deg <= 90.0:
         raise ValueError("task.min_elevation_deg must be within [0, 90]")
     if args.compute_cycles_per_input_bit <= 0:
@@ -297,6 +313,11 @@ def validate_args(args: argparse.Namespace) -> None:
         raise ValueError("scheduler.cpu_utilization_limit must be within (0, 1]")
     if not 0.0 <= args.objective_alpha <= 1.0:
         raise ValueError("objective.alpha must be within [0, 1]")
+    logging_task_events = getattr(args, "logging_task_events", "full")
+    if logging_task_events not in {"full", "lifecycle", "summary", "off"}:
+        raise ValueError(
+            "logging.task_events must be full, lifecycle, summary, or off"
+        )
 
 
 def walker_raan_spread_deg(args: argparse.Namespace) -> float:
@@ -329,6 +350,7 @@ def build_configs(
         output_bits=args.task_output_bits,
         output_bits_choices=tuple(args.task_output_bits_choices),
         output_bits_weights=tuple(args.task_output_bits_weights),
+        compute_time_s=getattr(args, "task_compute_time_s", None),
         deadline_s=args.task_deadline_s,
         demand_distribution=load_demand_points(args.task_demand_points_file),
         min_elevation_deg=args.task_min_elevation_deg,
@@ -399,6 +421,7 @@ def effective_run_config(args: argparse.Namespace) -> dict:
             "output_bits": args.task_output_bits,
             "output_bits_choices": args.task_output_bits_choices,
             "output_bits_weights": args.task_output_bits_weights,
+            "compute_time_s": getattr(args, "task_compute_time_s", None),
             "demand_points_file": None
             if args.task_demand_points_file is None
             else str(args.task_demand_points_file),
@@ -428,6 +451,9 @@ def effective_run_config(args: argparse.Namespace) -> dict:
         },
         "output": {
             "path": str(args.out),
+        },
+        "logging": {
+            "task_events": getattr(args, "logging_task_events", "full"),
         },
     }
 

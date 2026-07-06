@@ -89,5 +89,8 @@
   },
   "output": {
     "path": "output/kuiper_784"
+  },
+  "logging": {
+    "task_events": "full"
   }
 }

@@ -89,5 +89,8 @@
   },
   "output": {
     "path": "output/iridium_66"
+  },
+  "logging": {
+    "task_events": "full"
   }
 }

@@ -89,5 +89,8 @@
   },
   "output": {
     "path": "output/kuiper_1156_630km_51p9deg"
+  },
+  "logging": {
+    "task_events": "full"
   }
 }

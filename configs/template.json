@@ -89,5 +89,8 @@
   },
   "output": {
     "path": "output/template"
+  },
+  "logging": {
+    "task_events": "full"
   }
 }

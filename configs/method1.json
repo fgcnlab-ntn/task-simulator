@@ -31,22 +31,35 @@
     "generation_mode": "demand-points",
     "random_seed": 42,
     "tasks_per_sat": 1,
-    "tasks_per_step_choices": [40],
-    "tasks_per_step_weights": [1.0],
+    "tasks_per_step_choices": [
+      40
+    ],
+    "tasks_per_step_weights": [
+      1.0
+    ],
     "input_bits": 40000000.0,
-    "input_bits_choices": [40000000.0],
-    "input_bits_weights": [1.0],
+    "input_bits_choices": [
+      40000000.0
+    ],
+    "input_bits_weights": [
+      1.0
+    ],
     "output_bits": 1000000.0,
-    "output_bits_choices": [1000000.0],
-    "output_bits_weights": [1.0],
+    "output_bits_choices": [
+      1000000.0
+    ],
+    "output_bits_weights": [
+      1.0
+    ],
     "demand_points_file": "data/demand/global_population_2025_5deg.csv",
     "min_elevation_deg": 30.0,
-    "deadline_s": 120.0
+    "deadline_s": 120.0,
+    "compute_time_s": null
   },
   "compute": {
     "cycles_per_input_bit": 737.5,
-    "cpu_frequency_hz": 250000000.0,
-    "cpu_power_w": 10.0
+    "cpu_frequency_hz": 5900000000.0,
+    "cpu_power_w": 40.0
   },
   "isl": {
     "rate_bps": 1000000000.0,
@@ -63,5 +76,8 @@
   },
   "output": {
     "path": "output/method1"
+  },
+  "logging": {
+    "task_events": "summary"
   }
 }

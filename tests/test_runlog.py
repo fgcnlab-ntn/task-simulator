@@ -256,6 +256,56 @@ class RunLogTests(unittest.TestCase):
             },
         )
 
+    def test_summary_task_event_mode_keeps_counts_without_task_lifecycle_log(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            start = dt.datetime(2026, 6, 14, tzinfo=dt.timezone.utc)
+            log = RunLog(output, start, {"logging": {"task_events": "summary"}})
+
+            log.write_task_event({"type": "task_generated", "time_s": 0, "task_id": 1})
+            log.write_task_event({"type": "task_assigned", "time_s": 0, "task_id": 1})
+            log.write_task_event({"type": "task_completed", "time_s": 30, "task_id": 1})
+            log.write_step([sample_state(30)])
+            log.complete([[sample_state(30)]])
+
+            summary = json.loads((output / "summary.json").read_text())
+            self.assertEqual(
+                summary["tasks"],
+                {
+                    "generated": 1,
+                    "completed": 1,
+                    "deferred": 0,
+                    "failed": 0,
+                    "pending": 0,
+                },
+            )
+            self.assertEqual((output / "tasks.jsonl").read_text(), "")
+
+    def test_lifecycle_task_event_mode_drops_assignment_chatter(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            start = dt.datetime(2026, 6, 14, tzinfo=dt.timezone.utc)
+            log = RunLog(output, start, {"logging": {"task_events": "lifecycle"}})
+
+            log.write_task_event({"type": "task_generated", "time_s": 0, "task_id": 1})
+            log.write_task_event({"type": "task_assigned", "time_s": 0, "task_id": 1})
+            log.write_task_event({"type": "task_completed", "time_s": 30, "task_id": 1})
+            log.write_step([sample_state(30)])
+            log.complete([[sample_state(30)]])
+
+            self.assertEqual(
+                [record["type"] for record in iter_task_events(output)],
+                ["task_generated", "task_completed"],
+            )
+
+    def test_rejects_invalid_task_event_mode(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            start = dt.datetime(2026, 6, 14, tzinfo=dt.timezone.utc)
+
+            with self.assertRaisesRegex(ValueError, "logging.task_events"):
+                RunLog(output, start, {"logging": {"task_events": "chatty"}})
+
     def test_failed_run_keeps_parseable_jsonl_and_error(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory)

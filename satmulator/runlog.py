@@ -21,9 +21,15 @@ def write_json(path: Path, value: object) -> None:
     path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n")
 
 
-def append_json_line(stream: TextIO, value: object) -> None:
-    stream.write(json.dumps(value, separators=(",", ":"), sort_keys=True) + "\n")
-    stream.flush()
+def append_json_line(
+    stream: TextIO,
+    value: object,
+    *,
+    flush: bool = False,
+) -> None:
+    stream.write(json.dumps(value, separators=(",", ":")) + "\n")
+    if flush:
+        stream.flush()
 
 
 def _validate_record(value: object, *, source: str) -> JsonObject:
@@ -205,9 +211,11 @@ def state_record(
 class RunLog:
     """Streaming structured log for one simulation run.
 
-    JSONL streams are flushed after every record so a failed long run still
-    leaves valid, parseable observations. SVG inspection outputs are handled
-    elsewhere.
+    Streaming JSONL run output.
+
+    State records are flushed per step because they are sparse and useful for
+    crash recovery. Task events are buffered unless the run is closed, because
+    large workloads can emit millions of task lifecycle records.
     """
 
     def __init__(self, output_dir: Path, start: dt.datetime, config: dict[str, object]):
@@ -215,10 +223,13 @@ class RunLog:
         self.start = start
         self.run_path = output_dir / "run.json"
         self.summary_path = output_dir / "summary.json"
+        self._task_event_mode = task_event_mode(config)
         self._states = (output_dir / "states.jsonl").open("w")
         self._tasks = (output_dir / "tasks.jsonl").open("w")
         self._generated_ids: set[int] = set()
         self._terminal_ids: set[int] = set()
+        self._generated = 0
+        self._terminal = 0
         self._completed = 0
         self._failed = 0
         self._deferred = 0
@@ -289,6 +300,7 @@ class RunLog:
                 new_breach_ids,
                 new_eclipse_breach_ids,
             ),
+            flush=True,
         )
         self._write_battery_breach_events(states, new_breach_ids, eclipse=False)
         self._write_battery_breach_events(
@@ -350,16 +362,40 @@ class RunLog:
         event_type = event.get("type")
         if isinstance(task_id, int):
             if event_type == "task_generated":
-                self._generated_ids.add(task_id)
+                if self._task_event_mode in {"full", "lifecycle"}:
+                    self._generated_ids.add(task_id)
+                self._generated += 1
             elif event_type == "task_completed":
-                self._terminal_ids.add(task_id)
+                if self._task_event_mode in {"full", "lifecycle"}:
+                    self._terminal_ids.add(task_id)
+                self._terminal += 1
                 self._completed += 1
             elif event_type == "task_failed":
-                self._terminal_ids.add(task_id)
+                if self._task_event_mode in {"full", "lifecycle"}:
+                    self._terminal_ids.add(task_id)
+                self._terminal += 1
                 self._failed += 1
             elif event_type == "task_deferred":
                 self._deferred += 1
+        if not self._should_write_task_event(event_type):
+            return
         append_json_line(self._tasks, record)
+
+    def _should_write_task_event(self, event_type: object) -> bool:
+        if not isinstance(event_type, str):
+            return self._task_event_mode == "full"
+        if not event_type.startswith("task_"):
+            return self._task_event_mode != "off"
+        if self._task_event_mode == "full":
+            return True
+        if self._task_event_mode == "lifecycle":
+            return event_type in {
+                "task_generated",
+                "task_deferred",
+                "task_completed",
+                "task_failed",
+            }
+        return False
 
     def complete(self, all_steps: list[list[SatelliteState]] | None = None) -> None:
         if all_steps is not None:
@@ -381,7 +417,7 @@ class RunLog:
             eclipse_unsafe_ratio_sum = self._eclipse_unsafe_ratio_sum
         else:
             raise ValueError("cannot complete a run with no state records")
-        generated_tasks = len(self._generated_ids)
+        generated_tasks = self._generated
         failed_tasks = self._failed
         task_failure_ratio = (
             0.0 if generated_tasks == 0 else failed_tasks / generated_tasks
@@ -405,7 +441,7 @@ class RunLog:
                 "completed": self._completed,
                 "deferred": self._deferred,
                 "failed": failed_tasks,
-                "pending": len(self._generated_ids - self._terminal_ids),
+                "pending": generated_tasks - self._terminal,
             },
             "objective": {
                 "alpha": alpha,
@@ -467,6 +503,18 @@ class RunLog:
 
     def close(self) -> None:
         if not self._states.closed:
+            self._states.flush()
             self._states.close()
         if not self._tasks.closed:
+            self._tasks.flush()
             self._tasks.close()
+
+
+def task_event_mode(config: dict[str, object]) -> str:
+    logging = config.get("logging")
+    if not isinstance(logging, dict):
+        return "full"
+    mode = logging.get("task_events", "full")
+    if mode not in {"full", "lifecycle", "summary", "off"}:
+        raise ValueError("logging.task_events must be full, lifecycle, summary, or off")
+    return str(mode)
