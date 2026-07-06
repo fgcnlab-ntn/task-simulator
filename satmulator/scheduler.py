@@ -155,10 +155,9 @@ class NearestSunlitScheduler(Scheduler):
 class Method1Scheduler(Scheduler):
     name = "method1"
 
-    def _estimate_unsafe_increase(
+    def _estimate_unsafe_and_margin_risk(
         self,
         *,
-        route,
         cost,
         satellite_views,
         by_id,
@@ -166,11 +165,12 @@ class Method1Scheduler(Scheduler):
         battery,
         step_s,
         time_s,
-    ) -> int:
-        affected = set(cost.energy_by_sat.keys())
-        increase = 0
+    ) -> tuple[int, float]:
+        unsafe_increase = 0
+        margin_risk = 0.0
+        eps_j = 1.0
 
-        for sat_id in affected:
+        for sat_id in cost.energy_by_sat:
             sat = by_id[sat_id]
             if sat.sunlit:
                 continue
@@ -187,24 +187,27 @@ class Method1Scheduler(Scheduler):
             )
 
             after_unsafe = projected < battery.min_safe_j
-            increase += int(after_unsafe) - int(before_unsafe)
+            unsafe_increase += int(after_unsafe) - int(before_unsafe)
 
-        return max(increase, 0)
+            margin_j = max(projected - battery.min_safe_j, eps_j)
+            margin_risk += 1.0 / margin_j
+
+        return max(unsafe_increase, 0), margin_risk
 
     def assign_tasks(
         self,
         *,
-        tasks,
-        satellite_views,
-        time_s,
-        step_s,
-        battery,
-        compute_config,
-        task_config,
-        isl_config,
-        isl_graph,
-        scheduler_config,
-    ):
+        tasks: list[Task],
+        satellite_views: list[SatelliteView],
+        time_s: int,
+        step_s: int,
+        battery: BatteryConfig,
+        compute_config: ComputeConfig,
+        task_config: TaskConfig,
+        isl_config: ISLConfig,
+        isl_graph: ISLGraph,
+        scheduler_config: SchedulerConfig,
+    ) -> list[Assignment]:
         by_id = {sat.sat_id: sat for sat in satellite_views}
 
         reserved_energy = {sat.sat_id: 0.0 for sat in satellite_views}
@@ -217,14 +220,14 @@ class Method1Scheduler(Scheduler):
             key=lambda task: (task.created_time_s + task.deadline_s, task.task_id),
         )
 
-        assignments = []
+        assignments: list[Assignment] = []
 
         for task in ordered_tasks:
             assert task.source_sat is not None
             source = by_id[task.source_sat]
 
             best_candidate = None
-            best_key = (float("inf"), float("inf"), float("inf"))
+            best_key = (float("inf"), float("inf"), float("inf"), float("inf"))
             best_cost = None
             best_finish = None
 
@@ -245,12 +248,10 @@ class Method1Scheduler(Scheduler):
                 t_fin = z_q + cost.compute_time_s
                 deadline_time = task.created_time_s + task.deadline_s
 
-                # deadline infeasible -> discard this candidate
                 if t_fin > deadline_time:
                     continue
 
-                U = self._estimate_unsafe_increase(
-                    route=route,
+                U, R = self._estimate_unsafe_and_margin_risk(
                     cost=cost,
                     satellite_views=satellite_views,
                     by_id=by_id,
@@ -260,7 +261,7 @@ class Method1Scheduler(Scheduler):
                     time_s=time_s,
                 )
 
-                key = (U, t_fin, route.hop_count)
+                key = (U, R, t_fin, route.hop_count)
 
                 if key < best_key:
                     mode = "local" if target.sat_id == source.sat_id else "offload"
@@ -280,36 +281,19 @@ class Method1Scheduler(Scheduler):
                 assert best_cost is not None
                 assert best_finish is not None
 
-                reserved_available_time[best_candidate.target_sat] = best_finish
+                reserved_available_time[best_candidate.route.target_sat] = best_finish
 
                 for sat_id, energy_j in best_cost.energy_by_sat.items():
                     reserved_energy[sat_id] += energy_j
-
             else:
-                remaining_deadline = task.created_time_s + task.deadline_s - time_s
-                if remaining_deadline > step_s:
-                    assignments.append(
-                        Assignment(
-                            task_id=task.task_id,
-                            route=route_or_raise(
-                                isl_graph, source.sat_id, source.sat_id
-                            ),
-                            mode="defer",
-                            score=float("inf"),
-                        )
+                assignments.append(
+                    Assignment(
+                        task_id=task.task_id,
+                        route=route_or_raise(isl_graph, source.sat_id, source.sat_id),
+                        mode="defer",
+                        score=float("inf"),
                     )
-                else:
-                    assignments.append(
-                        Assignment(
-                            task_id=task.task_id,
-                            route=route_or_raise(
-                                isl_graph, source.sat_id, source.sat_id
-                            ),
-                            mode="fail",
-                            score=float("inf"),
-                            failed_reason="no_feasible_candidate",
-                        )
-                    )
+                )
 
         return assignments
 
@@ -430,8 +414,7 @@ class PhoenixLiteScheduler(Scheduler):
         return sorted(
             sunlit_counts,
             key=lambda plane: (
-                self.task_count_by_plane.get(plane, 0)
-                / max(1, sunlit_counts[plane]),
+                self.task_count_by_plane.get(plane, 0) / max(1, sunlit_counts[plane]),
                 self.task_count_by_plane.get(plane, 0),
                 plane,
             ),
@@ -604,8 +587,7 @@ class PhoenixLiteScheduler(Scheduler):
     ):
         by_id = {sat.sat_id: sat for sat in satellite_views}
         reserved_available_time = {
-            sat.sat_id: float(time_s) + sat.queue_backlog_s
-            for sat in satellite_views
+            sat.sat_id: float(time_s) + sat.queue_backlog_s for sat in satellite_views
         }
         ordered_tasks = sorted(
             tasks,
