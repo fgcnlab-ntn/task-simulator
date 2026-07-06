@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import deque
+from dataclasses import dataclass
 
 from .battery import projected_battery_after_step
 from .isl import ISLGraph, shortest_route
@@ -30,6 +31,13 @@ def route_or_raise(graph: ISLGraph, source_sat: int, target_sat: int) -> Route:
     if route is None:
         raise ValueError(f"no ISL route from {source_sat} to {target_sat}")
     return route
+
+
+@dataclass(frozen=True)
+class PhoenixCandidateCache:
+    sunlit_by_plane: dict[int, tuple[SatelliteView, ...]]
+    sunlit_global: tuple[SatelliteView, ...]
+    sunlit_counts_by_plane: dict[int, int]
 
 
 def routes_from_source(graph: ISLGraph, source_sat: int) -> dict[int, Route]:
@@ -313,6 +321,7 @@ class PhoenixLiteScheduler(Scheduler):
     """
 
     name = "phoenix"
+    peer_candidate_limit = 4
 
     def __init__(self) -> None:
         self.task_count_by_plane: dict[int, int] = {}
@@ -406,11 +415,48 @@ class PhoenixLiteScheduler(Scheduler):
                 counts[plane] += 1
         return counts
 
-    def _preferred_planes(
+    def _candidate_cache(
         self,
         satellite_views: list[SatelliteView],
+    ) -> PhoenixCandidateCache:
+        sunlit_by_plane: dict[int, list[SatelliteView]] = {}
+        sunlit_global: list[SatelliteView] = []
+        sunlit_counts_by_plane: dict[int, int] = {}
+
+        for sat in satellite_views:
+            plane = self._plane_of(sat)
+            if plane is not None:
+                sunlit_counts_by_plane.setdefault(plane, 0)
+            if not sat.sunlit:
+                continue
+
+            sunlit_global.append(sat)
+            if plane is not None:
+                sunlit_counts_by_plane[plane] += 1
+                sunlit_by_plane.setdefault(plane, []).append(sat)
+
+        def by_battery(candidates: list[SatelliteView]) -> tuple[SatelliteView, ...]:
+            return tuple(
+                sorted(
+                    candidates,
+                    key=lambda sat: (-sat.battery_j, sat.sat_id),
+                )[: self.peer_candidate_limit]
+            )
+
+        return PhoenixCandidateCache(
+            sunlit_by_plane={
+                plane: by_battery(candidates)
+                for plane, candidates in sunlit_by_plane.items()
+            },
+            sunlit_global=by_battery(sunlit_global),
+            sunlit_counts_by_plane=sunlit_counts_by_plane,
+        )
+
+    def _preferred_planes(
+        self,
+        candidate_cache: PhoenixCandidateCache,
     ) -> list[int]:
-        sunlit_counts = self._plane_sunlit_counts(satellite_views)
+        sunlit_counts = candidate_cache.sunlit_counts_by_plane
         return sorted(
             sunlit_counts,
             key=lambda plane: (
@@ -425,25 +471,19 @@ class PhoenixLiteScheduler(Scheduler):
         *,
         task: Task,
         source: SatelliteView,
-        satellite_views: list[SatelliteView],
+        candidates: tuple[SatelliteView, ...],
         routes_by_target: dict[int, Route],
         time_s: int,
         reserved_available_time: dict[int, float],
         compute_config: ComputeConfig,
         isl_config: ISLConfig,
-        planes: set[int] | None,
     ) -> tuple[Assignment, float] | None:
         best_assignment = None
         best_finish = None
         best_key = None
 
-        for target in satellite_views:
+        for target in candidates:
             if target.sat_id == source.sat_id:
-                continue
-            if not target.sunlit:
-                continue
-            target_plane = self._plane_of(target)
-            if planes is not None and target_plane not in planes:
                 continue
 
             route = routes_by_target.get(target.sat_id)
@@ -489,27 +529,30 @@ class PhoenixLiteScheduler(Scheduler):
         *,
         task: Task,
         source: SatelliteView,
-        satellite_views: list[SatelliteView],
         isl_graph: ISLGraph,
+        routes_by_source: dict[int, dict[int, Route]],
+        candidate_cache: PhoenixCandidateCache,
         time_s: int,
         reserved_available_time: dict[int, float],
         compute_config: ComputeConfig,
         isl_config: ISLConfig,
     ) -> tuple[Assignment, float] | None:
-        preferred_planes = self._preferred_planes(satellite_views)
-        routes_by_target = routes_from_source(isl_graph, source.sat_id)
+        preferred_planes = self._preferred_planes(candidate_cache)
+        routes_by_target = routes_by_source.get(source.sat_id)
+        if routes_by_target is None:
+            routes_by_target = routes_from_source(isl_graph, source.sat_id)
+            routes_by_source[source.sat_id] = routes_by_target
 
         for plane in preferred_planes:
             best = self._best_peer_in_planes(
                 task=task,
                 source=source,
-                satellite_views=satellite_views,
+                candidates=candidate_cache.sunlit_by_plane.get(plane, ()),
                 routes_by_target=routes_by_target,
                 time_s=time_s,
                 reserved_available_time=reserved_available_time,
                 compute_config=compute_config,
                 isl_config=isl_config,
-                planes={plane},
             )
             if best is not None:
                 return best
@@ -517,13 +560,12 @@ class PhoenixLiteScheduler(Scheduler):
         return self._best_peer_in_planes(
             task=task,
             source=source,
-            satellite_views=satellite_views,
+            candidates=candidate_cache.sunlit_global,
             routes_by_target=routes_by_target,
             time_s=time_s,
             reserved_available_time=reserved_available_time,
             compute_config=compute_config,
             isl_config=isl_config,
-            planes=None,
         )
 
     def _choose_local(
@@ -593,8 +635,10 @@ class PhoenixLiteScheduler(Scheduler):
             tasks,
             key=lambda task: (task.created_time_s + task.deadline_s, task.task_id),
         )
+        candidate_cache = self._candidate_cache(satellite_views)
 
         assignments = []
+        routes_by_source: dict[int, dict[int, Route]] = {}
 
         for task in ordered_tasks:
             assert task.source_sat is not None
@@ -635,8 +679,9 @@ class PhoenixLiteScheduler(Scheduler):
                 chosen = self._choose_peer(
                     task=task,
                     source=source,
-                    satellite_views=satellite_views,
                     isl_graph=isl_graph,
+                    routes_by_source=routes_by_source,
+                    candidate_cache=candidate_cache,
                     time_s=time_s,
                     reserved_available_time=reserved_available_time,
                     compute_config=compute_config,
