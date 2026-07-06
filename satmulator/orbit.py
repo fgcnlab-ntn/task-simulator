@@ -46,6 +46,46 @@ def validate_compute_config(compute: ComputeConfig) -> None:
         raise ValueError("CPU power must be non-negative")
 
 
+def update_circular_next_sunlit_times(
+    *,
+    env: EnvironmentRuntime,
+    planes: int,
+    sats_per_plane: int,
+    time_s: int,
+    mean_motion: float,
+) -> None:
+    """Estimate next sunlight cheaply from the current circular plane phase."""
+
+    if sats_per_plane <= 0 or mean_motion <= 0.0:
+        return
+
+    slot_duration_s = (2.0 * math.pi / mean_motion) / sats_per_plane
+
+    for plane in range(planes):
+        base = plane * sats_per_plane
+        sunlit_by_slot = [
+            env.satellites[base + slot].sunlit for slot in range(sats_per_plane)
+        ]
+
+        for slot, is_sunlit in enumerate(sunlit_by_slot):
+            sat = env.satellites[base + slot]
+            if is_sunlit:
+                sat.next_sunlit_time_s = float(time_s)
+                continue
+
+            next_delta_slots = None
+            for delta_slots in range(1, sats_per_plane + 1):
+                if sunlit_by_slot[(slot + delta_slots) % sats_per_plane]:
+                    next_delta_slots = delta_slots
+                    break
+
+            sat.next_sunlit_time_s = (
+                None
+                if next_delta_slots is None
+                else float(time_s) + next_delta_slots * slot_duration_s
+            )
+
+
 @dataclass
 class SatelliteStepStats:
     generated_tasks: int = 0
@@ -643,6 +683,14 @@ def iter_circular_states(
                     vel_km_s=vel,
                     sunlit=sunlit,
                 )
+
+        update_circular_next_sunlit_times(
+            env=env,
+            planes=planes,
+            sats_per_plane=sats_per_plane,
+            time_s=time_s,
+            mean_motion=mean_motion,
+        )
 
         new_tasks, expired_tasks = generate_step_tasks(env, task_config, compute_config)
         deferred_tasks, expired_deferred_tasks = pop_deferred_tasks(env)

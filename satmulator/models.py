@@ -193,6 +193,7 @@ class SatelliteView:
     queue_backlog_s: float = 0.0
     plane: int | None = None
     slot: int | None = None
+    next_sunlit_time_s: float | None = None
 
 
 @dataclass(frozen=True)

@@ -34,6 +34,7 @@ class SatelliteRuntime:
     lon_deg: float | None = None
     elevation_km: float | None = None
     sunlit: bool = False
+    next_sunlit_time_s: float | None = None
 
     def update_orbit(
         self,
@@ -66,6 +67,7 @@ class SatelliteRuntime:
             ),
             plane=self.plane,
             slot=self.slot,
+            next_sunlit_time_s=self.next_sunlit_time_s,
         )
 
     def snapshot(
