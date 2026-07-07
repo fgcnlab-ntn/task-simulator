@@ -47,7 +47,9 @@ class PhoenixCandidateCache:
     sunlit_counts_by_plane: dict[int, int]
 
 
-def route_parents_from_source(graph: ISLGraph, source_sat: int) -> dict[int, int | None]:
+def route_parents_from_source(
+    graph: ISLGraph, source_sat: int
+) -> dict[int, int | None]:
     """Return the shortest-route parent tree rooted at one source."""
     if source_sat not in graph.adjacency:
         return {}
@@ -480,6 +482,164 @@ class Method1Scheduler(Scheduler):
         return assignments
 
 
+class Method2Scheduler(Scheduler):
+    name = "method2"
+
+    def _estimate_balance_key(
+        self,
+        *,
+        cost,
+        satellite_views,
+        by_id,
+        reserved_energy,
+        battery,
+        step_s,
+        time_s,
+    ) -> tuple[int, float, float]:
+        warn_j = battery.min_safe_j + 0.1 * battery.capacity_j
+        margins: list[float] = []
+        warning_count = 0
+
+        for sat in satellite_views:
+            if sat.sunlit:
+                continue
+
+            extra_energy_j = cost.energy_by_sat.get(sat.sat_id, 0.0)
+
+            projected = projected_battery_after_step(
+                battery_now=sat.battery_j,
+                sunlit=sat.sunlit,
+                step_s=step_s,
+                battery=battery,
+                task_energy_j=reserved_energy[sat.sat_id] + extra_energy_j,
+                update=time_s > 0,
+            )
+
+            margin = projected - battery.min_safe_j
+            margins.append(margin)
+
+            if projected < warn_j:
+                warning_count += 1
+
+        if not margins:
+            return 0, 0.0, 0.0
+
+        min_margin = min(margins)
+        mean_margin = sum(margins) / len(margins)
+        variance = sum((m - mean_margin) ** 2 for m in margins) / len(margins)
+
+        return warning_count, -min_margin, variance
+
+    def assign_tasks(
+        self,
+        *,
+        tasks: list[Task],
+        satellite_views: list[SatelliteView],
+        time_s: int,
+        step_s: int,
+        battery: BatteryConfig,
+        compute_config: ComputeConfig,
+        task_config: TaskConfig,
+        isl_config: ISLConfig,
+        isl_graph: ISLGraph,
+        scheduler_config: SchedulerConfig,
+    ) -> list[Assignment]:
+        by_id = {sat.sat_id: sat for sat in satellite_views}
+
+        reserved_energy = {sat.sat_id: 0.0 for sat in satellite_views}
+        reserved_available_time = {
+            sat.sat_id: float(time_s) + sat.queue_backlog_s for sat in satellite_views
+        }
+
+        ordered_tasks = sorted(
+            tasks,
+            key=lambda task: (task.created_time_s + task.deadline_s, task.task_id),
+        )
+
+        assignments: list[Assignment] = []
+
+        for task in ordered_tasks:
+            assert task.source_sat is not None
+            source = by_id[task.source_sat]
+
+            best_candidate = None
+            best_key = (
+                float("inf"),
+                float("inf"),
+                float("inf"),
+                float("inf"),
+                float("inf"),
+            )
+            best_cost = None
+            best_finish = None
+
+            for target in satellite_views:
+                route = shortest_route(isl_graph, source.sat_id, target.sat_id)
+                if route is None:
+                    continue
+
+                cost = estimate_route_cost(
+                    task=task,
+                    route=route,
+                    compute_config=compute_config,
+                    isl_config=isl_config,
+                )
+
+                arrival_time = float(time_s) + cost.transmission_time_s
+                z_q = max(arrival_time, reserved_available_time[target.sat_id])
+                t_fin = z_q + cost.compute_time_s
+                deadline_time = task.created_time_s + task.deadline_s
+
+                if t_fin > deadline_time:
+                    continue
+
+                W, neg_M_min, V = self._estimate_balance_key(
+                    cost=cost,
+                    satellite_views=satellite_views,
+                    by_id=by_id,
+                    reserved_energy=reserved_energy,
+                    battery=battery,
+                    step_s=step_s,
+                    time_s=time_s,
+                )
+
+                key = (W, neg_M_min, V, t_fin, route.hop_count)
+
+                if key < best_key:
+                    mode = "local" if target.sat_id == source.sat_id else "offload"
+                    best_candidate = Assignment(
+                        task_id=task.task_id,
+                        route=route,
+                        mode=mode,
+                        score=float(W),
+                    )
+                    best_key = key
+                    best_cost = cost
+                    best_finish = t_fin
+
+            if best_candidate is not None:
+                assignments.append(best_candidate)
+
+                assert best_cost is not None
+                assert best_finish is not None
+
+                reserved_available_time[best_candidate.route.target_sat] = best_finish
+
+                for sat_id, energy_j in best_cost.energy_by_sat.items():
+                    reserved_energy[sat_id] += energy_j
+            else:
+                assignments.append(
+                    Assignment(
+                        task_id=task.task_id,
+                        route=route_or_raise(isl_graph, source.sat_id, source.sat_id),
+                        mode="defer",
+                        score=float("inf"),
+                    )
+                )
+
+        return assignments
+
+
 class PhoenixLiteScheduler(Scheduler):
     """PHOENIX-inspired scheduler without ground-station support.
 
@@ -645,8 +805,7 @@ class PhoenixLiteScheduler(Scheduler):
         return min(
             planes_with_sunlight,
             key=lambda plane: (
-                self.plane_load_by_plane.get(plane, 0.0)
-                / max(1, sunlit_counts[plane]),
+                self.plane_load_by_plane.get(plane, 0.0) / max(1, sunlit_counts[plane]),
                 self.plane_load_by_plane.get(plane, 0.0),
                 plane,
             ),
@@ -991,6 +1150,8 @@ def create_scheduler(name: str) -> Scheduler:
         return NearestSunlitScheduler()
     if name == Method1Scheduler.name:
         return Method1Scheduler()
+    if name == Method2Scheduler.name:
+        return Method2Scheduler()
     if name == PhoenixLiteScheduler.name:
         return PhoenixLiteScheduler()
     raise ValueError(f"unknown scheduler: {name}")
