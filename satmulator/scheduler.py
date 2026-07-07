@@ -16,7 +16,14 @@ from .models import (
     Task,
     TaskConfig,
 )
-from .route_cost import RouteTiming, estimate_route_cost, estimate_route_timing
+from .route_cost import (
+    RouteTiming,
+    estimate_route_cost,
+    estimate_route_timing,
+    task_compute_time_s,
+    transfer_time_s,
+    transmission_energy_j,
+)
 
 
 def distance_km(a: SatelliteView, b: SatelliteView) -> float:
@@ -40,9 +47,8 @@ class PhoenixCandidateCache:
     sunlit_counts_by_plane: dict[int, int]
 
 
-def routes_from_source(graph: ISLGraph, source_sat: int) -> dict[int, Route]:
-    """Return shortest routes from one source to every reachable satellite."""
-
+def route_parents_from_source(graph: ISLGraph, source_sat: int) -> dict[int, int | None]:
+    """Return the shortest-route parent tree rooted at one source."""
     if source_sat not in graph.adjacency:
         return {}
 
@@ -57,15 +63,54 @@ def routes_from_source(graph: ISLGraph, source_sat: int) -> dict[int, Route]:
             parents[neighbor] = current
             queue.append(neighbor)
 
+    return parents
+
+
+def route_from_parents(
+    parents: dict[int, int | None],
+    target_sat: int,
+) -> Route | None:
+    nodes = route_nodes_from_parents(parents, target_sat)
+    if nodes is None:
+        return None
+    return Route(nodes)
+
+
+def route_nodes_from_parents(
+    parents: dict[int, int | None],
+    target_sat: int,
+) -> tuple[int, ...] | None:
+    nodes = reversed_route_nodes_from_parents(parents, target_sat)
+    if nodes is None:
+        return None
+    nodes.reverse()
+    return tuple(nodes)
+
+
+def reversed_route_nodes_from_parents(
+    parents: dict[int, int | None],
+    target_sat: int,
+) -> list[int] | None:
+    if target_sat not in parents:
+        return None
+
+    nodes = [target_sat]
+    current = target_sat
+    while parents[current] is not None:
+        current = parents[current]
+        nodes.append(current)
+    return nodes
+
+
+def routes_from_source(graph: ISLGraph, source_sat: int) -> dict[int, Route]:
+    """Return shortest routes from one source to every reachable satellite."""
+
+    parents = route_parents_from_source(graph, source_sat)
     routes: dict[int, Route] = {}
     for target_sat in parents:
-        nodes = [target_sat]
-        current = target_sat
-        while parents[current] is not None:
-            current = parents[current]
-            nodes.append(current)
-        nodes.reverse()
-        routes[target_sat] = Route(tuple(nodes))
+        route = route_from_parents(parents, target_sat)
+        assert route is not None
+        routes[target_sat] = route
     return routes
 
 
@@ -209,7 +254,6 @@ class Method1Scheduler(Scheduler):
         self,
         *,
         cost,
-        satellite_views,
         by_id,
         reserved_energy,
         battery,
@@ -244,6 +288,70 @@ class Method1Scheduler(Scheduler):
 
         return max(unsafe_increase, 0), margin_risk
 
+    def _estimate_reversed_route_unsafe_and_margin_risk(
+        self,
+        *,
+        reversed_route_nodes: list[int],
+        satellite_by_id: list[SatelliteView | None],
+        reserved_energy: list[float],
+        battery: BatteryConfig,
+        step_s: int,
+        time_s: int,
+        compute_energy_j: float,
+        input_tx_energy_j: float,
+        output_tx_energy_j: float,
+    ) -> tuple[int, float]:
+        unsafe_increase = 0
+        margin_risk = 0.0
+        eps_j = 1.0
+        last_index = len(reversed_route_nodes) - 1
+        update_battery = time_s > 0
+        idle_energy_j = battery.idle_w * step_s
+        capacity_j = battery.capacity_j
+        min_safe_j = battery.min_safe_j
+
+        for reverse_index, sat_id in enumerate(reversed_route_nodes):
+            sat = satellite_by_id[sat_id]
+            assert sat is not None
+            if sat.sunlit:
+                continue
+
+            route_energy_j = 0.0
+            if reverse_index == 0:
+                route_energy_j += compute_energy_j
+            if last_index > 0:
+                if reverse_index > 0:
+                    route_energy_j += input_tx_energy_j
+                if reverse_index < last_index:
+                    route_energy_j += output_tx_energy_j
+
+            if route_energy_j == 0.0:
+                continue
+
+            before_unsafe = sat.battery_j < min_safe_j
+            if update_battery:
+                projected = (
+                    sat.battery_j
+                    - idle_energy_j
+                    - reserved_energy[sat_id]
+                    - route_energy_j
+                )
+                if projected > capacity_j:
+                    projected = capacity_j
+            else:
+                projected = sat.battery_j
+            after_unsafe = projected < min_safe_j
+            unsafe_increase += int(after_unsafe) - int(before_unsafe)
+
+            margin_j = projected - min_safe_j
+            if margin_j < eps_j:
+                margin_j = eps_j
+            margin_risk += 1.0 / margin_j
+
+        if unsafe_increase < 0:
+            unsafe_increase = 0
+        return unsafe_increase, margin_risk
+
     def assign_tasks(
         self,
         *,
@@ -259,8 +367,12 @@ class Method1Scheduler(Scheduler):
         scheduler_config: SchedulerConfig,
     ) -> list[Assignment]:
         by_id = {sat.sat_id: sat for sat in satellite_views}
+        max_sat_id = max(by_id, default=-1)
+        satellite_by_id: list[SatelliteView | None] = [None] * (max_sat_id + 1)
+        for sat in satellite_views:
+            satellite_by_id[sat.sat_id] = sat
 
-        reserved_energy = {sat.sat_id: 0.0 for sat in satellite_views}
+        reserved_energy = [0.0] * (max_sat_id + 1)
         reserved_available_time = {
             sat.sat_id: float(time_s) + sat.queue_backlog_s for sat in satellite_views
         }
@@ -271,67 +383,87 @@ class Method1Scheduler(Scheduler):
         )
 
         assignments: list[Assignment] = []
+        route_parents_by_source: dict[int, dict[int, int | None]] = {}
 
         for task in ordered_tasks:
             assert task.source_sat is not None
             source = by_id[task.source_sat]
+            route_parents = route_parents_by_source.get(source.sat_id)
+            if route_parents is None:
+                route_parents = route_parents_from_source(isl_graph, source.sat_id)
+                route_parents_by_source[source.sat_id] = route_parents
 
             best_candidate = None
             best_key = (float("inf"), float("inf"), float("inf"), float("inf"))
-            best_cost = None
             best_finish = None
+            best_route_nodes = None
+            compute_time_s = task_compute_time_s(task, compute_config)
+            compute_energy_j = compute_time_s * compute_config.cpu_power_w
+            transmission_time_per_hop_s = transfer_time_s(
+                task.input_bits,
+                isl_config,
+            ) + transfer_time_s(task.output_bits, isl_config)
+            input_tx_energy_j = transmission_energy_j(task.input_bits, isl_config)
+            output_tx_energy_j = transmission_energy_j(task.output_bits, isl_config)
+            deadline_time = task.created_time_s + task.deadline_s
 
             for target in satellite_views:
-                route = shortest_route(isl_graph, source.sat_id, target.sat_id)
-                if route is None:
+                reversed_route_nodes = reversed_route_nodes_from_parents(
+                    route_parents,
+                    target.sat_id,
+                )
+                if reversed_route_nodes is None:
                     continue
 
-                cost = estimate_route_cost(
-                    task=task,
-                    route=route,
-                    compute_config=compute_config,
-                    isl_config=isl_config,
-                )
-
-                arrival_time = float(time_s) + cost.transmission_time_s
+                hop_count = len(reversed_route_nodes) - 1
+                transmission_time_s = hop_count * transmission_time_per_hop_s
+                arrival_time = float(time_s) + transmission_time_s
                 z_q = max(arrival_time, reserved_available_time[target.sat_id])
-                t_fin = z_q + cost.compute_time_s
-                deadline_time = task.created_time_s + task.deadline_s
+                t_fin = z_q + compute_time_s
 
                 if t_fin > deadline_time:
                     continue
 
-                U, R = self._estimate_unsafe_and_margin_risk(
-                    cost=cost,
-                    satellite_views=satellite_views,
-                    by_id=by_id,
+                U, R = self._estimate_reversed_route_unsafe_and_margin_risk(
+                    reversed_route_nodes=reversed_route_nodes,
+                    satellite_by_id=satellite_by_id,
                     reserved_energy=reserved_energy,
                     battery=battery,
                     step_s=step_s,
                     time_s=time_s,
+                    compute_energy_j=compute_energy_j,
+                    input_tx_energy_j=input_tx_energy_j,
+                    output_tx_energy_j=output_tx_energy_j,
                 )
 
-                key = (U, R, t_fin, route.hop_count)
+                key = (U, R, t_fin, hop_count)
 
                 if key < best_key:
                     mode = "local" if target.sat_id == source.sat_id else "offload"
+                    route_nodes = tuple(reversed(reversed_route_nodes))
                     best_candidate = Assignment(
                         task_id=task.task_id,
-                        route=route,
+                        route=Route(route_nodes),
                         mode=mode,
                         score=float(U),
                     )
                     best_key = key
-                    best_cost = cost
                     best_finish = t_fin
+                    best_route_nodes = route_nodes
 
             if best_candidate is not None:
                 assignments.append(best_candidate)
 
-                assert best_cost is not None
                 assert best_finish is not None
+                assert best_route_nodes is not None
 
                 reserved_available_time[best_candidate.route.target_sat] = best_finish
+                best_cost = estimate_route_cost(
+                    task=task,
+                    route=best_candidate.route,
+                    compute_config=compute_config,
+                    isl_config=isl_config,
+                )
 
                 for sat_id, energy_j in best_cost.energy_by_sat.items():
                     reserved_energy[sat_id] += energy_j
