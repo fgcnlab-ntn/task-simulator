@@ -15,15 +15,15 @@
   },
   "time": {
     "start_utc": "2026-05-22T12:00:00Z",
-    "duration_s": 5760,
+    "duration_s": 34560,
     "step_s": 30
   },
   "battery": {
     "capacity_j": 216000.0,
-    "initial_pct": 80.0,
-    "min_safe_pct": 70.0,
+    "initial_pct": 100.0,
+    "min_safe_pct": 80.0,
     "harvest_w": 120.0,
-    "idle_w": 4.0
+    "idle_w": 20.0
   },
   "task": {
     "enabled": true,
@@ -32,14 +32,14 @@
     "random_seed": 42,
     "tasks_per_sat": 1,
     "tasks_per_step_choices": [
-      40
+      4000
     ],
     "tasks_per_step_weights": [
       1.0
     ],
-    "input_bits": 40000000.0,
+    "input_bits": 18000000.0,
     "input_bits_choices": [
-      40000000.0
+      18000000.0
     ],
     "input_bits_weights": [
       1.0
@@ -53,13 +53,13 @@
     ],
     "demand_points_file": "data/demand/global_population_2025_5deg.csv",
     "min_elevation_deg": 30.0,
-    "deadline_s": 120.0,
+    "deadline_s": 300.0,
     "compute_time_s": null
   },
   "compute": {
     "cycles_per_input_bit": 737.5,
-    "cpu_frequency_hz": 5900000000.0,
-    "cpu_power_w": 40.0
+    "cpu_frequency_hz": 2500000000.0,
+    "cpu_power_w": 80.0
   },
   "isl": {
     "rate_bps": 1000000000.0,
@@ -75,7 +75,7 @@
     "alpha": 0.5
   },
   "output": {
-    "path": "output/method1"
+    "path": "output/method1-6round"
   },
   "logging": {
     "task_events": "summary"
