@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import time
 from collections.abc import Iterator
 from pathlib import Path
 from typing import TextIO
@@ -221,6 +222,7 @@ class RunLog:
     def __init__(self, output_dir: Path, start: dt.datetime, config: dict[str, object]):
         self.output_dir = output_dir
         self.start = start
+        self._started_monotonic = time.monotonic()
         self.run_path = output_dir / "run.json"
         self.summary_path = output_dir / "summary.json"
         self._task_event_mode = task_event_mode(config)
@@ -251,6 +253,9 @@ class RunLog:
             "config": config,
         }
         write_json(self.run_path, self._manifest)
+
+    def _elapsed_wall_s(self) -> float:
+        return max(0.0, time.monotonic() - self._started_monotonic)
 
     def write_step(
         self,
@@ -433,6 +438,7 @@ class RunLog:
         )
         summary = {
             "schema_version": SCHEMA_VERSION,
+            "elapsed_wall_s": self._elapsed_wall_s(),
             "steps": steps,
             "final_time_s": final_states[0].time_s,
             "satellites": len(final_states),
@@ -484,6 +490,7 @@ class RunLog:
             {
                 "status": "completed",
                 "finished_at": utc_now_iso(),
+                "elapsed_wall_s": summary["elapsed_wall_s"],
                 "summary_file": self.summary_path.name,
             }
         )
@@ -495,6 +502,7 @@ class RunLog:
             {
                 "status": "failed",
                 "finished_at": utc_now_iso(),
+                "elapsed_wall_s": self._elapsed_wall_s(),
                 "error": {"type": type(exc).__name__, "message": str(exc)},
             }
         )

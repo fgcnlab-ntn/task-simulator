@@ -88,7 +88,13 @@ class RunLogTests(unittest.TestCase):
             records = [json.loads(line) for line in lines]
             self.assertEqual([record["time_s"] for record in records], [0, 30])
             self.assertNotIn("battery_pct", records[0]["satellites"][0])
-            self.assertEqual(json.loads((output / "run.json").read_text())["status"], "completed")
+            manifest = json.loads((output / "run.json").read_text())
+            self.assertEqual(manifest["status"], "completed")
+            self.assertIsInstance(manifest["elapsed_wall_s"], float)
+            self.assertGreaterEqual(manifest["elapsed_wall_s"], 0.0)
+            summary = json.loads((output / "summary.json").read_text())
+            self.assertIsInstance(summary["elapsed_wall_s"], float)
+            self.assertGreaterEqual(summary["elapsed_wall_s"], 0.0)
 
     def test_records_eclipse_energy_per_step_and_total_summary(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -318,6 +324,8 @@ class RunLogTests(unittest.TestCase):
             json.loads((output / "states.jsonl").read_text().strip())
             self.assertEqual(manifest["status"], "failed")
             self.assertEqual(manifest["error"]["type"], "ValueError")
+            self.assertIsInstance(manifest["elapsed_wall_s"], float)
+            self.assertGreaterEqual(manifest["elapsed_wall_s"], 0.0)
 
     def test_simulator_emits_task_lifecycle_without_changing_step_results(self) -> None:
         events: list[dict[str, object]] = []
