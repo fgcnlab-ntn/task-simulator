@@ -47,6 +47,26 @@ class PhoenixCandidateCache:
     sunlit_counts_by_plane: dict[int, int]
 
 
+@dataclass(frozen=True)
+class Method2RouteCandidate:
+    target: SatelliteView
+    route_nodes: tuple[int, ...]
+    hop_count: int
+    balance_roles: tuple[tuple[int, int, int, int], ...]
+
+
+@dataclass
+class Method2BalanceState:
+    margins_by_sat: list[float | None]
+    warning_count: int
+    min_margin: float
+    margin_sum: float
+    margin_square_sum: float
+    eclipse_count: int
+    warn_margin_j: float
+    update: bool
+
+
 def route_parents_from_source(
     graph: ISLGraph, source_sat: int
 ) -> dict[int, int | None]:
@@ -485,50 +505,174 @@ class Method1Scheduler(Scheduler):
 class Method2Scheduler(Scheduler):
     name = "method2"
 
-    def _estimate_balance_key(
+    def _initial_balance_state(
         self,
         *,
-        cost,
-        satellite_views,
-        by_id,
-        reserved_energy,
-        battery,
-        step_s,
-        time_s,
-    ) -> tuple[int, float, float]:
-        warn_j = battery.min_safe_j + 0.1 * battery.capacity_j
-        margins: list[float] = []
+        satellite_views: list[SatelliteView],
+        max_sat_id: int,
+        battery: BatteryConfig,
+        step_s: int,
+        time_s: int,
+    ) -> Method2BalanceState:
+        warn_margin_j = 0.1 * battery.capacity_j
+        margins_by_sat: list[float | None] = [None] * (max_sat_id + 1)
         warning_count = 0
+        min_margin = float("inf")
+        margin_sum = 0.0
+        margin_square_sum = 0.0
+        eclipse_count = 0
 
         for sat in satellite_views:
             if sat.sunlit:
                 continue
-
-            extra_energy_j = cost.energy_by_sat.get(sat.sat_id, 0.0)
 
             projected = projected_battery_after_step(
                 battery_now=sat.battery_j,
                 sunlit=sat.sunlit,
                 step_s=step_s,
                 battery=battery,
-                task_energy_j=reserved_energy[sat.sat_id] + extra_energy_j,
+                task_energy_j=0.0,
                 update=time_s > 0,
             )
-
             margin = projected - battery.min_safe_j
-            margins.append(margin)
+            margins_by_sat[sat.sat_id] = margin
+            warning_count += int(margin < warn_margin_j)
+            min_margin = min(min_margin, margin)
+            margin_sum += margin
+            margin_square_sum += margin * margin
+            eclipse_count += 1
 
-            if projected < warn_j:
-                warning_count += 1
+        if eclipse_count == 0:
+            min_margin = 0.0
+        return Method2BalanceState(
+            margins_by_sat=margins_by_sat,
+            warning_count=warning_count,
+            min_margin=min_margin,
+            margin_sum=margin_sum,
+            margin_square_sum=margin_square_sum,
+            eclipse_count=eclipse_count,
+            warn_margin_j=warn_margin_j,
+            update=time_s > 0,
+        )
 
-        if not margins:
+    def _base_balance_key(
+        self,
+        state: Method2BalanceState,
+    ) -> tuple[int, float, float]:
+        if state.eclipse_count == 0:
             return 0, 0.0, 0.0
+        mean = state.margin_sum / state.eclipse_count
+        variance = state.margin_square_sum / state.eclipse_count - mean * mean
+        return state.warning_count, -state.min_margin, max(variance, 0.0)
 
-        min_margin = min(margins)
-        mean_margin = sum(margins) / len(margins)
-        variance = sum((m - mean_margin) ** 2 for m in margins) / len(margins)
+    def _route_candidates(
+        self,
+        *,
+        route_parents: dict[int, int | None],
+        satellite_views: list[SatelliteView],
+        eclipse_sat_ids: set[int],
+    ) -> tuple[Method2RouteCandidate, ...]:
+        candidates: list[Method2RouteCandidate] = []
 
-        return warning_count, -min_margin, variance
+        for target in satellite_views:
+            reversed_route_nodes = reversed_route_nodes_from_parents(
+                route_parents,
+                target.sat_id,
+            )
+            if reversed_route_nodes is None:
+                continue
+
+            last_index = len(reversed_route_nodes) - 1
+            balance_roles: list[tuple[int, int, int, int]] = []
+            for reverse_index, sat_id in enumerate(reversed_route_nodes):
+                compute_role = int(reverse_index == 0)
+                input_role = int(last_index > 0 and reverse_index > 0)
+                output_role = int(last_index > 0 and reverse_index < last_index)
+                if not (compute_role or input_role or output_role):
+                    continue
+                if sat_id in eclipse_sat_ids:
+                    balance_roles.append((sat_id, compute_role, input_role, output_role))
+
+            candidates.append(
+                Method2RouteCandidate(
+                    target=target,
+                    route_nodes=tuple(reversed(reversed_route_nodes)),
+                    hop_count=last_index,
+                    balance_roles=tuple(balance_roles),
+                )
+            )
+
+        return tuple(candidates)
+
+    def _estimate_balance_key_from_state(
+        self,
+        *,
+        balance_roles: tuple[tuple[int, int, int, int], ...],
+        state: Method2BalanceState,
+        compute_energy_j: float,
+        input_tx_energy_j: float,
+        output_tx_energy_j: float,
+    ) -> tuple[int, float, float]:
+        if state.eclipse_count == 0:
+            return 0, 0.0, 0.0
+        if not state.update or not balance_roles:
+            return self._base_balance_key(state)
+
+        new_warning_count = state.warning_count
+        new_min_margin = state.min_margin
+        new_sum = state.margin_sum
+        new_square_sum = state.margin_square_sum
+
+        for sat_id, compute_role, input_role, output_role in balance_roles:
+            old_margin = state.margins_by_sat[sat_id]
+            if old_margin is None:
+                continue
+
+            energy_j = (
+                compute_role * compute_energy_j
+                + input_role * input_tx_energy_j
+                + output_role * output_tx_energy_j
+            )
+            new_margin = old_margin - energy_j
+            if old_margin >= state.warn_margin_j and new_margin < state.warn_margin_j:
+                new_warning_count += 1
+            new_min_margin = min(new_min_margin, new_margin)
+            new_sum += new_margin - old_margin
+            new_square_sum += new_margin * new_margin - old_margin * old_margin
+
+        mean = new_sum / state.eclipse_count
+        variance = new_square_sum / state.eclipse_count - mean * mean
+        return new_warning_count, -new_min_margin, max(variance, 0.0)
+
+    def _apply_balance_roles(
+        self,
+        *,
+        state: Method2BalanceState,
+        balance_roles: tuple[tuple[int, int, int, int], ...],
+        compute_energy_j: float,
+        input_tx_energy_j: float,
+        output_tx_energy_j: float,
+    ) -> None:
+        if not state.update or not balance_roles:
+            return
+
+        for sat_id, compute_role, input_role, output_role in balance_roles:
+            old_margin = state.margins_by_sat[sat_id]
+            if old_margin is None:
+                continue
+
+            energy_j = (
+                compute_role * compute_energy_j
+                + input_role * input_tx_energy_j
+                + output_role * output_tx_energy_j
+            )
+            new_margin = old_margin - energy_j
+            if old_margin >= state.warn_margin_j and new_margin < state.warn_margin_j:
+                state.warning_count += 1
+            state.min_margin = min(state.min_margin, new_margin)
+            state.margin_sum += new_margin - old_margin
+            state.margin_square_sum += new_margin * new_margin - old_margin * old_margin
+            state.margins_by_sat[sat_id] = new_margin
 
     def assign_tasks(
         self,
@@ -545,8 +689,7 @@ class Method2Scheduler(Scheduler):
         scheduler_config: SchedulerConfig,
     ) -> list[Assignment]:
         by_id = {sat.sat_id: sat for sat in satellite_views}
-
-        reserved_energy = {sat.sat_id: 0.0 for sat in satellite_views}
+        max_sat_id = max(by_id, default=-1)
         reserved_available_time = {
             sat.sat_id: float(time_s) + sat.queue_backlog_s for sat in satellite_views
         }
@@ -557,10 +700,32 @@ class Method2Scheduler(Scheduler):
         )
 
         assignments: list[Assignment] = []
+        route_parents_by_source: dict[int, dict[int, int | None]] = {}
+        route_candidates_by_source: dict[int, tuple[Method2RouteCandidate, ...]] = {}
+        eclipse_sat_ids = {sat.sat_id for sat in satellite_views if not sat.sunlit}
+        balance_state = self._initial_balance_state(
+            satellite_views=satellite_views,
+            max_sat_id=max_sat_id,
+            battery=battery,
+            step_s=step_s,
+            time_s=time_s,
+        )
 
         for task in ordered_tasks:
             assert task.source_sat is not None
             source = by_id[task.source_sat]
+            route_parents = route_parents_by_source.get(source.sat_id)
+            if route_parents is None:
+                route_parents = route_parents_from_source(isl_graph, source.sat_id)
+                route_parents_by_source[source.sat_id] = route_parents
+            route_candidates = route_candidates_by_source.get(source.sat_id)
+            if route_candidates is None:
+                route_candidates = self._route_candidates(
+                    route_parents=route_parents,
+                    satellite_views=satellite_views,
+                    eclipse_sat_ids=eclipse_sat_ids,
+                )
+                route_candidates_by_source[source.sat_id] = route_candidates
 
             best_candidate = None
             best_key = (
@@ -570,63 +735,69 @@ class Method2Scheduler(Scheduler):
                 float("inf"),
                 float("inf"),
             )
-            best_cost = None
             best_finish = None
+            best_balance_roles: tuple[tuple[int, int, int, int], ...] | None = None
 
-            for target in satellite_views:
-                route = shortest_route(isl_graph, source.sat_id, target.sat_id)
-                if route is None:
-                    continue
+            compute_time_s = task_compute_time_s(task, compute_config)
+            compute_energy_j = compute_time_s * compute_config.cpu_power_w
+            transmission_time_per_hop_s = transfer_time_s(
+                task.input_bits,
+                isl_config,
+            ) + transfer_time_s(task.output_bits, isl_config)
+            input_tx_energy_j = transmission_energy_j(task.input_bits, isl_config)
+            output_tx_energy_j = transmission_energy_j(task.output_bits, isl_config)
+            deadline_time = task.created_time_s + task.deadline_s
+            base_balance_key = self._base_balance_key(balance_state)
 
-                cost = estimate_route_cost(
-                    task=task,
-                    route=route,
-                    compute_config=compute_config,
-                    isl_config=isl_config,
-                )
-
-                arrival_time = float(time_s) + cost.transmission_time_s
+            for candidate in route_candidates:
+                target = candidate.target
+                transmission_time_s = candidate.hop_count * transmission_time_per_hop_s
+                arrival_time = float(time_s) + transmission_time_s
                 z_q = max(arrival_time, reserved_available_time[target.sat_id])
-                t_fin = z_q + cost.compute_time_s
-                deadline_time = task.created_time_s + task.deadline_s
+                t_fin = z_q + compute_time_s
 
                 if t_fin > deadline_time:
                     continue
 
-                W, neg_M_min, V = self._estimate_balance_key(
-                    cost=cost,
-                    satellite_views=satellite_views,
-                    by_id=by_id,
-                    reserved_energy=reserved_energy,
-                    battery=battery,
-                    step_s=step_s,
-                    time_s=time_s,
-                )
+                if not balance_state.update or not candidate.balance_roles:
+                    W, neg_M_min, V = base_balance_key
+                else:
+                    W, neg_M_min, V = self._estimate_balance_key_from_state(
+                        balance_roles=candidate.balance_roles,
+                        state=balance_state,
+                        compute_energy_j=compute_energy_j,
+                        input_tx_energy_j=input_tx_energy_j,
+                        output_tx_energy_j=output_tx_energy_j,
+                    )
 
-                key = (W, neg_M_min, V, t_fin, route.hop_count)
+                key = (W, neg_M_min, V, t_fin, candidate.hop_count)
 
                 if key < best_key:
                     mode = "local" if target.sat_id == source.sat_id else "offload"
                     best_candidate = Assignment(
                         task_id=task.task_id,
-                        route=route,
+                        route=Route(candidate.route_nodes),
                         mode=mode,
                         score=float(W),
                     )
                     best_key = key
-                    best_cost = cost
                     best_finish = t_fin
+                    best_balance_roles = candidate.balance_roles
 
             if best_candidate is not None:
                 assignments.append(best_candidate)
 
-                assert best_cost is not None
                 assert best_finish is not None
+                assert best_balance_roles is not None
 
                 reserved_available_time[best_candidate.route.target_sat] = best_finish
-
-                for sat_id, energy_j in best_cost.energy_by_sat.items():
-                    reserved_energy[sat_id] += energy_j
+                self._apply_balance_roles(
+                    state=balance_state,
+                    balance_roles=best_balance_roles,
+                    compute_energy_j=compute_energy_j,
+                    input_tx_energy_j=input_tx_energy_j,
+                    output_tx_energy_j=output_tx_energy_j,
+                )
             else:
                 assignments.append(
                     Assignment(
