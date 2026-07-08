@@ -272,45 +272,7 @@ class NearestSunlitScheduler(Scheduler):
 class Method1Scheduler(Scheduler):
     name = "method1"
 
-    def _estimate_unsafe_and_margin_risk(
-        self,
-        *,
-        cost,
-        by_id,
-        reserved_energy,
-        battery,
-        step_s,
-        time_s,
-    ) -> tuple[int, float]:
-        unsafe_increase = 0
-        margin_risk = 0.0
-        eps_j = 1.0
-
-        for sat_id in cost.energy_by_sat:
-            sat = by_id[sat_id]
-            if sat.sunlit:
-                continue
-
-            before_unsafe = sat.battery_j < battery.min_safe_j
-
-            projected = projected_battery_after_step(
-                battery_now=sat.battery_j,
-                sunlit=sat.sunlit,
-                step_s=step_s,
-                battery=battery,
-                task_energy_j=reserved_energy[sat_id] + cost.energy_for(sat_id),
-                update=time_s > 0,
-            )
-
-            after_unsafe = projected < battery.min_safe_j
-            unsafe_increase += int(after_unsafe) - int(before_unsafe)
-
-            margin_j = max(projected - battery.min_safe_j, eps_j)
-            margin_risk += 1.0 / margin_j
-
-        return max(unsafe_increase, 0), margin_risk
-
-    def _estimate_reversed_route_unsafe_and_margin_risk(
+    def _estimate_reversed_route_tail_metrics(
         self,
         *,
         reversed_route_nodes: list[int],
@@ -322,15 +284,21 @@ class Method1Scheduler(Scheduler):
         compute_energy_j: float,
         input_tx_energy_j: float,
         output_tx_energy_j: float,
-    ) -> tuple[int, float]:
+        warning_ratio: float,
+    ) -> tuple[int, int, float, float]:
         unsafe_increase = 0
+        warning_count = 0
         margin_risk = 0.0
         eps_j = 1.0
+
         last_index = len(reversed_route_nodes) - 1
         update_battery = time_s > 0
         idle_energy_j = battery.idle_w * step_s
         capacity_j = battery.capacity_j
         min_safe_j = battery.min_safe_j
+        warn_j = min_safe_j + warning_ratio * capacity_j
+
+        min_margin = float("inf")
 
         for reverse_index, sat_id in enumerate(reversed_route_nodes):
             sat = satellite_by_id[sat_id]
@@ -339,8 +307,10 @@ class Method1Scheduler(Scheduler):
                 continue
 
             route_energy_j = 0.0
+            # reverse_index == 0 對應 target satellite，要負擔 compute
             if reverse_index == 0:
                 route_energy_j += compute_energy_j
+            # 其餘 relay / source 的傳輸能耗
             if last_index > 0:
                 if reverse_index > 0:
                     route_energy_j += input_tx_energy_j
@@ -351,28 +321,61 @@ class Method1Scheduler(Scheduler):
                 continue
 
             before_unsafe = sat.battery_j < min_safe_j
+
+            projected = sat.battery_j - reserved_energy[sat_id] - route_energy_j
             if update_battery:
-                projected = (
-                    sat.battery_j
-                    - idle_energy_j
-                    - reserved_energy[sat_id]
-                    - route_energy_j
-                )
-                if projected > capacity_j:
-                    projected = capacity_j
-            else:
-                projected = sat.battery_j
+                projected -= idle_energy_j
+            if projected > capacity_j:
+                projected = capacity_j
+
             after_unsafe = projected < min_safe_j
             unsafe_increase += int(after_unsafe) - int(before_unsafe)
 
+            if projected < warn_j:
+                warning_count += 1
+
             margin_j = projected - min_safe_j
-            if margin_j < eps_j:
-                margin_j = eps_j
-            margin_risk += 1.0 / margin_j
+            if margin_j < min_margin:
+                min_margin = margin_j
+
+            margin_for_risk = max(margin_j, eps_j)
+            margin_risk += 1.0 / margin_for_risk
 
         if unsafe_increase < 0:
             unsafe_increase = 0
-        return unsafe_increase, margin_risk
+
+        if min_margin == float("inf"):
+            min_margin = capacity_j
+
+        neg_min_margin = -min_margin
+        return unsafe_increase, warning_count, neg_min_margin, margin_risk
+
+    def _assign_danger_cost(
+        self,
+        *,
+        U: int,
+        W: int,
+        min_margin_j: float,
+        R: float,
+        battery: BatteryConfig,
+    ) -> float:
+        eps = 1e-6
+        margin_ratio = max(min_margin_j / battery.capacity_j, eps)
+        return float(U + W) + (1.0 / margin_ratio) + R
+
+    def _defer_cost(
+        self,
+        *,
+        deadline_time: float,
+        time_s: int,
+        step_s: int,
+        compute_time_s: float,
+    ) -> float:
+        eps = 1e-6
+        slack_after_defer = deadline_time - (float(time_s) + step_s + compute_time_s)
+        if slack_after_defer < 0.0:
+            return float("inf")
+        return 1.0 / max(slack_after_defer / step_s, eps)
 
     def assign_tasks(
         self,
@@ -390,6 +393,7 @@ class Method1Scheduler(Scheduler):
     ) -> list[Assignment]:
         by_id = {sat.sat_id: sat for sat in satellite_views}
         max_sat_id = max(by_id, default=-1)
+
         satellite_by_id: list[SatelliteView | None] = [None] * (max_sat_id + 1)
         for sat in satellite_views:
             satellite_by_id[sat.sat_id] = sat
@@ -398,6 +402,7 @@ class Method1Scheduler(Scheduler):
         reserved_available_time = {
             sat.sat_id: float(time_s) + sat.queue_backlog_s for sat in satellite_views
         }
+        warning_ratio = getattr(scheduler_config, "warning_ratio", 0.10)
 
         ordered_tasks = sorted(
             tasks,
@@ -410,20 +415,28 @@ class Method1Scheduler(Scheduler):
         for task in ordered_tasks:
             assert task.source_sat is not None
             source = by_id[task.source_sat]
+
             route_parents = route_parents_by_source.get(source.sat_id)
             if route_parents is None:
                 route_parents = route_parents_from_source(isl_graph, source.sat_id)
                 route_parents_by_source[source.sat_id] = route_parents
 
             best_candidate = None
-            best_key = (float("inf"), float("inf"), float("inf"), float("inf"))
+            best_key = (
+                float("inf"),
+                float("inf"),
+                float("inf"),
+                float("inf"),
+                float("inf"),
+                float("inf"),
+            )
             best_finish = None
-            best_route_nodes = None
+            best_metrics = None
+
             compute_time_s = task_compute_time_s(task, compute_config)
             compute_energy_j = compute_time_s * compute_config.cpu_power_w
             transmission_time_per_hop_s = transfer_time_s(
-                task.input_bits,
-                isl_config,
+                task.input_bits, isl_config
             ) + transfer_time_s(task.output_bits, isl_config)
             input_tx_energy_j = transmission_energy_j(task.input_bits, isl_config)
             output_tx_energy_j = transmission_energy_j(task.output_bits, isl_config)
@@ -446,7 +459,7 @@ class Method1Scheduler(Scheduler):
                 if t_fin > deadline_time:
                     continue
 
-                U, R = self._estimate_reversed_route_unsafe_and_margin_risk(
+                U, W, neg_M_min, R = self._estimate_reversed_route_tail_metrics(
                     reversed_route_nodes=reversed_route_nodes,
                     satellite_by_id=satellite_by_id,
                     reserved_energy=reserved_energy,
@@ -456,48 +469,102 @@ class Method1Scheduler(Scheduler):
                     compute_energy_j=compute_energy_j,
                     input_tx_energy_j=input_tx_energy_j,
                     output_tx_energy_j=output_tx_energy_j,
+                    warning_ratio=warning_ratio,
                 )
 
-                key = (U, R, t_fin, hop_count)
+                key = (U, W, neg_M_min, R, t_fin, hop_count)
 
                 if key < best_key:
                     mode = "local" if target.sat_id == source.sat_id else "offload"
                     route_nodes = tuple(reversed(reversed_route_nodes))
+                    min_margin_j = -neg_M_min
+                    assign_cost = self._assign_danger_cost(
+                        U=U,
+                        W=W,
+                        min_margin_j=min_margin_j,
+                        R=R,
+                        battery=battery,
+                    )
                     best_candidate = Assignment(
                         task_id=task.task_id,
                         route=Route(route_nodes),
                         mode=mode,
-                        score=float(U),
+                        score=assign_cost,
                     )
                     best_key = key
                     best_finish = t_fin
-                    best_route_nodes = route_nodes
+                    best_metrics = (U, W, min_margin_j, R)
+
+            defer_cost = self._defer_cost(
+                deadline_time=deadline_time,
+                time_s=time_s,
+                step_s=step_s,
+                compute_time_s=compute_time_s,
+            )
 
             if best_candidate is not None:
-                assignments.append(best_candidate)
-
                 assert best_finish is not None
-                assert best_route_nodes is not None
+                assert best_metrics is not None
 
-                reserved_available_time[best_candidate.route.target_sat] = best_finish
-                best_cost = estimate_route_cost(
-                    task=task,
-                    route=best_candidate.route,
-                    compute_config=compute_config,
-                    isl_config=isl_config,
+                U_best, W_best, M_min_best, R_best = best_metrics
+                assign_cost = self._assign_danger_cost(
+                    U=U_best,
+                    W=W_best,
+                    min_margin_j=M_min_best,
+                    R=R_best,
+                    battery=battery,
                 )
 
-                for sat_id, energy_j in best_cost.energy_by_sat.items():
-                    reserved_energy[sat_id] += energy_j
-            else:
-                assignments.append(
-                    Assignment(
-                        task_id=task.task_id,
-                        route=route_or_raise(isl_graph, source.sat_id, source.sat_id),
-                        mode="defer",
-                        score=float("inf"),
+                if assign_cost <= defer_cost:
+                    assignments.append(best_candidate)
+
+                    reserved_available_time[best_candidate.route.target_sat] = (
+                        best_finish
                     )
-                )
+                    best_cost = estimate_route_cost(
+                        task=task,
+                        route=best_candidate.route,
+                        compute_config=compute_config,
+                        isl_config=isl_config,
+                    )
+
+                    for sat_id, energy_j in best_cost.energy_by_sat.items():
+                        reserved_energy[sat_id] += energy_j
+                else:
+                    assignments.append(
+                        Assignment(
+                            task_id=task.task_id,
+                            route=route_or_raise(
+                                isl_graph, source.sat_id, source.sat_id
+                            ),
+                            mode="defer",
+                            score=defer_cost,
+                        )
+                    )
+            else:
+                if defer_cost < float("inf"):
+                    assignments.append(
+                        Assignment(
+                            task_id=task.task_id,
+                            route=route_or_raise(
+                                isl_graph, source.sat_id, source.sat_id
+                            ),
+                            mode="defer",
+                            score=defer_cost,
+                        )
+                    )
+                else:
+                    assignments.append(
+                        Assignment(
+                            task_id=task.task_id,
+                            route=route_or_raise(
+                                isl_graph, source.sat_id, source.sat_id
+                            ),
+                            mode="fail",
+                            score=float("inf"),
+                            failed_reason="no_feasible_candidate_and_cannot_defer",
+                        )
+                    )
 
         return assignments
 
@@ -591,7 +658,9 @@ class Method2Scheduler(Scheduler):
                 if not (compute_role or input_role or output_role):
                     continue
                 if sat_id in eclipse_sat_ids:
-                    balance_roles.append((sat_id, compute_role, input_role, output_role))
+                    balance_roles.append(
+                        (sat_id, compute_role, input_role, output_role)
+                    )
 
             candidates.append(
                 Method2RouteCandidate(
