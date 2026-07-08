@@ -409,17 +409,21 @@ class Method1Scheduler(Scheduler):
             key=lambda task: (task.created_time_s + task.deadline_s, task.task_id),
         )
 
+        # 先對本 slot 會用到的 source satellites 建好 shortest-path tree
+        unique_sources = {
+            task.source_sat for task in ordered_tasks if task.source_sat is not None
+        }
+        route_parents_by_source: dict[int, dict[int, int | None]] = {
+            source_sat: route_parents_from_source(isl_graph, source_sat)
+            for source_sat in unique_sources
+        }
+
         assignments: list[Assignment] = []
-        route_parents_by_source: dict[int, dict[int, int | None]] = {}
 
         for task in ordered_tasks:
             assert task.source_sat is not None
             source = by_id[task.source_sat]
-
-            route_parents = route_parents_by_source.get(source.sat_id)
-            if route_parents is None:
-                route_parents = route_parents_from_source(isl_graph, source.sat_id)
-                route_parents_by_source[source.sat_id] = route_parents
+            route_parents = route_parents_by_source[source.sat_id]
 
             best_candidate = None
             best_key = (
@@ -432,6 +436,7 @@ class Method1Scheduler(Scheduler):
             )
             best_finish = None
             best_metrics = None
+            best_cost = None
 
             compute_time_s = task_compute_time_s(task, compute_config)
             compute_energy_j = compute_time_s * compute_config.cpu_power_w
@@ -494,6 +499,12 @@ class Method1Scheduler(Scheduler):
                     best_key = key
                     best_finish = t_fin
                     best_metrics = (U, W, min_margin_j, R)
+                    best_cost = estimate_route_cost(
+                        task=task,
+                        route=best_candidate.route,
+                        compute_config=compute_config,
+                        isl_config=isl_config,
+                    )
 
             defer_cost = self._defer_cost(
                 deadline_time=deadline_time,
@@ -505,6 +516,7 @@ class Method1Scheduler(Scheduler):
             if best_candidate is not None:
                 assert best_finish is not None
                 assert best_metrics is not None
+                assert best_cost is not None
 
                 U_best, W_best, M_min_best, R_best = best_metrics
                 assign_cost = self._assign_danger_cost(
@@ -521,13 +533,6 @@ class Method1Scheduler(Scheduler):
                     reserved_available_time[best_candidate.route.target_sat] = (
                         best_finish
                     )
-                    best_cost = estimate_route_cost(
-                        task=task,
-                        route=best_candidate.route,
-                        compute_config=compute_config,
-                        isl_config=isl_config,
-                    )
-
                     for sat_id, energy_j in best_cost.energy_by_sat.items():
                         reserved_energy[sat_id] += energy_j
                 else:
