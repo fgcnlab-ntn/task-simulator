@@ -251,24 +251,23 @@ class NearestSunlitScheduler(Scheduler):
         isl_graph: ISLGraph,
     ) -> Assignment:
         assert task.source_sat is not None
-        by_id = {sat.sat_id: sat for sat in satellite_views}
-        source = by_id[task.source_sat]
-        target = source
+        satellite_by_id = {sat.sat_id: sat for sat in satellite_views}
+        source = satellite_by_id[task.source_sat]
         mode = "local"
         route = route_or_raise(isl_graph, source.sat_id, source.sat_id)
         if not source.sunlit:
+            routes_by_target = routes_from_source(isl_graph, source.sat_id)
             reachable_sunlit_targets = [
                 sat
                 for sat in satellite_views
-                if sat.sunlit
-                and shortest_route(isl_graph, source.sat_id, sat.sat_id) is not None
+                if sat.sunlit and sat.sat_id in routes_by_target
             ]
             if reachable_sunlit_targets:
                 target = min(
                     reachable_sunlit_targets,
                     key=lambda sat: distance_km(source, sat),
                 )
-                route = route_or_raise(isl_graph, source.sat_id, target.sat_id)
+                route = routes_by_target[target.sat_id]
                 mode = "offload"
         return Assignment(
             task_id=task.task_id,
