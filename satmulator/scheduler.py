@@ -18,6 +18,7 @@ from .models import (
 )
 from .route_cost import (
     RouteTiming,
+    compute_cycles,
     estimate_route_cost,
     estimate_route_timing,
     task_compute_time_s,
@@ -65,6 +66,13 @@ class Method2BalanceState:
     eclipse_count: int
     warn_margin_j: float
     update: bool
+
+
+@dataclass(frozen=True)
+class GreedyEnergyCandidate:
+    assignment: Assignment
+    finish_time_s: float
+    energy_j: float
 
 
 def route_parents_from_source(
@@ -498,6 +506,327 @@ class Method1Scheduler(Scheduler):
                         score=float("inf"),
                     )
                 )
+
+        return assignments
+
+
+class GreedyEnergyScheduler(Scheduler):
+    """Greedy baseline adapted from the LEO energy-allocation paper.
+
+    Ground stations are intentionally not modeled.  The paper's DVFS compute
+    model is represented by the simulator's existing compute-power model, and
+    Friis link loss is represented by the existing tx-power-per-bit model.
+    The "large task" decision is made from aggregate source workload for the
+    whole scheduling batch, not from one task's fixed size.
+    """
+
+    name = "greedy-energy"
+    max_remote_candidates_per_source = 64
+    shadow_soft_guard_ratio = 0.65
+
+    def _step_capacity_cycles(
+        self,
+        *,
+        step_s: int,
+        compute_config: ComputeConfig,
+        scheduler_config: SchedulerConfig,
+    ) -> float:
+        return (
+            step_s
+            * compute_config.cpu_frequency_hz
+            * scheduler_config.cpu_utilization_limit
+        )
+
+    def _local_quota_cycles(
+        self,
+        *,
+        sat: SatelliteView,
+        step_s: int,
+        time_s: int,
+        battery: BatteryConfig,
+        compute_config: ComputeConfig,
+        scheduler_config: SchedulerConfig,
+    ) -> float:
+        cpu_quota_cycles = self._step_capacity_cycles(
+            step_s=step_s,
+            compute_config=compute_config,
+            scheduler_config=scheduler_config,
+        )
+        if sat.sunlit:
+            return cpu_quota_cycles
+
+        soft_guard_j = self.shadow_soft_guard_ratio * battery.capacity_j
+        idle_energy_j = battery.idle_w * step_s if time_s > 0 else 0.0
+        task_energy_budget_j = sat.battery_j - soft_guard_j - idle_energy_j
+        if task_energy_budget_j <= 0.0:
+            return 0.0
+
+        battery_quota_cycles = (
+            task_energy_budget_j
+            / compute_config.cpu_power_w
+            * compute_config.cpu_frequency_hz
+        )
+        return min(cpu_quota_cycles, battery_quota_cycles)
+
+    def _local_quota_by_sat(
+        self,
+        *,
+        satellite_views: list[SatelliteView],
+        step_s: int,
+        time_s: int,
+        battery: BatteryConfig,
+        compute_config: ComputeConfig,
+        scheduler_config: SchedulerConfig,
+    ) -> dict[int, float]:
+        return {
+            sat.sat_id: self._local_quota_cycles(
+                sat=sat,
+                step_s=step_s,
+                time_s=time_s,
+                battery=battery,
+                compute_config=compute_config,
+                scheduler_config=scheduler_config,
+            )
+            for sat in satellite_views
+        }
+
+    def _candidate_for_route(
+        self,
+        *,
+        task: Task,
+        route: Route,
+        mode: str,
+        time_s: int,
+        reserved_available_time: dict[int, float],
+        compute_config: ComputeConfig,
+        isl_config: ISLConfig,
+    ) -> GreedyEnergyCandidate | None:
+        timing = estimate_route_timing(
+            task=task,
+            route=route,
+            compute_config=compute_config,
+            isl_config=isl_config,
+        )
+        finish_time_s = (
+            max(
+                float(time_s) + timing.transmission_time_s,
+                reserved_available_time[route.target_sat],
+            )
+            + timing.compute_time_s
+        )
+        deadline_time_s = task.created_time_s + task.deadline_s
+        if finish_time_s > deadline_time_s:
+            return None
+
+        cost = estimate_route_cost(
+            task=task,
+            route=route,
+            compute_config=compute_config,
+            isl_config=isl_config,
+        )
+        energy_j = cost.total_energy_j
+        return GreedyEnergyCandidate(
+            assignment=Assignment(
+                task_id=task.task_id,
+                route=route,
+                mode=mode,
+                score=energy_j,
+            ),
+            finish_time_s=finish_time_s,
+            energy_j=energy_j,
+        )
+
+    def _local_candidate(
+        self,
+        *,
+        task: Task,
+        source: SatelliteView,
+        time_s: int,
+        reserved_available_time: dict[int, float],
+        compute_config: ComputeConfig,
+        isl_config: ISLConfig,
+    ) -> GreedyEnergyCandidate | None:
+        return self._candidate_for_route(
+            task=task,
+            route=Route((source.sat_id,)),
+            mode="local",
+            time_s=time_s,
+            reserved_available_time=reserved_available_time,
+            compute_config=compute_config,
+            isl_config=isl_config,
+        )
+
+    def _remote_compute_candidates(
+        self,
+        *,
+        task: Task,
+        remote_routes: tuple[Route, ...],
+        time_s: int,
+        reserved_available_time: dict[int, float],
+        compute_config: ComputeConfig,
+        isl_config: ISLConfig,
+    ) -> list[GreedyEnergyCandidate]:
+        candidates: list[GreedyEnergyCandidate] = []
+        for route in remote_routes:
+            candidate = self._candidate_for_route(
+                task=task,
+                route=route,
+                mode="relay",
+                time_s=time_s,
+                reserved_available_time=reserved_available_time,
+                compute_config=compute_config,
+                isl_config=isl_config,
+            )
+            if candidate is not None:
+                candidates.append(candidate)
+        return candidates
+
+    def _nearest_sunlit_compute_routes(
+        self,
+        *,
+        source: SatelliteView,
+        satellite_views_by_id: dict[int, SatelliteView],
+        isl_graph: ISLGraph,
+    ) -> tuple[Route, ...]:
+        """Return a small stable set of nearest sunlit compute routes.
+
+        The simplified link-energy model charges per hop, not per distance.
+        Scanning every sunlit satellite per task is therefore just wasted work:
+        lower-hop routes dominate higher-hop routes on energy.  Keep a bounded
+        set so queue/deadline tie-breaks still have alternatives without
+        turning each scheduling slot into tasks x constellation_size work.
+        """
+
+        if source.sat_id not in isl_graph.adjacency:
+            return ()
+
+        parents: dict[int, int | None] = {source.sat_id: None}
+        queue: deque[int] = deque([source.sat_id])
+        routes: list[Route] = []
+
+        while queue and len(routes) < self.max_remote_candidates_per_source:
+            current = queue.popleft()
+            for neighbor in isl_graph.neighbors(current):
+                if neighbor in parents:
+                    continue
+                parents[neighbor] = current
+                sat = satellite_views_by_id.get(neighbor)
+                if sat is not None and sat.sunlit:
+                    route = route_from_parents(parents, neighbor)
+                    assert route is not None
+                    routes.append(route)
+                    if len(routes) >= self.max_remote_candidates_per_source:
+                        break
+                queue.append(neighbor)
+
+        return tuple(routes)
+
+    def assign_tasks(
+        self,
+        *,
+        tasks: list[Task],
+        satellite_views: list[SatelliteView],
+        time_s: int,
+        step_s: int,
+        battery: BatteryConfig,
+        compute_config: ComputeConfig,
+        task_config: TaskConfig,
+        isl_config: ISLConfig,
+        isl_graph: ISLGraph,
+        scheduler_config: SchedulerConfig,
+    ) -> list[Assignment]:
+        by_id = {sat.sat_id: sat for sat in satellite_views}
+        local_quota_cycles = self._local_quota_by_sat(
+            satellite_views=satellite_views,
+            step_s=step_s,
+            time_s=time_s,
+            battery=battery,
+            compute_config=compute_config,
+            scheduler_config=scheduler_config,
+        )
+        reserved_available_time = {
+            sat.sat_id: float(time_s) + sat.queue_backlog_s
+            for sat in satellite_views
+        }
+        reserved_local_cycles = {
+            sat.sat_id: sat.queue_backlog_s * compute_config.cpu_frequency_hz
+            for sat in satellite_views
+        }
+        remote_routes_by_source: dict[int, tuple[Route, ...]] = {}
+        assignments: list[Assignment] = []
+        ordered_tasks = sorted(
+            tasks,
+            key=lambda task: (task.created_time_s + task.deadline_s, task.task_id),
+        )
+
+        for task in ordered_tasks:
+            assert task.source_sat is not None
+            source = by_id[task.source_sat]
+            candidates: list[GreedyEnergyCandidate] = []
+            task_cycles = compute_cycles(task, compute_config)
+            local_fits_quota = (
+                reserved_local_cycles[source.sat_id] + task_cycles
+                <= local_quota_cycles[source.sat_id]
+            )
+
+            if local_fits_quota:
+                local = self._local_candidate(
+                    task=task,
+                    source=source,
+                    time_s=time_s,
+                    reserved_available_time=reserved_available_time,
+                    compute_config=compute_config,
+                    isl_config=isl_config,
+                )
+                if local is not None:
+                    candidates.append(local)
+
+            if not candidates:
+                remote_routes = remote_routes_by_source.get(source.sat_id)
+                if remote_routes is None:
+                    remote_routes = self._nearest_sunlit_compute_routes(
+                        source=source,
+                        satellite_views_by_id=by_id,
+                        isl_graph=isl_graph,
+                    )
+                    remote_routes_by_source[source.sat_id] = remote_routes
+                candidates.extend(
+                    self._remote_compute_candidates(
+                        task=task,
+                        remote_routes=remote_routes,
+                        time_s=time_s,
+                        reserved_available_time=reserved_available_time,
+                        compute_config=compute_config,
+                        isl_config=isl_config,
+                    )
+                )
+
+            if not candidates:
+                assignments.append(
+                    Assignment(
+                        task_id=task.task_id,
+                        route=Route((source.sat_id,)),
+                        mode="defer",
+                        score=float("inf"),
+                    )
+                )
+                continue
+
+            chosen = min(
+                candidates,
+                key=lambda candidate: (
+                    candidate.finish_time_s,
+                    candidate.assignment.hop_count,
+                    candidate.energy_j,
+                    candidate.assignment.target_sat,
+                ),
+            )
+            assignments.append(chosen.assignment)
+            reserved_available_time[chosen.assignment.target_sat] = (
+                chosen.finish_time_s
+            )
+            if chosen.assignment.mode == "local":
+                reserved_local_cycles[source.sat_id] += task_cycles
 
         return assignments
 
@@ -1321,6 +1650,8 @@ def create_scheduler(name: str) -> Scheduler:
         return NearestSunlitScheduler()
     if name == Method1Scheduler.name:
         return Method1Scheduler()
+    if name == GreedyEnergyScheduler.name:
+        return GreedyEnergyScheduler()
     if name == Method2Scheduler.name:
         return Method2Scheduler()
     if name == PhoenixLiteScheduler.name:
