@@ -1635,9 +1635,10 @@ class PhoenixLiteScheduler(Scheduler):
         source: SatelliteView,
         time_s: int,
         step_s: int,
+        deferred_available_time: dict[int, float],
         compute_config: ComputeConfig,
         isl_config: ISLConfig,
-    ) -> float | None:
+    ) -> tuple[float, float] | None:
         local_route = Route((source.sat_id,))
         timing = estimate_route_timing(
             task=task,
@@ -1649,9 +1650,13 @@ class PhoenixLiteScheduler(Scheduler):
         if defer_until is None or defer_until <= float(time_s):
             defer_until = float(time_s + step_s)
 
-        finish_after_wait = defer_until + source.queue_backlog_s + timing.compute_time_s
+        start_after_wait = max(
+            defer_until,
+            deferred_available_time[source.sat_id],
+        )
+        finish_after_wait = start_after_wait + timing.compute_time_s
         if finish_after_wait <= task.created_time_s + task.deadline_s:
-            return defer_until
+            return defer_until, finish_after_wait
         return None
 
     @staticmethod
@@ -1714,6 +1719,7 @@ class PhoenixLiteScheduler(Scheduler):
     def _target_plane(
         self,
         candidate_cache: PhoenixCandidateCache,
+        plane_load_by_plane: dict[int, float],
     ) -> int | None:
         sunlit_counts = candidate_cache.sunlit_counts_by_plane
         planes_with_sunlight = [
@@ -1724,8 +1730,8 @@ class PhoenixLiteScheduler(Scheduler):
         return min(
             planes_with_sunlight,
             key=lambda plane: (
-                self.plane_load_by_plane.get(plane, 0.0) / max(1, sunlit_counts[plane]),
-                self.plane_load_by_plane.get(plane, 0.0),
+                plane_load_by_plane.get(plane, 0.0) / max(1, sunlit_counts[plane]),
+                plane_load_by_plane.get(plane, 0.0),
                 plane,
             ),
         )
@@ -1843,6 +1849,7 @@ class PhoenixLiteScheduler(Scheduler):
         routes_by_source: dict[int, dict[int, Route]],
         searched_targets_by_source: dict[int, set[int]],
         candidate_cache: PhoenixCandidateCache,
+        plane_load_by_plane: dict[int, float],
         time_s: int,
         reserved_available_time: dict[int, float],
         reserved_energy: dict[int, float],
@@ -1850,7 +1857,7 @@ class PhoenixLiteScheduler(Scheduler):
         compute_config: ComputeConfig,
         isl_config: ISLConfig,
     ) -> tuple[Assignment, float] | None:
-        target_plane = self._target_plane(candidate_cache)
+        target_plane = self._target_plane(candidate_cache, plane_load_by_plane)
         candidates = (
             candidate_cache.sunlit_global
             if target_plane is None
@@ -1921,13 +1928,14 @@ class PhoenixLiteScheduler(Scheduler):
         self,
         assignment: Assignment,
         by_id: dict[int, SatelliteView],
+        plane_load_by_plane: dict[int, float],
         load_j: float,
     ) -> None:
         target = by_id[assignment.target_sat]
         plane = self._plane_of(target)
         if plane is not None:
-            self.plane_load_by_plane[plane] = (
-                self.plane_load_by_plane.get(plane, 0.0) + load_j
+            plane_load_by_plane[plane] = (
+                plane_load_by_plane.get(plane, 0.0) + load_j
             )
 
     def assign_tasks(
@@ -1948,6 +1956,7 @@ class PhoenixLiteScheduler(Scheduler):
         reserved_available_time = {
             sat.sat_id: float(time_s) + sat.queue_backlog_s for sat in satellite_views
         }
+        deferred_available_time = dict(reserved_available_time)
         reserved_energy = {
             sat.sat_id: sat.queue_backlog_s * compute_config.cpu_power_w
             for sat in satellite_views
@@ -1957,6 +1966,12 @@ class PhoenixLiteScheduler(Scheduler):
             key=lambda task: (task.created_time_s + task.deadline_s, task.task_id),
         )
         candidate_cache = self._candidate_cache(satellite_views)
+        # PHOENIX's orbit-level load is a scheduling-horizon signal, not a
+        # lifetime counter.  This simplified scheduler uses one assign_tasks()
+        # batch as the horizon and exposes the last batch for diagnostics.
+        plane_load_by_plane: dict[int, float] = {}
+        self.plane_load_by_plane = plane_load_by_plane
+        self.task_count_by_plane = self.plane_load_by_plane
 
         assignments = []
         routes_by_source: dict[int, dict[int, Route]] = {}
@@ -1967,7 +1982,7 @@ class PhoenixLiteScheduler(Scheduler):
             source = by_id[task.source_sat]
 
             chosen = None
-            defer_until = None
+            deferred = None
 
             if source.sunlit:
                 chosen = self._choose_local(
@@ -1981,16 +1996,18 @@ class PhoenixLiteScheduler(Scheduler):
                     mode="local",
                 )
             else:
-                defer_until = self._defer_time_if_deadline_safe(
+                deferred = self._defer_time_if_deadline_safe(
                     task=task,
                     source=source,
                     time_s=time_s,
                     step_s=step_s,
+                    deferred_available_time=deferred_available_time,
                     compute_config=compute_config,
                     isl_config=isl_config,
                 )
 
-            if not source.sunlit and defer_until is not None:
+            if not source.sunlit and deferred is not None:
+                defer_until, deferred_finish_time = deferred
                 assignments.append(
                     Assignment(
                         task_id=task.task_id,
@@ -1999,6 +2016,7 @@ class PhoenixLiteScheduler(Scheduler):
                         score=defer_until,
                     )
                 )
+                deferred_available_time[source.sat_id] = deferred_finish_time
                 continue
 
             if chosen is None:
@@ -2009,6 +2027,7 @@ class PhoenixLiteScheduler(Scheduler):
                     routes_by_source=routes_by_source,
                     searched_targets_by_source=searched_targets_by_source,
                     candidate_cache=candidate_cache,
+                    plane_load_by_plane=plane_load_by_plane,
                     time_s=time_s,
                     reserved_available_time=reserved_available_time,
                     reserved_energy=reserved_energy,
@@ -2056,6 +2075,7 @@ class PhoenixLiteScheduler(Scheduler):
             self._remember_assignment_load(
                 assignment,
                 by_id,
+                plane_load_by_plane,
                 load_j=cost.energy_for(assignment.target_sat),
             )
 
