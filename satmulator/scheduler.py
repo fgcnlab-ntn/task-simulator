@@ -232,10 +232,15 @@ class LocalOnlyScheduler(Scheduler):
         satellite_views: list[SatelliteView],
         isl_graph: ISLGraph,
     ) -> Assignment:
-        assert task.source_sat is not None
+        if task.source_sat is None:
+            raise ValueError("task.source_sat is required for local scheduling")
+        if task.source_sat not in isl_graph.adjacency:
+            raise ValueError(
+                f"source satellite {task.source_sat} is not present in the ISL graph"
+            )
         return Assignment(
             task_id=task.task_id,
-            route=route_or_raise(isl_graph, task.source_sat, task.source_sat),
+            route=(task.source_sat,),
             mode=self.name,
         )
 

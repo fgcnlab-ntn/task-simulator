@@ -11,7 +11,7 @@ from satmulator.isl import (
     shortest_route,
 )
 from satmulator.models import ISLConfig, SatelliteView, Task
-from satmulator.scheduler import NearestSunlitScheduler
+from satmulator.scheduler import LocalOnlyScheduler, NearestSunlitScheduler
 
 
 def view(
@@ -285,6 +285,42 @@ class ISLGraphTests(unittest.TestCase):
 
         self.assertEqual(assignment.route.nodes, (0,))
         self.assertEqual(assignment.mode, "local")
+
+    def test_local_only_scheduler_returns_single_node_route(self) -> None:
+        task = Task(
+            task_id=1,
+            created_time_s=0,
+            source_sat=0,
+            input_bits=1.0,
+            output_bits=1.0,
+            deadline_s=30.0,
+        )
+
+        assignment = LocalOnlyScheduler().assign_task(
+            task=task,
+            satellite_views=[view(0)],
+            isl_graph=ISLGraph({0: ()}),
+        )
+
+        self.assertEqual(assignment.route.nodes, (0,))
+        self.assertEqual(assignment.mode, "local")
+
+    def test_local_only_scheduler_rejects_unknown_source_satellite(self) -> None:
+        task = Task(
+            task_id=1,
+            created_time_s=0,
+            source_sat=9,
+            input_bits=1.0,
+            output_bits=1.0,
+            deadline_s=30.0,
+        )
+
+        with self.assertRaisesRegex(ValueError, "not present in the ISL graph"):
+            LocalOnlyScheduler().assign_task(
+                task=task,
+                satellite_views=[view(0)],
+                isl_graph=ISLGraph({0: ()}),
+            )
 
 
 if __name__ == "__main__":
