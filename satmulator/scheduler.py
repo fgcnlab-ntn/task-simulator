@@ -73,6 +73,7 @@ class GreedyEnergyCandidate:
     assignment: Assignment
     finish_time_s: float
     energy_j: float
+    battery_cost_j: float
 
 
 def route_parents_from_source(
@@ -592,8 +593,12 @@ class GreedyEnergyScheduler(Scheduler):
     Ground stations are intentionally not modeled.  The paper's DVFS compute
     model is represented by the simulator's existing compute-power model, and
     Friis link loss is represented by the existing tx-power-per-bit model.
-    The "large task" decision is made from aggregate source workload for the
-    whole scheduling batch, not from one task's fixed size.
+
+    Feasibility is enforced first: deadline, source-local CPU quota, and the
+    shadow battery guard are hard constraints.  Among feasible local and sunlit
+    relay candidates, choose the lowest shadow-battery-impact option.  Energy
+    spent on sunlit satellites is treated as cheaper than energy drained from
+    eclipse satellites, matching the paper's battery-preservation intent.
     """
 
     name = "greedy-energy"
@@ -666,6 +671,18 @@ class GreedyEnergyScheduler(Scheduler):
             for sat in satellite_views
         }
 
+    def _battery_cost_j(
+        self,
+        *,
+        energy_by_sat: dict[int, float],
+        satellite_views_by_id: dict[int, SatelliteView],
+    ) -> float:
+        return sum(
+            energy_j
+            for sat_id, energy_j in energy_by_sat.items()
+            if not satellite_views_by_id[sat_id].sunlit
+        )
+
     def _candidate_for_route(
         self,
         *,
@@ -674,6 +691,7 @@ class GreedyEnergyScheduler(Scheduler):
         mode: str,
         time_s: int,
         reserved_available_time: dict[int, float],
+        satellite_views_by_id: dict[int, SatelliteView],
         compute_config: ComputeConfig,
         isl_config: ISLConfig,
     ) -> GreedyEnergyCandidate | None:
@@ -701,15 +719,20 @@ class GreedyEnergyScheduler(Scheduler):
             isl_config=isl_config,
         )
         energy_j = cost.total_energy_j
+        battery_cost_j = self._battery_cost_j(
+            energy_by_sat=cost.energy_by_sat,
+            satellite_views_by_id=satellite_views_by_id,
+        )
         return GreedyEnergyCandidate(
             assignment=Assignment(
                 task_id=task.task_id,
                 route=route,
                 mode=mode,
-                score=energy_j,
+                score=battery_cost_j,
             ),
             finish_time_s=finish_time_s,
             energy_j=energy_j,
+            battery_cost_j=battery_cost_j,
         )
 
     def _local_candidate(
@@ -719,6 +742,7 @@ class GreedyEnergyScheduler(Scheduler):
         source: SatelliteView,
         time_s: int,
         reserved_available_time: dict[int, float],
+        satellite_views_by_id: dict[int, SatelliteView],
         compute_config: ComputeConfig,
         isl_config: ISLConfig,
     ) -> GreedyEnergyCandidate | None:
@@ -728,6 +752,7 @@ class GreedyEnergyScheduler(Scheduler):
             mode="local",
             time_s=time_s,
             reserved_available_time=reserved_available_time,
+            satellite_views_by_id=satellite_views_by_id,
             compute_config=compute_config,
             isl_config=isl_config,
         )
@@ -739,6 +764,7 @@ class GreedyEnergyScheduler(Scheduler):
         remote_routes: tuple[Route, ...],
         time_s: int,
         reserved_available_time: dict[int, float],
+        satellite_views_by_id: dict[int, SatelliteView],
         compute_config: ComputeConfig,
         isl_config: ISLConfig,
     ) -> list[GreedyEnergyCandidate]:
@@ -750,6 +776,7 @@ class GreedyEnergyScheduler(Scheduler):
                 mode="relay",
                 time_s=time_s,
                 reserved_available_time=reserved_available_time,
+                satellite_views_by_id=satellite_views_by_id,
                 compute_config=compute_config,
                 isl_config=isl_config,
             )
@@ -851,31 +878,32 @@ class GreedyEnergyScheduler(Scheduler):
                     source=source,
                     time_s=time_s,
                     reserved_available_time=reserved_available_time,
+                    satellite_views_by_id=by_id,
                     compute_config=compute_config,
                     isl_config=isl_config,
                 )
                 if local is not None:
                     candidates.append(local)
 
-            if not candidates:
-                remote_routes = remote_routes_by_source.get(source.sat_id)
-                if remote_routes is None:
-                    remote_routes = self._nearest_sunlit_compute_routes(
-                        source=source,
-                        satellite_views_by_id=by_id,
-                        isl_graph=isl_graph,
-                    )
-                    remote_routes_by_source[source.sat_id] = remote_routes
-                candidates.extend(
-                    self._remote_compute_candidates(
-                        task=task,
-                        remote_routes=remote_routes,
-                        time_s=time_s,
-                        reserved_available_time=reserved_available_time,
-                        compute_config=compute_config,
-                        isl_config=isl_config,
-                    )
+            remote_routes = remote_routes_by_source.get(source.sat_id)
+            if remote_routes is None:
+                remote_routes = self._nearest_sunlit_compute_routes(
+                    source=source,
+                    satellite_views_by_id=by_id,
+                    isl_graph=isl_graph,
                 )
+                remote_routes_by_source[source.sat_id] = remote_routes
+            candidates.extend(
+                self._remote_compute_candidates(
+                    task=task,
+                    remote_routes=remote_routes,
+                    time_s=time_s,
+                    reserved_available_time=reserved_available_time,
+                    satellite_views_by_id=by_id,
+                    compute_config=compute_config,
+                    isl_config=isl_config,
+                )
+            )
 
             if not candidates:
                 assignments.append(
@@ -891,9 +919,10 @@ class GreedyEnergyScheduler(Scheduler):
             chosen = min(
                 candidates,
                 key=lambda candidate: (
+                    candidate.battery_cost_j,
                     candidate.finish_time_s,
-                    candidate.assignment.hop_count,
                     candidate.energy_j,
+                    candidate.assignment.hop_count,
                     candidate.assignment.target_sat,
                 ),
             )
