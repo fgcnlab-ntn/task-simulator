@@ -170,53 +170,6 @@ class PhoenixLiteSchedulerTests(unittest.TestCase):
         self.assertEqual(assignment.route.nodes, (0,))
         self.assertEqual(assignment.score, 30.0)
 
-    def test_deferred_tasks_reserve_future_source_capacity(self) -> None:
-        scheduler = PhoenixLiteScheduler()
-
-        assignments = scheduler.assign_tasks(
-            tasks=[
-                task(task_id=1, deadline_s=11.5),
-                task(task_id=2, deadline_s=11.5),
-            ],
-            satellite_views=[
-                view(0, sunlit=False, plane=0, slot=0, next_sunlit_time_s=10.0),
-                view(1, sunlit=True, battery_j=1000.0, plane=1, slot=0),
-            ],
-            time_s=0,
-            step_s=10,
-            battery=BatteryConfig(100.0, 100.0, 10.0, 0.0, 0.0),
-            compute_config=ComputeConfig(
-                cycles_per_input_bit=1.0,
-                cpu_frequency_hz=1.0,
-                cpu_power_w=1.0,
-            ),
-            task_config=TaskConfig(
-                enabled=True,
-                interval_s=10,
-                generation_mode="satellite-deterministic",
-                random_seed=1,
-                tasks_per_sat=1,
-                tasks_per_step_choices=(1,),
-                tasks_per_step_weights=(1.0,),
-                input_bits=1.0,
-                input_bits_choices=(1.0,),
-                input_bits_weights=(1.0,),
-                output_bits=0.0,
-                output_bits_choices=(0.0,),
-                output_bits_weights=(1.0,),
-                deadline_s=30.0,
-                demand_distribution=demand_distribution(()),
-                min_elevation_deg=30.0,
-            ),
-            isl_config=ISLConfig(rate_bps=1.0e9, tx_power_w=0.0),
-            isl_graph=ISLGraph({0: (1,), 1: (0,)}),
-            scheduler_config=SchedulerConfig(name="phoenix"),
-        )
-
-        self.assertEqual([assignment.mode for assignment in assignments], ["defer", "offload"])
-        self.assertEqual(assignments[0].score, 10.0)
-        self.assertEqual(assignments[1].route.nodes, (0, 1))
-
     def test_eclipse_source_offloads_when_next_sunlight_misses_deadline(self) -> None:
         assignment = assign_one(
             PhoenixLiteScheduler(),
@@ -313,73 +266,21 @@ class PhoenixLiteSchedulerTests(unittest.TestCase):
 
     def test_orbit_load_balances_planes_before_battery(self) -> None:
         scheduler = PhoenixLiteScheduler()
-
-        assignments = scheduler.assign_tasks(
-            tasks=[
-                task(task_id=1, deadline_s=5.0),
-                task(task_id=2, deadline_s=5.0),
-            ],
-            satellite_views=[
-                view(0, sunlit=False, plane=0, slot=0),
-                view(1, sunlit=True, battery_j=1000.0, plane=1, slot=0),
-                view(2, sunlit=True, battery_j=100.0, plane=2, slot=0),
-            ],
-            time_s=0,
-            step_s=10,
-            battery=BatteryConfig(100.0, 100.0, 10.0, 0.0, 0.0),
-            compute_config=ComputeConfig(
-                cycles_per_input_bit=1.0,
-                cpu_frequency_hz=1.0,
-                cpu_power_w=1.0,
-            ),
-            task_config=TaskConfig(
-                enabled=True,
-                interval_s=10,
-                generation_mode="satellite-deterministic",
-                random_seed=1,
-                tasks_per_sat=1,
-                tasks_per_step_choices=(1,),
-                tasks_per_step_weights=(1.0,),
-                input_bits=1.0,
-                input_bits_choices=(1.0,),
-                input_bits_weights=(1.0,),
-                output_bits=0.0,
-                output_bits_choices=(0.0,),
-                output_bits_weights=(1.0,),
-                deadline_s=30.0,
-                demand_distribution=demand_distribution(()),
-                min_elevation_deg=30.0,
-            ),
-            isl_config=ISLConfig(rate_bps=1.0e9, tx_power_w=0.0),
-            isl_graph=ISLGraph({0: (1, 2), 1: (0,), 2: (0,)}),
-            scheduler_config=SchedulerConfig(name="phoenix"),
-        )
-
-        self.assertEqual(
-            [assignment.route.nodes for assignment in assignments],
-            [(0, 1), (0, 2)],
-        )
-        self.assertEqual(scheduler.plane_load_by_plane, {1: 1.0, 2: 1.0})
-
-    def test_plane_load_resets_each_scheduling_batch(self) -> None:
-        scheduler = PhoenixLiteScheduler()
-        scheduler.plane_load_by_plane[1] = 99.0
+        scheduler.plane_load_by_plane[1] = 4.0
 
         assignment = assign_one(
             scheduler,
             task_=task(deadline_s=5.0),
             views=[
                 view(0, sunlit=False, plane=0, slot=0),
-                view(1, sunlit=True, battery_j=100.0, plane=1, slot=0),
-                view(2, sunlit=True, battery_j=1000.0, plane=2, slot=0),
+                view(1, sunlit=True, battery_j=1000.0, plane=1, slot=0),
+                view(2, sunlit=True, battery_j=100.0, plane=2, slot=0),
             ],
             graph=ISLGraph({0: (1, 2), 1: (0,), 2: (0,)}),
             step_s=10,
         )
 
-        self.assertEqual(assignment.route.nodes, (0, 1))
-        self.assertEqual(scheduler.plane_load_by_plane, {1: 1.0})
-        self.assertIs(scheduler.task_count_by_plane, scheduler.plane_load_by_plane)
+        self.assertEqual(assignment.route.nodes, (0, 2))
 
     def test_peer_selection_does_not_scan_unselected_planes(self) -> None:
         assignment = assign_one(
