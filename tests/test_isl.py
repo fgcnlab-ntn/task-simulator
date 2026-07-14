@@ -262,6 +262,100 @@ class ISLGraphTests(unittest.TestCase):
         self.assertEqual(assignment.route.nodes, (0, 1, 2))
         self.assertEqual(assignment.mode, "offload")
 
+    def test_nearest_sunlit_scheduler_prefers_shorter_grid_route(self) -> None:
+        task = Task(
+            task_id=1,
+            created_time_s=0,
+            source_sat=0,
+            input_bits=1.0,
+            output_bits=1.0,
+            deadline_s=30.0,
+        )
+        views = [
+            view(0, sunlit=False, x=0.0),
+            view(1, sunlit=True, x=100.0),
+            view(2, sunlit=True, x=1.0),
+            view(3, sunlit=False, x=0.5),
+        ]
+        graph = ISLGraph({0: (1, 3), 1: (0,), 2: (3,), 3: (0, 2)})
+
+        assignment = NearestSunlitScheduler().assign_task(
+            task=task,
+            satellite_views=views,
+            isl_graph=graph,
+        )
+
+        self.assertEqual(assignment.route.nodes, (0, 1))
+        self.assertEqual(assignment.mode, "offload")
+
+    def test_nearest_sunlit_scheduler_preserves_order_for_equal_grid_route(
+        self,
+    ) -> None:
+        task = Task(
+            task_id=1,
+            created_time_s=0,
+            source_sat=0,
+            input_bits=1.0,
+            output_bits=1.0,
+            deadline_s=30.0,
+        )
+        views = [
+            view(0, sunlit=False, x=0.0),
+            view(2, sunlit=True, x=100.0),
+            view(1, sunlit=True, x=1.0),
+        ]
+        graph = ISLGraph({0: (1, 2), 1: (0,), 2: (0,)})
+
+        assignment = NearestSunlitScheduler().assign_task(
+            task=task,
+            satellite_views=views,
+            isl_graph=graph,
+        )
+
+        self.assertEqual(assignment.route.nodes, (0, 2))
+        self.assertEqual(assignment.mode, "offload")
+
+    def test_nearest_sunlit_batch_reuses_source_decision(self) -> None:
+        tasks = [
+            Task(
+                task_id=task_id,
+                created_time_s=0,
+                source_sat=0,
+                input_bits=1.0,
+                output_bits=1.0,
+                deadline_s=30.0,
+            )
+            for task_id in (1, 2)
+        ]
+        views = [
+            view(0, sunlit=False, x=0.0),
+            view(1, sunlit=True, x=1.0),
+        ]
+        graph = ISLGraph({0: (1,), 1: (0,)})
+
+        assignments = NearestSunlitScheduler().assign_tasks(
+            tasks=tasks,
+            satellite_views=views,
+            time_s=0,
+            step_s=1,
+            battery=None,
+            compute_config=None,
+            task_config=None,
+            isl_config=None,
+            isl_graph=graph,
+            scheduler_config=None,
+        )
+
+        self.assertEqual([assignment.task_id for assignment in assignments], [1, 2])
+        self.assertEqual(
+            [assignment.route.nodes for assignment in assignments],
+            [(0, 1), (0, 1)],
+        )
+        self.assertEqual(
+            [assignment.mode for assignment in assignments],
+            ["offload", "offload"],
+        )
+
     def test_nearest_sunlit_scheduler_ignores_unreachable_sunlit_target(self) -> None:
         task = Task(
             task_id=1,
