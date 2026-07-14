@@ -184,6 +184,11 @@ def state_record(
                     "consumed": state.consumed_j,
                     "tasks": state.task_energy_j,
                 },
+                "task_load": {
+                    "compute_time_s": state.task_compute_time_s,
+                    "compute_energy_j": state.task_compute_energy_j,
+                    "transmission_energy_j": state.task_transmission_energy_j,
+                },
                 "battery_status": {
                     "below_min_safe": not state.safe_battery,
                     "first_breach": state.sat_id in new_breach_ids,

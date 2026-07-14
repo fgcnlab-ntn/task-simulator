@@ -88,6 +88,14 @@ class RunLogTests(unittest.TestCase):
             records = [json.loads(line) for line in lines]
             self.assertEqual([record["time_s"] for record in records], [0, 30])
             self.assertNotIn("battery_pct", records[0]["satellites"][0])
+            self.assertEqual(
+                records[0]["satellites"][0]["task_load"],
+                {
+                    "compute_time_s": 0.0,
+                    "compute_energy_j": 0.0,
+                    "transmission_energy_j": 0.0,
+                },
+            )
             manifest = json.loads((output / "run.json").read_text())
             self.assertEqual(manifest["status"], "completed")
             self.assertIsInstance(manifest["elapsed_wall_s"], float)
@@ -142,6 +150,32 @@ class RunLogTests(unittest.TestCase):
             self.assertEqual(
                 summary["energy"]["eclipse"],
                 {"idle_j": 7.0, "task_j": 10.0, "total_j": 17.0},
+            )
+
+    def test_writes_task_load_breakdown(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            start = dt.datetime(2026, 6, 14, tzinfo=dt.timezone.utc)
+            log = RunLog(output, start, {})
+            state = replace(
+                sample_state(30),
+                task_energy_j=12.0,
+                task_compute_time_s=0.25,
+                task_compute_energy_j=10.0,
+                task_transmission_energy_j=2.0,
+            )
+
+            log.write_step([state])
+            log.complete()
+
+            record = next(iter_state_steps(output))
+            self.assertEqual(
+                record["satellites"][0]["task_load"],
+                {
+                    "compute_time_s": 0.25,
+                    "compute_energy_j": 10.0,
+                    "transmission_energy_j": 2.0,
+                },
             )
 
     def test_records_unique_battery_breaches(self) -> None:

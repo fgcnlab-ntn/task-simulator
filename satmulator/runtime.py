@@ -82,6 +82,9 @@ class SatelliteRuntime:
         failed_tasks: int,
         deferred_tasks: int,
         task_energy_j: float,
+        task_compute_time_s: float = 0.0,
+        task_compute_energy_j: float = 0.0,
+        task_transmission_energy_j: float = 0.0,
     ) -> SatelliteState:
         return SatelliteState(
             time_s=time_s,
@@ -109,6 +112,9 @@ class SatelliteRuntime:
             failed_tasks=failed_tasks,
             deferred_tasks=deferred_tasks,
             task_energy_j=task_energy_j,
+            task_compute_time_s=task_compute_time_s,
+            task_compute_energy_j=task_compute_energy_j,
+            task_transmission_energy_j=task_transmission_energy_j,
         )
 
 

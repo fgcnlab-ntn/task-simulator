@@ -222,6 +222,9 @@ class SatelliteState:
     completed_tasks: int
     failed_tasks: int
     task_energy_j: float
+    task_compute_time_s: float = 0.0
+    task_compute_energy_j: float = 0.0
+    task_transmission_energy_j: float = 0.0
     deferred_tasks: int = 0
 
 

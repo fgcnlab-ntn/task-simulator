@@ -112,6 +112,12 @@ def satellite_state_from_record(
     velocity = _vector(record.get("velocity_km_s"), "velocity_km_s", 3)
     battery_j = _number(record.get("battery_j"), "battery_j")
     energy = _object(record.get("energy_delta_j"), "energy_delta_j")
+    task_load_value = record.get("task_load")
+    task_load = (
+        {}
+        if task_load_value is None
+        else _object(task_load_value, "task_load")
+    )
     counts = _object(record.get("task_counts"), "task_counts")
     geodetic_value = record.get("geodetic")
     geodetic = None if geodetic_value is None else _object(geodetic_value, "geodetic")
@@ -144,6 +150,18 @@ def satellite_state_from_record(
         completed_tasks=_integer(counts.get("completed"), "completed tasks"),
         failed_tasks=_integer(counts.get("failed"), "failed tasks"),
         task_energy_j=_number(energy.get("tasks"), "task energy"),
+        task_compute_time_s=_number(
+            task_load.get("compute_time_s", 0.0),
+            "task_load compute_time_s",
+        ),
+        task_compute_energy_j=_number(
+            task_load.get("compute_energy_j", 0.0),
+            "task_load compute_energy_j",
+        ),
+        task_transmission_energy_j=_number(
+            task_load.get("transmission_energy_j", 0.0),
+            "task_load transmission_energy_j",
+        ),
         deferred_tasks=_integer(counts.get("deferred", 0), "deferred tasks"),
     )
 

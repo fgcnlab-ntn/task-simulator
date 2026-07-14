@@ -93,6 +93,9 @@ class SatelliteStepStats:
     failed_tasks: int = 0
     deferred_tasks: int = 0
     task_energy_j: float = 0.0
+    task_compute_time_s: float = 0.0
+    task_compute_energy_j: float = 0.0
+    task_transmission_energy_j: float = 0.0
     harvested_j: float = 0.0
     consumed_j: float = 0.0
 
@@ -467,9 +470,22 @@ def apply_step(
             cpu_time_left -= target_cpu_time_s
             running.remaining_compute_time_s -= target_cpu_time_s
 
-            energy_by_sat = dict(running.transmission_energy_by_sat)
+            transmission_energy_by_sat = dict(running.transmission_energy_by_sat)
             running.transmission_energy_by_sat.clear()
             compute_energy_j = target_cpu_time_s * compute_config.cpu_power_w
+
+            for sat_id, energy_j in transmission_energy_by_sat.items():
+                stats_by_sat[sat_id].task_transmission_energy_j += energy_j
+
+            if compute_energy_j:
+                stats_by_sat[running.target_sat].task_compute_time_s += (
+                    target_cpu_time_s
+                )
+                stats_by_sat[running.target_sat].task_compute_energy_j += (
+                    compute_energy_j
+                )
+
+            energy_by_sat = transmission_energy_by_sat
             if compute_energy_j:
                 energy_by_sat[running.target_sat] = (
                     energy_by_sat.get(running.target_sat, 0.0) + compute_energy_j
@@ -581,6 +597,9 @@ def apply_step(
                 failed_tasks=stats.failed_tasks,
                 deferred_tasks=stats.deferred_tasks,
                 task_energy_j=stats.task_energy_j,
+                task_compute_time_s=stats.task_compute_time_s,
+                task_compute_energy_j=stats.task_compute_energy_j,
+                task_transmission_energy_j=stats.task_transmission_energy_j,
             )
         )
 
