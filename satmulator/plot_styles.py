@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Iterable
 
 
@@ -22,7 +23,7 @@ METHOD_ORDER: tuple[str, ...] = (
     "local-only",
     "nearest-sunlit",
     "greedy-energy",
-    "PHOENIX",
+    "phoenix2",
     "Method3",
 )
 
@@ -51,9 +52,9 @@ _METHOD_STYLES: dict[str, MethodPlotStyle] = {
         hatch="xx",
         marker="^",
     ),
-    "PHOENIX": MethodPlotStyle(
-        method="PHOENIX",
-        label="PHOENIX",
+    "phoenix2": MethodPlotStyle(
+        method="phoenix2",
+        label="phoenix",
         color="#2CA02C",
         alpha=METHOD_ALPHA,
         hatch="//",
@@ -73,8 +74,7 @@ _METHOD_ALIASES = {
     "local-only": "local-only",
     "nearest-sunlit": "nearest-sunlit",
     "greedy-energy": "greedy-energy",
-    "phoenix": "PHOENIX",
-    "PHOENIX": "PHOENIX",
+    "phoenix2": "phoenix2",
     "method3": "Method3",
     "Method3": "Method3",
 }
@@ -85,6 +85,13 @@ def canonical_method(method: str) -> str:
         return _METHOD_ALIASES[method]
     except KeyError as exc:
         raise ValueError(f"unknown method: {method}") from exc
+
+
+def run_display_label(run_dir: str | Path) -> str:
+    name = Path(run_dir).name.replace("_", "-")
+    if name == "phoenix2":
+        return "phoenix"
+    return name
 
 
 def method_style(method: str) -> MethodPlotStyle:

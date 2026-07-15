@@ -2255,49 +2255,19 @@ class Method4Scheduler(Method3Scheduler):
         return assignments
 
 
-class PhoenixLiteScheduler(Scheduler):
-    """PHOENIX-inspired scheduler without ground-station support.
+class _PhoenixSchedulerBase(Scheduler):
+    """Shared PHOENIX helper logic without a public scheduler registration.
 
-    This is deliberately not the full PHOENIX paper algorithm.  The simulator
-    has no ground-station model and no per-task scheduled start time, so the
-    only honest approximation is:
-
-    * prefer local execution when the source is sunlit;
-    * defer eclipse-side local work until predicted sunlight when that can
-      still meet the task deadline;
-    * otherwise choose one sunlit orbit plane by PHOENIX's energy/sunlight load
-      ratio, then offload to the best residual-energy feasible satellite in it.
+    The simulator has no ground-station model and no per-task scheduled start
+    time, so Phoenix2 uses these bounded peer-selection helpers with its own
+    batch-local scheduling state.
     """
-
-    name = "phoenix"
 
     def __init__(self) -> None:
         self.plane_load_by_plane: dict[int, float] = {}
         # Backward-compatible alias for older tests/scripts.  The value is no
         # longer a task count; it is the compute/energy load assigned to a plane.
         self.task_count_by_plane = self.plane_load_by_plane
-
-    def assign_task(
-        self,
-        *,
-        task: Task,
-        satellite_views: list[SatelliteView],
-        isl_graph: ISLGraph,
-    ) -> Assignment:
-        assert task.source_sat is not None
-        by_id = {sat.sat_id: sat for sat in satellite_views}
-        source = by_id[task.source_sat]
-        if source.sunlit:
-            return Assignment(
-                task_id=task.task_id,
-                route=route_or_raise(isl_graph, source.sat_id, source.sat_id),
-                mode="local",
-            )
-        return NearestSunlitScheduler().assign_task(
-            task=task,
-            satellite_views=satellite_views,
-            isl_graph=isl_graph,
-        )
 
     def _candidate_finish_time(
         self,
@@ -2323,32 +2293,6 @@ class PhoenixLiteScheduler(Scheduler):
         if finish_time > deadline_time:
             return None
         return finish_time, timing
-
-    def _defer_time_if_deadline_safe(
-        self,
-        *,
-        task: Task,
-        source: SatelliteView,
-        time_s: int,
-        step_s: int,
-        compute_config: ComputeConfig,
-        isl_config: ISLConfig,
-    ) -> float | None:
-        local_route = Route((source.sat_id,))
-        timing = estimate_route_timing(
-            task=task,
-            route=local_route,
-            compute_config=compute_config,
-            isl_config=isl_config,
-        )
-        defer_until = source.next_sunlit_time_s
-        if defer_until is None or defer_until <= float(time_s):
-            defer_until = float(time_s + step_s)
-
-        finish_after_wait = defer_until + source.queue_backlog_s + timing.compute_time_s
-        if finish_after_wait <= task.created_time_s + task.deadline_s:
-            return defer_until
-        return None
 
     @staticmethod
     def _plane_of(sat: SatelliteView) -> int | None:
@@ -2626,139 +2570,7 @@ class PhoenixLiteScheduler(Scheduler):
                 self.plane_load_by_plane.get(plane, 0.0) + load_j
             )
 
-    def assign_tasks(
-        self,
-        *,
-        tasks,
-        satellite_views,
-        time_s,
-        step_s,
-        battery,
-        compute_config,
-        task_config,
-        isl_config,
-        isl_graph,
-        scheduler_config,
-    ):
-        by_id = {sat.sat_id: sat for sat in satellite_views}
-        reserved_available_time = {
-            sat.sat_id: float(time_s) + sat.queue_backlog_s for sat in satellite_views
-        }
-        reserved_energy = {
-            sat.sat_id: sat.queue_backlog_s * compute_config.cpu_power_w
-            for sat in satellite_views
-        }
-        ordered_tasks = sorted(
-            tasks,
-            key=lambda task: (task.created_time_s + task.deadline_s, task.task_id),
-        )
-        candidate_cache = self._candidate_cache(satellite_views)
-
-        assignments = []
-        routes_by_source: dict[int, dict[int, Route]] = {}
-        searched_targets_by_source: dict[int, set[int]] = {}
-
-        for task in ordered_tasks:
-            assert task.source_sat is not None
-            source = by_id[task.source_sat]
-
-            chosen = None
-            defer_until = None
-
-            if source.sunlit:
-                chosen = self._choose_local(
-                    task=task,
-                    source=source,
-                    isl_graph=isl_graph,
-                    time_s=time_s,
-                    reserved_available_time=reserved_available_time,
-                    compute_config=compute_config,
-                    isl_config=isl_config,
-                    mode="local",
-                )
-            else:
-                defer_until = self._defer_time_if_deadline_safe(
-                    task=task,
-                    source=source,
-                    time_s=time_s,
-                    step_s=step_s,
-                    compute_config=compute_config,
-                    isl_config=isl_config,
-                )
-
-            if not source.sunlit and defer_until is not None:
-                assignments.append(
-                    Assignment(
-                        task_id=task.task_id,
-                        route=route_or_raise(isl_graph, source.sat_id, source.sat_id),
-                        mode="defer",
-                        score=defer_until,
-                    )
-                )
-                continue
-
-            if chosen is None:
-                chosen = self._choose_peer(
-                    task=task,
-                    source=source,
-                    isl_graph=isl_graph,
-                    routes_by_source=routes_by_source,
-                    searched_targets_by_source=searched_targets_by_source,
-                    candidate_cache=candidate_cache,
-                    time_s=time_s,
-                    reserved_available_time=reserved_available_time,
-                    reserved_energy=reserved_energy,
-                    battery=battery,
-                    compute_config=compute_config,
-                    isl_config=isl_config,
-                )
-
-            if chosen is None:
-                chosen = self._choose_local(
-                    task=task,
-                    source=source,
-                    isl_graph=isl_graph,
-                    time_s=time_s,
-                    reserved_available_time=reserved_available_time,
-                    compute_config=compute_config,
-                    isl_config=isl_config,
-                    mode="local",
-                )
-
-            if chosen is None:
-                assignments.append(
-                    Assignment(
-                        task_id=task.task_id,
-                        route=route_or_raise(isl_graph, source.sat_id, source.sat_id),
-                        mode="fail",
-                        score=float("inf"),
-                        failed_reason="no_feasible_candidate",
-                    )
-                )
-                continue
-
-            assignment, finish_time = chosen
-            assignments.append(assignment)
-            reserved_available_time[assignment.target_sat] = finish_time
-            cost = estimate_route_cost(
-                task=task,
-                route=assignment.route,
-                compute_config=compute_config,
-                isl_config=isl_config,
-            )
-            if assignment.mode == "offload":
-                for sat_id, energy_j in cost.energy_by_sat.items():
-                    reserved_energy[sat_id] += energy_j
-            self._remember_assignment_load(
-                assignment,
-                by_id,
-                load_j=cost.energy_for(assignment.target_sat),
-            )
-
-        return assignments
-
-
-class Phoenix2Scheduler(PhoenixLiteScheduler):
+class Phoenix2Scheduler(_PhoenixSchedulerBase):
     """PHOENIX variant with bounded scheduling state.
 
     This keeps the current PHOENIX energy-aware peer scoring, but restores the
@@ -2960,8 +2772,6 @@ def create_scheduler(name: str) -> Scheduler:
         return Method3ModScheduler()
     if name == Method4Scheduler.name:
         return Method4Scheduler()
-    if name == PhoenixLiteScheduler.name:
-        return PhoenixLiteScheduler()
-    if name == Phoenix2Scheduler.name:
+    if name in {Phoenix2Scheduler.name, "phoenix"}:
         return Phoenix2Scheduler()
     raise ValueError(f"unknown scheduler: {name}")

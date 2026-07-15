@@ -11,7 +11,37 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from satmulator.plot_styles import method_style
+from satmulator.plot_styles import method_style, run_display_label
+
+
+FALLBACK_COLORS = [
+    "#4C78A8",
+    "#F58518",
+    "#54A24B",
+    "#E45756",
+    "#B279A2",
+    "#72B7B2",
+    "#FF9DA6",
+    "#9D755D",
+    "#BAB0AC",
+]
+FALLBACK_HATCHES = ["", "//", "\\", "xx", "--", "++", "oo", "**", ".."]
+
+
+def plot_style(method: str, index: int):
+    try:
+        return method_style(method)
+    except ValueError:
+        from types import SimpleNamespace
+
+        return SimpleNamespace(
+            method=method,
+            label=method,
+            color=FALLBACK_COLORS[index % len(FALLBACK_COLORS)],
+            alpha=0.75,
+            hatch=FALLBACK_HATCHES[index % len(FALLBACK_HATCHES)],
+            marker="o",
+        )
 
 
 def _pyplot():
@@ -42,7 +72,7 @@ def _pyplot():
 
 
 def default_method(run_dir: Path) -> str:
-    return run_dir.name.replace("_", "-")
+    return run_display_label(run_dir)
 
 
 def load_fail_rate(run_dir: Path) -> tuple[int, float]:
@@ -75,13 +105,13 @@ def write_figure(path: Path, series: list[dict[str, object]]) -> None:
     plt = _pyplot()
     fig, ax = plt.subplots(figsize=(8.2, 5.1))
 
-    labels = [method_style(str(item["method"])).label for item in series]
+    styles = [plot_style(str(item["method"]), index) for index, item in enumerate(series)]
+    labels = [style.label for style in styles]
     failed = [int(item["failed"]) for item in series]
     rates = [float(item["fail_rate"]) for item in series]
     x = list(range(len(series)))
 
-    for xpos, item, rate in zip(x, series, rates):
-        style = method_style(str(item["method"]))
+    for xpos, style, rate in zip(x, styles, rates):
         ax.bar(
             xpos,
             rate,

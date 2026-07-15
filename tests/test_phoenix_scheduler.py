@@ -14,7 +14,6 @@ from satmulator.models import (
 import satmulator.scheduler as scheduler_module
 from satmulator.scheduler import (
     Phoenix2Scheduler,
-    PhoenixLiteScheduler,
     create_scheduler,
     routes_to_targets,
 )
@@ -64,7 +63,7 @@ def task(
 
 
 def assign_one(
-    scheduler: PhoenixLiteScheduler,
+    scheduler: Phoenix2Scheduler,
     *,
     task_: Task,
     views: list[SatelliteView],
@@ -103,11 +102,11 @@ def assign_one(
         ),
         isl_config=ISLConfig(rate_bps=1.0e9, tx_power_w=0.0),
         isl_graph=graph,
-        scheduler_config=SchedulerConfig(name="phoenix"),
+        scheduler_config=SchedulerConfig(name="phoenix2"),
     )[0]
 
 
-class PhoenixLiteSchedulerTests(unittest.TestCase):
+class Phoenix2SchedulerTests(unittest.TestCase):
     def test_routes_to_targets_returns_only_requested_reachable_routes(self) -> None:
         routes = routes_to_targets(
             ISLGraph(
@@ -127,15 +126,15 @@ class PhoenixLiteSchedulerTests(unittest.TestCase):
         self.assertEqual(routes[2].nodes, (0, 1, 2))
         self.assertEqual(routes[3].nodes, (0, 1, 2, 3))
 
-    def test_create_scheduler_registers_phoenix(self) -> None:
-        self.assertIsInstance(create_scheduler("phoenix"), PhoenixLiteScheduler)
-
     def test_create_scheduler_registers_phoenix2(self) -> None:
         self.assertIsInstance(create_scheduler("phoenix2"), Phoenix2Scheduler)
 
+    def test_create_scheduler_treats_phoenix_as_phoenix2(self) -> None:
+        self.assertIsInstance(create_scheduler("phoenix"), Phoenix2Scheduler)
+
     def test_sunlit_source_uses_local_execution(self) -> None:
         assignment = assign_one(
-            PhoenixLiteScheduler(),
+            Phoenix2Scheduler(),
             task_=task(),
             views=[
                 view(0, sunlit=True, plane=0, slot=0),
@@ -149,7 +148,7 @@ class PhoenixLiteSchedulerTests(unittest.TestCase):
 
     def test_eclipse_source_defers_when_one_step_wait_is_safe(self) -> None:
         assignment = assign_one(
-            PhoenixLiteScheduler(),
+            Phoenix2Scheduler(),
             task_=task(deadline_s=20.0),
             views=[
                 view(0, sunlit=False, plane=0, slot=0),
@@ -164,7 +163,7 @@ class PhoenixLiteSchedulerTests(unittest.TestCase):
 
     def test_eclipse_source_defers_until_predicted_sunlight(self) -> None:
         assignment = assign_one(
-            PhoenixLiteScheduler(),
+            Phoenix2Scheduler(),
             task_=task(deadline_s=50.0),
             views=[
                 view(0, sunlit=False, plane=0, slot=0, next_sunlit_time_s=30.0),
@@ -227,7 +226,7 @@ class PhoenixLiteSchedulerTests(unittest.TestCase):
 
     def test_eclipse_source_offloads_when_next_sunlight_misses_deadline(self) -> None:
         assignment = assign_one(
-            PhoenixLiteScheduler(),
+            Phoenix2Scheduler(),
             task_=task(deadline_s=20.0),
             views=[
                 view(0, sunlit=False, plane=0, slot=0, next_sunlit_time_s=30.0),
@@ -242,7 +241,7 @@ class PhoenixLiteSchedulerTests(unittest.TestCase):
 
     def test_eclipse_source_offloads_when_wait_would_miss_deadline(self) -> None:
         assignment = assign_one(
-            PhoenixLiteScheduler(),
+            Phoenix2Scheduler(),
             task_=task(deadline_s=5.0),
             views=[
                 view(0, sunlit=False, plane=0, slot=0),
@@ -256,7 +255,7 @@ class PhoenixLiteSchedulerTests(unittest.TestCase):
         self.assertEqual(assignment.route.nodes, (0, 1))
 
     def test_peer_selection_records_energy_load_for_target_plane(self) -> None:
-        scheduler = PhoenixLiteScheduler()
+        scheduler = Phoenix2Scheduler()
         assignment = assign_one(
             scheduler,
             task_=task(deadline_s=5.0),
@@ -273,7 +272,7 @@ class PhoenixLiteSchedulerTests(unittest.TestCase):
         self.assertEqual(scheduler.plane_load_by_plane, {1: 1.0})
 
     def test_plane_load_uses_compute_energy_not_task_count(self) -> None:
-        scheduler = PhoenixLiteScheduler()
+        scheduler = Phoenix2Scheduler()
         assignment = assign_one(
             scheduler,
             task_=task(deadline_s=5.0, input_bits=3.0),
@@ -291,7 +290,7 @@ class PhoenixLiteSchedulerTests(unittest.TestCase):
 
     def test_peer_selection_uses_energy_score_not_raw_battery(self) -> None:
         assignment = assign_one(
-            PhoenixLiteScheduler(),
+            Phoenix2Scheduler(),
             task_=task(deadline_s=5.0),
             views=[
                 view(0, sunlit=False, plane=0, slot=0),
@@ -319,25 +318,7 @@ class PhoenixLiteSchedulerTests(unittest.TestCase):
         self.assertEqual(assignment.mode, "offload")
         self.assertEqual(assignment.route.nodes, (0, 2))
 
-    def test_orbit_load_balances_planes_before_battery(self) -> None:
-        scheduler = PhoenixLiteScheduler()
-        scheduler.plane_load_by_plane[1] = 4.0
-
-        assignment = assign_one(
-            scheduler,
-            task_=task(deadline_s=5.0),
-            views=[
-                view(0, sunlit=False, plane=0, slot=0),
-                view(1, sunlit=True, battery_j=1000.0, plane=1, slot=0),
-                view(2, sunlit=True, battery_j=100.0, plane=2, slot=0),
-            ],
-            graph=ISLGraph({0: (1, 2), 1: (0,), 2: (0,)}),
-            step_s=10,
-        )
-
-        self.assertEqual(assignment.route.nodes, (0, 2))
-
-    def test_phoenix2_orbit_load_is_bounded_to_current_batch(self) -> None:
+    def test_orbit_load_is_bounded_to_current_batch(self) -> None:
         scheduler = Phoenix2Scheduler()
         scheduler.plane_load_by_plane[1] = 4.0
 
@@ -358,7 +339,7 @@ class PhoenixLiteSchedulerTests(unittest.TestCase):
 
     def test_peer_selection_does_not_scan_unselected_planes(self) -> None:
         assignment = assign_one(
-            PhoenixLiteScheduler(),
+            Phoenix2Scheduler(),
             task_=task(deadline_s=5.0),
             views=[
                 view(0, sunlit=False, plane=0, slot=0),
@@ -381,7 +362,7 @@ class PhoenixLiteSchedulerTests(unittest.TestCase):
 
     def test_no_plane_metadata_falls_back_to_global_sunlit_peer(self) -> None:
         assignment = assign_one(
-            PhoenixLiteScheduler(),
+            Phoenix2Scheduler(),
             task_=task(deadline_s=5.0),
             views=[
                 view(0, sunlit=False, plane=-1, slot=0),
@@ -397,7 +378,7 @@ class PhoenixLiteSchedulerTests(unittest.TestCase):
 
     def test_no_feasible_candidate_fails(self) -> None:
         assignment = assign_one(
-            PhoenixLiteScheduler(),
+            Phoenix2Scheduler(),
             task_=task(deadline_s=0.5, input_bits=1.0),
             views=[
                 view(0, sunlit=False, plane=0, slot=0),
@@ -411,7 +392,7 @@ class PhoenixLiteSchedulerTests(unittest.TestCase):
         self.assertEqual(assignment.failed_reason, "no_feasible_candidate")
 
     def test_reuses_route_map_for_tasks_from_same_source(self) -> None:
-        scheduler = PhoenixLiteScheduler()
+        scheduler = Phoenix2Scheduler()
         views = [
             view(0, sunlit=False, plane=0, slot=0),
             view(1, sunlit=True, battery_j=100.0, plane=1, slot=0),
@@ -458,14 +439,14 @@ class PhoenixLiteSchedulerTests(unittest.TestCase):
                 ),
                 isl_config=ISLConfig(rate_bps=1.0e9, tx_power_w=0.0),
                 isl_graph=graph,
-                scheduler_config=SchedulerConfig(name="phoenix"),
+                scheduler_config=SchedulerConfig(name="phoenix2"),
             )
 
         self.assertEqual(routes_to_targets_.call_count, 1)
         self.assertEqual([assignment.mode for assignment in assignments], ["offload", "offload"])
 
     def test_builds_sunlit_candidate_cache_once_per_step(self) -> None:
-        scheduler = PhoenixLiteScheduler()
+        scheduler = Phoenix2Scheduler()
         views = [
             view(0, sunlit=False, plane=0, slot=0),
             view(1, sunlit=True, battery_j=100.0, plane=1, slot=0),
@@ -513,13 +494,13 @@ class PhoenixLiteSchedulerTests(unittest.TestCase):
                 ),
                 isl_config=ISLConfig(rate_bps=1.0e9, tx_power_w=0.0),
                 isl_graph=graph,
-                scheduler_config=SchedulerConfig(name="phoenix"),
+                scheduler_config=SchedulerConfig(name="phoenix2"),
             )
 
         self.assertEqual(candidate_cache.call_count, 1)
 
     def test_candidate_cache_keeps_plane_satellites_sorted_by_battery(self) -> None:
-        scheduler = PhoenixLiteScheduler()
+        scheduler = Phoenix2Scheduler()
         views = [
             view(sat_id, sunlit=True, battery_j=float(sat_id), plane=1, slot=sat_id)
             for sat_id in range(1, 7)

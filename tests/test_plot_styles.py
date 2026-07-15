@@ -12,6 +12,7 @@ from satmulator.plot_styles import (
     method_markers,
     method_style,
     ordered_methods,
+    run_display_label,
     violin_body_kwargs,
 )
 
@@ -24,7 +25,7 @@ class PlotStylesTests(unittest.TestCase):
                 "local-only",
                 "nearest-sunlit",
                 "greedy-energy",
-                "PHOENIX",
+                "phoenix2",
                 "Method3",
             ),
         )
@@ -37,15 +38,20 @@ class PlotStylesTests(unittest.TestCase):
         self.assertEqual(METHOD_ALPHA, 0.75)
 
     def test_accepts_existing_lowercase_directory_names(self) -> None:
-        self.assertEqual(canonical_method("phoenix"), "PHOENIX")
+        self.assertEqual(canonical_method("phoenix2"), "phoenix2")
         self.assertEqual(canonical_method("method3"), "Method3")
-        self.assertEqual(method_style("phoenix").color, "#2CA02C")
+        self.assertEqual(method_style("phoenix2").label, "phoenix")
+        self.assertEqual(method_style("phoenix2").color, "#2CA02C")
         self.assertEqual(method_style("method3").color, "#D62728")
+
+    def test_normalizes_run_labels(self) -> None:
+        self.assertEqual(run_display_label("phoenix2"), "phoenix")
+        self.assertEqual(run_display_label("method3"), "method3")
 
     def test_orders_input_by_global_order(self) -> None:
         self.assertEqual(
-            ordered_methods(["method3", "local-only", "phoenix"]),
-            ["local-only", "PHOENIX", "Method3"],
+            ordered_methods(["method3", "local-only", "phoenix2"]),
+            ["local-only", "phoenix2", "Method3"],
         )
 
     def test_raises_on_unknown_method(self) -> None:
@@ -63,7 +69,7 @@ class PlotStylesTests(unittest.TestCase):
             },
         )
         self.assertEqual(
-            violin_body_kwargs("PHOENIX"),
+            violin_body_kwargs("phoenix2"),
             {"facecolor": "#2CA02C", "edgecolor": "#222222", "alpha": 0.75},
         )
         self.assertEqual(

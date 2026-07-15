@@ -14,8 +14,10 @@ def load_summary(output_dir: Path) -> dict:
 
 
 def default_method_label(output_dir: Path) -> str:
-    name = output_dir.name
-    return name.replace("_", "-")
+    name = output_dir.name.replace("_", "-")
+    if name == "phoenix2":
+        return "phoenix"
+    return name
 
 
 def load_fail_rate(output_dir: Path, label: str | None = None) -> dict:

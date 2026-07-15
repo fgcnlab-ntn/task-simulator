@@ -3,11 +3,33 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 import tempfile
 from pathlib import Path
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from satmulator.plot_styles import METHOD_ORDER, line_kwargs, method_style
+
 FIXED_X_MAX = 50.0
 X_TICK_STEP = 5.0
+Y_TICKS = [i / 5.0 for i in range(6)]
+CDF_POINT_LEVELS = [0.2, 0.4, 0.6, 0.8, 1.0]
+
+
+def _canonical_method_name(run_name: str) -> str:
+    if run_name == "method3":
+        return "Method3"
+    return run_name
+
+
+def _sort_key(run_name: str) -> int:
+    try:
+        return METHOD_ORDER.index(_canonical_method_name(run_name))
+    except ValueError:
+        return len(METHOD_ORDER)
 
 
 def _pyplot():
@@ -43,7 +65,7 @@ def load_capacity_j(run_dir: Path) -> float:
 
 
 def default_label(run_dir: Path) -> str:
-    return run_dir.name.replace("_", "-")
+    return method_style(_canonical_method_name(run_dir.name.replace("_", "-"))).label
 
 
 def load_eclipse_dod_values(run_dir: Path) -> list[float]:
@@ -63,6 +85,30 @@ def load_eclipse_dod_values(run_dir: Path) -> list[float]:
     return values
 
 
+def build_cdf_curve(values: list[float], *, x_max: float, levels: list[float]) -> tuple[list[float], list[float]]:
+    if not values:
+        return [], []
+
+    sorted_values = sorted(values)
+    total = len(sorted_values)
+    x_values: list[float] = []
+    y_values: list[float] = []
+
+    for level in levels:
+        if level <= 0.0:
+            rank_index = 0
+        elif level >= 1.0:
+            rank_index = total - 1
+        else:
+            rank_index = max(0, min(total - 1, int(level * total) - 1))
+
+        x = sorted_values[rank_index]
+        x_values.append(max(0.0, min(x_max, x)))
+        y_values.append(level)
+
+    return x_values, y_values
+
+
 def write_svg(
     path: Path,
     series: list[dict[str, object]],
@@ -71,31 +117,24 @@ def write_svg(
 ) -> None:
     plt = _pyplot()
     fig, ax = plt.subplots(figsize=(8.2, 5.1))
-    default_colors = [
-        "#4C78A8",
-        "#F58518",
-        "#54A24B",
-        "#E45756",
-        "#B279A2",
-        "#72B7B2",
-        "#FF9DA6",
-        "#9D755D",
-        "#BAB0AC",
-    ]
-
-    for index, item in enumerate(series):
-        values = sorted(item["values"])
+    for item in series:
+        values = item["values"]
         if not values:
             continue
-        cdf = [(i + 1) / len(values) for i in range(len(values))]
-        ax.step(
+        x_values, cdf = build_cdf_curve(
             values,
+            x_max=FIXED_X_MAX,
+            levels=CDF_POINT_LEVELS,
+        )
+        if not x_values:
+            continue
+        ax.plot(
+            x_values,
             cdf,
-            where="post",
+            linestyle="-",
             linewidth=2.2,
-            color=str(item.get("color") or default_colors[index % len(default_colors)]),
-            linestyle=str(item.get("linestyle") or "-"),
             label=str(item["label"]),
+            **line_kwargs(str(item["method"])),
         )
 
     ax.set_xlabel("Eclipse satellite-time DoD (%)")
@@ -103,6 +142,7 @@ def write_svg(
     ax.set_title(title)
     ax.set_ylim(0.0, 1.02)
     ax.set_xlim(0.0, FIXED_X_MAX)
+    ax.set_yticks(Y_TICKS)
     ax.set_xticks([tick for tick in range(0, int(FIXED_X_MAX) + 1, int(X_TICK_STEP))])
     ax.grid(True, alpha=0.7)
     ax.legend(loc="lower right", framealpha=0.94)
@@ -116,8 +156,6 @@ def main() -> int:
     )
     parser.add_argument("runs", nargs="+", type=Path, help="Run directories with states.jsonl")
     parser.add_argument("--labels", nargs="*", help="Optional labels for each run")
-    parser.add_argument("--colors", nargs="*", help="Optional colors for each run")
-    parser.add_argument("--linestyles", nargs="*", help="Optional line styles for each run")
     parser.add_argument(
         "--title",
         default="CDF of Eclipse Satellite-Time DoD",
@@ -133,22 +171,28 @@ def main() -> int:
 
     if args.labels is not None and len(args.labels) != len(args.runs):
         raise ValueError("--labels count must match the number of run directories")
-    if args.colors is not None and len(args.colors) != len(args.runs):
-        raise ValueError("--colors count must match the number of run directories")
-    if args.linestyles is not None and len(args.linestyles) != len(args.runs):
-        raise ValueError("--linestyles count must match the number of run directories")
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
 
     series = []
     for index, run_dir in enumerate(args.runs):
-        label = args.labels[index] if args.labels is not None else default_label(run_dir)
-        item = {"label": label, "values": load_eclipse_dod_values(run_dir)}
-        if args.colors is not None:
-            item["color"] = args.colors[index]
-        if args.linestyles is not None:
-            item["linestyle"] = args.linestyles[index]
+        run_name = run_dir.name.replace("_", "-")
+        method_name = _canonical_method_name(run_name)
+        if args.labels is not None:
+            label = args.labels[index]
+        else:
+            label = method_style(method_name).label
+        item = {
+            "label": label,
+            "values": load_eclipse_dod_values(run_dir),
+            "style": method_style(method_name),
+            "method": method_name,
+            "sort_key": _sort_key(run_name),
+            "input_index": index,
+        }
         series.append(item)
+
+    series.sort(key=lambda item: (int(item["sort_key"]), int(item["input_index"])))
 
     write_svg(args.out, series, title=args.title)
     print(f"Wrote {args.out}")

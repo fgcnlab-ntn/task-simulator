@@ -14,19 +14,38 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from satmulator.plot_styles import (
     EDGE_COLOR,
-    canonical_method,
     method_style,
-    ordered_methods,
+    run_display_label,
 )
 
+
+RUN_METHODS = [
+    "local-only",
+    "nearest-sunlit",
+    "greedy-energy",
+    "method3",
+    "phoenix2",
+]
 
 METHOD_DIRS = {
     "local-only": "local-only",
     "nearest-sunlit": "nearest-sunlit",
     "greedy-energy": "greedy-energy",
-    "PHOENIX": "phoenix",
-    "Method3": "method3",
+    "method3": "method3",
+    "phoenix2": "phoenix2",
 }
+
+RUN_STYLES = {
+    "local-only": method_style("local-only"),
+    "nearest-sunlit": method_style("nearest-sunlit"),
+    "greedy-energy": method_style("greedy-energy"),
+    "method3": method_style("method3"),
+    "phoenix2": method_style("phoenix2"),
+}
+
+
+def style_for_method(method: str):
+    return RUN_STYLES[method]
 
 
 def _plotting():
@@ -86,7 +105,7 @@ def output_format(path: Path) -> str:
 
 def discover_run_dirs(base_dir: Path) -> list[Path]:
     dirs: list[Path] = []
-    for method in ordered_methods():
+    for method in RUN_METHODS:
         run_dir = base_dir / METHOD_DIRS[method]
         if run_dir.is_dir():
             dirs.append(run_dir)
@@ -474,7 +493,7 @@ def write_violin(
         if annotate_failure_rate:
             label = f"{label}\nfail {100.0 * float(item['failure_ratio']):.1f}%"
         labels.append(label)
-        palette[label] = method_style(str(item["method"])).color
+        palette[label] = style_for_method(str(item["method"])).color
         for value in item["values"]:
             method_column.append(label)
             loading_column.append(value)
@@ -499,7 +518,7 @@ def write_violin(
     )
     for body, item in zip(ax.collections, series):
         body.set_edgecolor(EDGE_COLOR)
-        body.set_alpha(method_style(str(item["method"])).alpha)
+        body.set_alpha(style_for_method(str(item["method"])).alpha)
 
     values = [list(item["values"]) for item in series]
     positions = list(range(len(series)))
@@ -631,8 +650,8 @@ def build_series(
         if not (run_dir / "run.json").exists():
             raise FileNotFoundError(f"missing run.json: {run_dir}")
         values, ylabel = load_or_build_loading(run_dir, metric=metric, use_cache=use_cache)
-        method = canonical_method(run_dir.name)
-        label = labels[index] if labels is not None else method_style(method).label
+        method = run_dir.name
+        label = labels[index] if labels is not None else run_display_label(run_dir)
         series.append(
             {
                 "method": method,
@@ -661,8 +680,8 @@ def build_illumination_series(
             run_dir,
             use_cache=use_cache,
         )
-        method = canonical_method(run_dir.name)
-        label = labels[index] if labels is not None else method_style(method).label
+        method = run_dir.name
+        label = labels[index] if labels is not None else run_display_label(run_dir)
         series.append(
             {
                 "method": method,
