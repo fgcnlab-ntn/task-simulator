@@ -2255,6 +2255,336 @@ class Method4Scheduler(Method3Scheduler):
         return assignments
 
 
+class Method5Scheduler(Method3Scheduler):
+    """
+    Improved Method3.
+
+    Main changes from Method3:
+    1. Keep the original least-loaded sunlit candidate logic.
+    2. Fix the sunlit heap peek behavior by restoring the peeked candidate
+       when it is not actually selected.
+    3. Use sunlight-aware deferral cost. Deferral is still one-slot deferral,
+       but it becomes cheaper when the source satellite is close to entering
+       sunlight and the task still has enough deadline slack.
+    """
+
+    name = "method5"
+
+    def _defer_cost(
+        self,
+        *,
+        source: SatelliteView,
+        time_s: int,
+        step_s: int,
+        deadline_time: float,
+        compute_time_s: float,
+        defer_penalty: float,
+        sunlight_defer_weight: float,
+    ) -> float:
+        eps = 1e-6
+
+        # One-slot deferral, same operational meaning as Method3.
+        t_fin_defer = float(time_s) + step_s + compute_time_s
+        if t_fin_defer > deadline_time:
+            return float("inf")
+
+        # Urgency after one-slot deferral.
+        slack_term = 1.0 / max((deadline_time - t_fin_defer) / step_s, eps)
+
+        # Sunlight-proximity term.
+        # If the source is in eclipse and will soon become sunlit while
+        # the task still has enough slack, deferral becomes cheaper.
+        if source.sunlit:
+            sunlight_term = 1.0
+        else:
+            next_sunlit_time = source.next_sunlit_time_s
+
+            if next_sunlit_time is None or next_sunlit_time <= float(time_s):
+                sunlight_term = 1.0
+            else:
+                time_to_sunlight = next_sunlit_time - float(time_s)
+                remaining_slack_now = deadline_time - float(time_s) - compute_time_s
+                sunlight_term = time_to_sunlight / max(remaining_slack_now, eps)
+
+        return defer_penalty + slack_term + sunlight_defer_weight * sunlight_term
+
+    def assign_tasks(
+        self,
+        *,
+        tasks: list[Task],
+        satellite_views: list[SatelliteView],
+        time_s: int,
+        step_s: int,
+        battery: BatteryConfig,
+        compute_config: ComputeConfig,
+        task_config: TaskConfig,
+        isl_config: ISLConfig,
+        isl_graph: ISLGraph,
+        scheduler_config: SchedulerConfig,
+    ) -> list[Assignment]:
+        import heapq
+
+        by_id = {sat.sat_id: sat for sat in satellite_views}
+
+        reserved_available_time = {
+            sat.sat_id: float(time_s) + sat.queue_backlog_s for sat in satellite_views
+        }
+
+        ordered_tasks = sorted(
+            tasks,
+            key=lambda task: (task.created_time_s + task.deadline_s, task.task_id),
+        )
+
+        unique_sources = {
+            task.source_sat for task in ordered_tasks if task.source_sat is not None
+        }
+        route_parents_by_source: dict[int, dict[int, int | None]] = {
+            source_sat: route_parents_from_source(isl_graph, source_sat)
+            for source_sat in unique_sources
+        }
+
+        warning_ratio = getattr(scheduler_config, "warning_ratio", 0.10)
+
+        sunlit_local_load_weight = getattr(
+            scheduler_config,
+            "sunlit_local_load_weight",
+            1.0,
+        )
+        sunlit_local_battery_weight = getattr(
+            scheduler_config,
+            "sunlit_local_battery_weight",
+            0.25,
+        )
+        eclipse_local_battery_weight = getattr(
+            scheduler_config,
+            "eclipse_local_battery_weight",
+            3.0,
+        )
+        eclipse_local_warning_penalty = getattr(
+            scheduler_config,
+            "eclipse_local_warning_penalty",
+            2.0,
+        )
+        sunlit_offload_load_weight = getattr(
+            scheduler_config,
+            "sunlit_offload_load_weight",
+            1.0,
+        )
+
+        # Method5-specific knobs.
+        # These use getattr defaults, so Method5 can run without changing
+        # SchedulerConfig or config files.
+        defer_penalty = getattr(
+            scheduler_config,
+            "method5_defer_penalty",
+            getattr(scheduler_config, "defer_penalty", 0.25),
+        )
+        sunlight_defer_weight = getattr(
+            scheduler_config,
+            "method5_sunlight_defer_weight",
+            getattr(scheduler_config, "sunlight_defer_weight", 1.0),
+        )
+
+        # Min-heap of current sunlit loads.
+        sunlit_heap = []
+        for sat in satellite_views:
+            if sat.sunlit:
+                heapq.heappush(
+                    sunlit_heap,
+                    (
+                        max(0.0, reserved_available_time[sat.sat_id] - float(time_s)),
+                        sat.sat_id,
+                    ),
+                )
+
+        assignments: list[Assignment] = []
+
+        for task in ordered_tasks:
+            assert task.source_sat is not None
+
+            source = by_id[task.source_sat]
+            deadline_time = task.created_time_s + task.deadline_s
+            compute_time_s = task_compute_time_s(task, compute_config)
+            compute_energy_j = compute_time_s * compute_config.cpu_power_w
+
+            # Action 1: source-side execution
+            local_result = self._local_cost(
+                sat=source,
+                available_time_s=reserved_available_time[source.sat_id],
+                time_s=time_s,
+                step_s=step_s,
+                deadline_time=deadline_time,
+                compute_time_s=compute_time_s,
+                compute_energy_j=compute_energy_j,
+                battery=battery,
+                warning_ratio=warning_ratio,
+                sunlit_local_load_weight=sunlit_local_load_weight,
+                sunlit_local_battery_weight=sunlit_local_battery_weight,
+                eclipse_local_battery_weight=eclipse_local_battery_weight,
+                eclipse_local_warning_penalty=eclipse_local_warning_penalty,
+            )
+
+            local_cost = float("inf")
+            local_finish = None
+            if local_result is not None:
+                local_cost, local_finish = local_result
+
+            # Action 2: least-loaded sunlit execution
+            sun_cost = float("inf")
+            sun_finish = None
+            sun_sat_id = None
+            sun_route = None
+            peeked_sun_sat_id = None
+
+            best_sunlit = self._peek_least_loaded_sunlit(
+                sunlit_heap=sunlit_heap,
+                reserved_available_time=reserved_available_time,
+                satellite_by_id=by_id,
+                time_s=time_s,
+                exclude_sat_id=source.sat_id,
+            )
+
+            if best_sunlit is not None:
+                candidate_sat_id, candidate_available_time = best_sunlit
+                peeked_sun_sat_id = candidate_sat_id
+
+                route_parents = route_parents_by_source[source.sat_id]
+                reversed_route_nodes = reversed_route_nodes_from_parents(
+                    route_parents,
+                    candidate_sat_id,
+                )
+
+                if reversed_route_nodes is not None:
+                    sun_result = self._sunlit_cost(
+                        available_time_s=candidate_available_time,
+                        time_s=time_s,
+                        step_s=step_s,
+                        deadline_time=deadline_time,
+                        compute_time_s=compute_time_s,
+                        load_weight=sunlit_offload_load_weight,
+                    )
+
+                    if sun_result is not None:
+                        sun_cost, sun_finish = sun_result
+                        sun_sat_id = candidate_sat_id
+                        sun_route = Route(tuple(reversed(reversed_route_nodes)))
+
+            # Action 3: sunlight-aware one-slot deferral
+            defer_cost = self._defer_cost(
+                source=source,
+                time_s=time_s,
+                step_s=step_s,
+                deadline_time=deadline_time,
+                compute_time_s=compute_time_s,
+                defer_penalty=defer_penalty,
+                sunlight_defer_weight=sunlight_defer_weight,
+            )
+
+            action, _ = min(
+                [
+                    ("local", local_cost),
+                    ("sunlit", sun_cost),
+                    ("defer", defer_cost),
+                ],
+                key=lambda x: x[1],
+            )
+
+            def restore_peeked_sunlit_candidate() -> None:
+                if peeked_sun_sat_id is None:
+                    return
+
+                heapq.heappush(
+                    sunlit_heap,
+                    (
+                        max(
+                            0.0,
+                            reserved_available_time[peeked_sun_sat_id] - float(time_s),
+                        ),
+                        peeked_sun_sat_id,
+                    ),
+                )
+
+            if action == "local" and local_finish is not None:
+                assignments.append(
+                    Assignment(
+                        task_id=task.task_id,
+                        route=Route((source.sat_id,)),
+                        mode="local",
+                        score=local_cost,
+                    )
+                )
+
+                reserved_available_time[source.sat_id] = local_finish
+
+                if source.sunlit:
+                    heapq.heappush(
+                        sunlit_heap,
+                        (
+                            max(0.0, local_finish - float(time_s)),
+                            source.sat_id,
+                        ),
+                    )
+
+                # The sunlit candidate was only evaluated, not selected.
+                restore_peeked_sunlit_candidate()
+
+            elif (
+                action == "sunlit"
+                and sun_sat_id is not None
+                and sun_finish is not None
+                and sun_route is not None
+            ):
+                assignments.append(
+                    Assignment(
+                        task_id=task.task_id,
+                        route=sun_route,
+                        mode="offload",
+                        score=sun_cost,
+                    )
+                )
+
+                reserved_available_time[sun_sat_id] = sun_finish
+
+                # The peeked sunlit candidate is actually selected, so we push
+                # back only its updated load.
+                heapq.heappush(
+                    sunlit_heap,
+                    (
+                        max(0.0, sun_finish - float(time_s)),
+                        sun_sat_id,
+                    ),
+                )
+
+            elif defer_cost < float("inf"):
+                assignments.append(
+                    Assignment(
+                        task_id=task.task_id,
+                        route=Route((source.sat_id,)),
+                        mode="defer",
+                        score=defer_cost,
+                    )
+                )
+
+                # The sunlit candidate was only evaluated, not selected.
+                restore_peeked_sunlit_candidate()
+
+            else:
+                assignments.append(
+                    Assignment(
+                        task_id=task.task_id,
+                        route=Route((source.sat_id,)),
+                        mode="fail",
+                        score=float("inf"),
+                        failed_reason="no_feasible_action",
+                    )
+                )
+
+                # The sunlit candidate was only evaluated, not selected.
+                restore_peeked_sunlit_candidate()
+
+        return assignments
+
+
 class _PhoenixSchedulerBase(Scheduler):
     """Shared PHOENIX helper logic without a public scheduler registration.
 
@@ -2570,6 +2900,7 @@ class _PhoenixSchedulerBase(Scheduler):
                 self.plane_load_by_plane.get(plane, 0.0) + load_j
             )
 
+
 class Phoenix2Scheduler(_PhoenixSchedulerBase):
     """PHOENIX variant with bounded scheduling state.
 
@@ -2772,6 +3103,8 @@ def create_scheduler(name: str) -> Scheduler:
         return Method3ModScheduler()
     if name == Method4Scheduler.name:
         return Method4Scheduler()
+    if name == Method5Scheduler.name:
+        return Method5Scheduler()
     if name in {Phoenix2Scheduler.name, "phoenix"}:
         return Phoenix2Scheduler()
     raise ValueError(f"unknown scheduler: {name}")
