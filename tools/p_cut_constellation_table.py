@@ -7,13 +7,16 @@ import argparse
 import csv
 import html
 import json
+import os
 import sys
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from satmulator.runlog import write_json
+from tools.plot_output import save_png_pdf
 
 
 DEFAULT_BATTERY_CONFIG = Path("configs/template.json")
@@ -221,7 +224,31 @@ def write_long_csv(path: Path, cells: list[PCutCell]) -> None:
             )
 
 
-def write_heatmap_svg(
+def _pyplot():
+    cache_dir = Path(tempfile.gettempdir()) / "satmulator-matplotlib"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    os.environ.setdefault("MPLCONFIGDIR", str(cache_dir))
+    os.environ.setdefault("XDG_CACHE_HOME", str(cache_dir))
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    plt.rcParams.update(
+        {
+            "figure.facecolor": "white",
+            "axes.facecolor": "white",
+            "axes.edgecolor": "#333333",
+            "axes.labelcolor": "#222222",
+            "font.size": 11,
+            "savefig.bbox": "tight",
+            "savefig.facecolor": "white",
+        }
+    )
+    return plt
+
+
+def write_heatmap_plot(
     path: Path,
     *,
     constellations: list[ConstellationDuration],
@@ -229,73 +256,32 @@ def write_heatmap_svg(
     cells: list[PCutCell],
     eclipse_duration_stat: str,
 ) -> None:
-    cell_w = 135
-    cell_h = 42
-    margin_left = 120
-    margin_top = 88
-    margin_right = 30
-    margin_bottom = 48
-    width = margin_left + cell_w * len(constellations) + margin_right
-    height = margin_top + cell_h * len(safe_battery_pcts) + margin_bottom
-
     by_key = {
         (cell.safe_battery_pct, cell.constellation): cell
         for cell in cells
     }
-    values = [cell.p_cut_w for cell in cells]
-    min_value = min(values)
-    max_value = max(values)
-    span = max(max_value - min_value, 1e-9)
-
-    def color(value: float) -> str:
-        ratio = (value - min_value) / span
-        red = int(255 - 150 * ratio)
-        green = int(238 - 80 * ratio)
-        blue = int(230 - 190 * ratio)
-        return f"#{red:02x}{green:02x}{blue:02x}"
-
-    parts = [
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">',
-        "<style>",
-        'text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #222; font-size: 13px; }',
-        ".title { font-size: 20px; font-weight: 700; }",
-        ".axis { font-size: 14px; font-weight: 600; }",
-        ".note { font-size: 12px; fill: #666; }",
-        "</style>",
-        '<rect width="100%" height="100%" fill="white" />',
-        f'<text class="title" x="{width / 2}" y="28" text-anchor="middle">P_cut by constellation and minimum battery</text>',
-        f'<text class="note" x="{width / 2}" y="50" text-anchor="middle">Eclipse duration uses {html.escape(eclipse_duration_stat)} from experiments/eclipse_time; cell values are P_cut in W</text>',
+    matrix = [
+        [by_key[(safe_pct, constellation.label)].p_cut_w for constellation in constellations]
+        for safe_pct in safe_battery_pcts
     ]
-
-    for col, constellation in enumerate(constellations):
-        x = margin_left + col * cell_w + cell_w / 2
-        parts.append(
-            f'<text class="axis" x="{x:.1f}" y="{margin_top - 14}" text-anchor="middle">{html.escape(constellation.label)}</text>'
-        )
-        parts.append(
-            f'<text class="note" x="{x:.1f}" y="{margin_top + len(safe_battery_pcts) * cell_h + 22}" text-anchor="middle">{html.escape(eclipse_duration_stat)} {constellation.duration_s(eclipse_duration_stat) / 60:g} min</text>'
-        )
-
-    for row, safe_pct in enumerate(safe_battery_pcts):
-        y = margin_top + row * cell_h
-        parts.append(
-            f'<text class="axis" x="{margin_left - 12}" y="{y + cell_h / 2 + 5:.1f}" text-anchor="end">E_safe {safe_pct:g}%</text>'
-        )
-        for col, constellation in enumerate(constellations):
-            cell = by_key[(safe_pct, constellation.label)]
-            x = margin_left + col * cell_w
-            parts.append(
-                f'<rect x="{x}" y="{y}" width="{cell_w}" height="{cell_h}" fill="{color(cell.p_cut_w)}" stroke="#ccc" />'
-            )
-            parts.append(
-                f'<text x="{x + cell_w / 2:.1f}" y="{y + cell_h / 2 + 5:.1f}" text-anchor="middle">{cell.p_cut_w:.2f}</text>'
-            )
-
-    parts.append(
-        f'<text class="axis" transform="translate(24 {margin_top + len(safe_battery_pcts) * cell_h / 2}) rotate(-90)" text-anchor="middle">minimum safe battery E_safe</text>'
-    )
-    parts.append("</svg>")
-    path.write_text("\n".join(parts) + "\n")
+    plt = _pyplot()
+    fig, ax = plt.subplots(figsize=(max(7.0, 1.5 * len(constellations)), max(5.0, 0.48 * len(safe_battery_pcts))))
+    image = ax.imshow(matrix, cmap="YlOrRd", aspect="auto")
+    ax.set_title("P_cut by constellation and minimum battery", fontweight="bold")
+    ax.text(0.5, 1.02, f"Eclipse duration uses {eclipse_duration_stat} from experiments/eclipse_time; cell values are P_cut in W", transform=ax.transAxes, ha="center", fontsize=10, color="#666666")
+    ax.set_xticks(range(len(constellations)))
+    ax.set_xticklabels([constellation.label for constellation in constellations])
+    ax.set_yticks(range(len(safe_battery_pcts)))
+    ax.set_yticklabels([f"E_safe {safe_pct:g}%" for safe_pct in safe_battery_pcts])
+    ax.set_ylabel("minimum safe battery E_safe")
+    for row_index, row in enumerate(matrix):
+        for col_index, value in enumerate(row):
+            ax.text(col_index, row_index, f"{value:.2f}", ha="center", va="center", color="#222222")
+    for col_index, constellation in enumerate(constellations):
+        ax.text(col_index, len(safe_battery_pcts) - 0.1, f"{eclipse_duration_stat} {constellation.duration_s(eclipse_duration_stat) / 60:g} min", ha="center", va="top", fontsize=8, color="#666666")
+    fig.colorbar(image, ax=ax, label="P_cut (W)")
+    save_png_pdf(fig, path)
+    plt.close(fig)
 
 
 def main() -> int:
@@ -340,8 +326,8 @@ def main() -> int:
         cells=cells,
     )
     write_long_csv(args.out / f"{output_prefix}_long.csv", cells)
-    write_heatmap_svg(
-        args.out / f"{output_prefix}_heatmap.svg",
+    write_heatmap_plot(
+        args.out / f"{output_prefix}_heatmap",
         constellations=constellations,
         safe_battery_pcts=args.safe_battery_pcts,
         cells=cells,

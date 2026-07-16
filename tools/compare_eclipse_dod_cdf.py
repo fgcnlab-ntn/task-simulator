@@ -12,11 +12,12 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from satmulator.plot_styles import METHOD_ORDER, line_kwargs, method_style
+from tools.plot_output import format_written, save_png_pdf
 
 FIXED_X_MAX = 50.0
 X_TICK_STEP = 5.0
 Y_TICKS = [i / 5.0 for i in range(6)]
-CDF_POINT_LEVELS = [0.2, 0.4, 0.6, 0.8, 1.0]
+CDF_POINT_LEVELS = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
 
 
 def _canonical_method_name(run_name: str) -> str:
@@ -109,12 +110,12 @@ def build_cdf_curve(values: list[float], *, x_max: float, levels: list[float]) -
     return x_values, y_values
 
 
-def write_svg(
+def write_figure(
     path: Path,
     series: list[dict[str, object]],
     *,
     title: str = "CDF of Eclipse Satellite-Time DoD",
-) -> None:
+) -> tuple[Path, Path]:
     plt = _pyplot()
     fig, ax = plt.subplots(figsize=(8.2, 5.1))
     for item in series:
@@ -146,8 +147,9 @@ def write_svg(
     ax.set_xticks([tick for tick in range(0, int(FIXED_X_MAX) + 1, int(X_TICK_STEP))])
     ax.grid(True, alpha=0.7)
     ax.legend(loc="lower right", framealpha=0.94)
-    fig.savefig(path, format="svg")
+    written = save_png_pdf(fig, path)
     plt.close(fig)
+    return written
 
 
 def main() -> int:
@@ -165,7 +167,7 @@ def main() -> int:
         "--out",
         type=Path,
         required=True,
-        help="Output SVG path for the combined CDF figure",
+        help="Output path or prefix for the combined CDF figure. Writes .png and .pdf.",
     )
     args = parser.parse_args()
 
@@ -194,8 +196,8 @@ def main() -> int:
 
     series.sort(key=lambda item: (int(item["sort_key"]), int(item["input_index"])))
 
-    write_svg(args.out, series, title=args.title)
-    print(f"Wrote {args.out}")
+    written = write_figure(args.out, series, title=args.title)
+    print(f"Wrote {format_written(written)}")
     return 0
 
 

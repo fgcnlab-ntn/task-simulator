@@ -8,7 +8,9 @@ import csv
 import html
 import json
 import math
+import os
 import sys
+import tempfile
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -17,6 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from satmulator.cli import load_standalone_json_config, run, validate_args
 from satmulator.constants import EARTH_MU_KM3_S2, EARTH_RADIUS_KM
 from satmulator.runlog import append_json_line, write_json
+from tools.plot_output import save_png_pdf
 
 
 DEFAULT_CONFIG = Path("configs/demand_points.json")
@@ -205,7 +208,7 @@ def main() -> int:
         },
     )
     if len(cpu_powers_w) == 1:
-        write_heatmap_svg(args.out / "battery_breach_ratio_heatmap.svg", results)
+        write_heatmap_plot(args.out / "battery_breach_ratio_heatmap", results)
     write_line_outputs(args.out / "battery_breach_ratio_line", results)
 
     print(
@@ -358,7 +361,33 @@ def write_results_jsonl(path: Path, results: list[dict[str, object]]) -> None:
             append_json_line(output, row)
 
 
-def write_heatmap_svg(path: Path, results: list[dict[str, object]]) -> None:
+def _pyplot():
+    cache_dir = Path(tempfile.gettempdir()) / "satmulator-matplotlib"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    os.environ.setdefault("MPLCONFIGDIR", str(cache_dir))
+    os.environ.setdefault("XDG_CACHE_HOME", str(cache_dir))
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    plt.rcParams.update(
+        {
+            "figure.facecolor": "white",
+            "axes.facecolor": "white",
+            "axes.edgecolor": "#333333",
+            "axes.labelcolor": "#222222",
+            "font.size": 11,
+            "grid.color": "#d9d9d9",
+            "grid.linewidth": 0.8,
+            "savefig.bbox": "tight",
+            "savefig.facecolor": "white",
+        }
+    )
+    return plt
+
+
+def write_heatmap_plot(path: Path, results: list[dict[str, object]]) -> None:
     data_sizes = sorted({float(row["data_size_bits"]) for row in results})
     intervals = sorted({int(row["slot_interval_s"]) for row in results})
     values = {
@@ -367,58 +396,26 @@ def write_heatmap_svg(path: Path, results: list[dict[str, object]]) -> None:
         )
         for row in results
     }
-    cell_w = 130
-    cell_h = 70
-    margin_left = 150
-    margin_top = 70
-    width = margin_left + cell_w * len(intervals) + 40
-    height = margin_top + cell_h * len(data_sizes) + 80
-
-    def color(ratio: float) -> str:
-        ratio = max(0.0, min(1.0, ratio))
-        red = int(255 * ratio)
-        green = int(180 * (1.0 - ratio))
-        blue = int(80 * (1.0 - ratio))
-        return f"#{red:02x}{green:02x}{blue:02x}"
-
-    cells = []
-    for row_index, data_size in enumerate(data_sizes):
-        y = margin_top + row_index * cell_h
-        cells.append(
-            f'<text x="{margin_left - 12}" y="{y + cell_h / 2 + 5:.1f}" '
-            f'text-anchor="end">{data_size:g}</text>'
-        )
-        for col_index, interval in enumerate(intervals):
-            x = margin_left + col_index * cell_w
-            ratio = values.get((data_size, interval), 0.0)
-            cells.append(
-                f'<rect x="{x}" y="{y}" width="{cell_w}" height="{cell_h}" '
-                f'fill="{color(ratio)}" stroke="white" />'
-            )
-            cells.append(
-                f'<text x="{x + cell_w / 2:.1f}" y="{y + cell_h / 2 + 5:.1f}" '
-                f'text-anchor="middle">{ratio:.3f}</text>'
-            )
-    headers = []
-    for col_index, interval in enumerate(intervals):
-        x = margin_left + col_index * cell_w + cell_w / 2
-        headers.append(f'<text x="{x:.1f}" y="55" text-anchor="middle">{interval}s</text>')
-
-    svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">
-  <style>
-    text {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 13px; fill: #222; }}
-    .title {{ font-size: 20px; font-weight: 700; }}
-    .label {{ font-size: 15px; font-weight: 600; }}
-  </style>
-  <rect width="100%" height="100%" fill="white" />
-  <text class="title" x="{width / 2}" y="28" text-anchor="middle">Fixed demand load vs unique battery breach ratio</text>
-  {''.join(headers)}
-  {''.join(cells)}
-  <text class="label" x="{margin_left + cell_w * len(intervals) / 2}" y="{height - 28}" text-anchor="middle">task generation interval</text>
-  <text class="label" transform="translate(24 {margin_top + cell_h * len(data_sizes) / 2}) rotate(-90)" text-anchor="middle">input bits per demand point per slot</text>
-</svg>
-'''
-    path.write_text(svg)
+    matrix = [
+        [values.get((data_size, interval), 0.0) for interval in intervals]
+        for data_size in data_sizes
+    ]
+    plt = _pyplot()
+    fig, ax = plt.subplots(figsize=(max(6.0, 1.35 * len(intervals)), max(4.0, 0.72 * len(data_sizes))))
+    image = ax.imshow(matrix, vmin=0.0, vmax=1.0, cmap="YlOrRd", aspect="auto")
+    ax.set_title("Fixed demand load vs unique battery breach ratio", fontweight="bold")
+    ax.set_xlabel("task generation interval")
+    ax.set_ylabel("input bits per demand point per slot")
+    ax.set_xticks(range(len(intervals)))
+    ax.set_xticklabels([f"{interval}s" for interval in intervals])
+    ax.set_yticks(range(len(data_sizes)))
+    ax.set_yticklabels([f"{data_size:g}" for data_size in data_sizes])
+    for row_index, row in enumerate(matrix):
+        for col_index, ratio in enumerate(row):
+            ax.text(col_index, row_index, f"{ratio:.3f}", ha="center", va="center", color="#222222")
+    fig.colorbar(image, ax=ax, label="breach ratio")
+    save_png_pdf(fig, path)
+    plt.close(fig)
 
 
 def format_bits(value: float) -> str:
@@ -458,14 +455,14 @@ def write_line_outputs(prefix: Path, results: list[dict[str, object]]) -> None:
 
     groups = line_chart_groups(results)
     if len(groups) == 1:
-        write_line_svg(prefix.with_suffix(".svg"), next(iter(groups.values())))
+        write_line_plot(prefix, next(iter(groups.values())))
         return
 
     for (constellation, slot_interval_s), rows in groups.items():
         path = prefix.with_name(
-            f"{prefix.name}_{slug(constellation)}_{slot_interval_s}s.svg"
+            f"{prefix.name}_{slug(constellation)}_{slot_interval_s}s"
         )
-        write_line_svg(path, rows)
+        write_line_plot(path, rows)
 
 
 def write_line_csv(path: Path, results: list[dict[str, object]]) -> None:
@@ -499,16 +496,7 @@ def write_line_csv(path: Path, results: list[dict[str, object]]) -> None:
             writer.writerow({field: row[field] for field in fields})
 
 
-def write_line_svg(path: Path, rows: list[dict[str, object]]) -> None:
-    width = 960
-    height = 520
-    margin_l = 82
-    margin_r = 180
-    margin_t = 72
-    margin_b = 86
-    plot_w = width - margin_l - margin_r
-    plot_h = height - margin_t - margin_b
-
+def write_line_plot(path: Path, rows: list[dict[str, object]]) -> None:
     data_sizes = sorted({float(row["data_size_bits"]) for row in rows})
     cpu_powers = sorted({float(row.get("cpu_power_w") or 0.0) for row in rows})
     slot_interval_s = int(rows[0]["slot_interval_s"]) if rows else 0
@@ -523,111 +511,32 @@ def write_line_svg(path: Path, rows: list[dict[str, object]]) -> None:
         )
         for row in rows
     }
-    y_min = BREACH_RATIO_AXIS_MIN
-    y_max = BREACH_RATIO_AXIS_MAX
-    y_range = y_max - y_min
-    denom_x = max(1, len(data_sizes) - 1)
-
-    def x_pos(index: int) -> float:
-        return margin_l + index * plot_w / denom_x
-
-    def y_pos(ratio: float) -> float:
-        ratio = max(y_min, min(y_max, ratio))
-        return margin_t + plot_h - (ratio - y_min) / y_range * plot_h
-
-    colors = [
-        "#1f77b4",
-        "#d62728",
-        "#2ca02c",
-        "#9467bd",
-        "#ff7f0e",
-        "#17becf",
-        "#8c564b",
-        "#e377c2",
-    ]
-    lines: list[str] = []
-    esc_constellation = html.escape(constellation)
-    title = f"{esc_constellation}: battery breach ratio by CPU power"
-    subtitle = f"input data size per {slot_interval_s}s slot"
-
-    lines.append(
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">\n'
-    )
-    lines.append(
-        "  <style>text { font-family: -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif; fill: #222; font-size: 13px; } .title { font-size: 21px; font-weight: 700; } .label { font-size: 15px; font-weight: 600; }</style>\n"
-    )
-    lines.append('  <rect width="100%" height="100%" fill="white" />\n')
-    lines.append(
-        f'  <text class="title" x="{width / 2}" y="30" text-anchor="middle">{title}</text>\n'
-    )
-    lines.append(
-        f'  <text x="{width / 2}" y="52" text-anchor="middle" fill="#666">{subtitle}</text>\n'
-    )
-    lines.append(
-        f'  <line x1="{margin_l}" y1="{height - margin_b}" x2="{width - margin_r}" y2="{height - margin_b}" stroke="#999" />\n'
-    )
-    lines.append(
-        f'  <line x1="{margin_l}" y1="{margin_t}" x2="{margin_l}" y2="{height - margin_b}" stroke="#999" />\n'
-    )
-
-    tick_step = BREACH_RATIO_TICK_STEP
-    tick_count = int(round((y_max - y_min) / tick_step))
-    for tick in range(0, tick_count + 1):
-        ratio = y_min + tick * tick_step
-        y = y_pos(ratio)
-        lines.append(
-            f'  <line x1="{margin_l}" y1="{y:.1f}" x2="{width - margin_r}" y2="{y:.1f}" stroke="#e5e5e5" />\n'
-        )
-        lines.append(
-            f'  <text x="{margin_l - 10}" y="{y + 4:.1f}" text-anchor="end">{ratio:.1f}</text>\n'
-        )
-
-    for index, data_size in enumerate(data_sizes):
-        x = x_pos(index)
-        lines.append(
-            f'  <line x1="{x:.1f}" y1="{height - margin_b}" x2="{x:.1f}" y2="{height - margin_b + 5}" stroke="#999" />\n'
-        )
-        lines.append(
-            f'  <text x="{x:.1f}" y="{height - margin_b + 24}" text-anchor="middle">{html.escape(format_bits(data_size))}</text>\n'
-        )
-
+    plt = _pyplot()
+    fig, ax = plt.subplots(figsize=(9.6, 5.2))
     for power_index, cpu_power in enumerate(cpu_powers):
-        color = colors[power_index % len(colors)]
-        points = []
+        xs = []
+        ys = []
         for index, data_size in enumerate(data_sizes):
             ratio = values.get((cpu_power, data_size))
             if ratio is None:
                 continue
-            points.append((x_pos(index), y_pos(ratio), ratio, data_size))
-        if not points:
+            xs.append(index)
+            ys.append(ratio)
+        if not xs:
             continue
-        path_points = " ".join(f"{x:.1f},{y:.1f}" for x, y, _, _ in points)
-        lines.append(
-            f'  <polyline points="{path_points}" fill="none" stroke="{color}" stroke-width="2.5" />\n'
-        )
-        for x, y, ratio, data_size in points:
-            title_text = html.escape(
-                f"CPU {cpu_power:g}W, {format_bits(data_size)}, breach ratio {ratio:.4f}"
-            )
-            lines.append(
-                f'  <circle cx="{x:.1f}" cy="{y:.1f}" r="4" fill="{color}"><title>{title_text}</title></circle>\n'
-            )
-        legend_y = margin_t + 24 * power_index
-        lines.append(
-            f'  <line x1="{width - margin_r + 28}" y1="{legend_y}" x2="{width - margin_r + 58}" y2="{legend_y}" stroke="{color}" stroke-width="2.5" />\n'
-        )
-        lines.append(
-            f'  <text x="{width - margin_r + 66}" y="{legend_y + 4}">{cpu_power:g}W</text>\n'
-        )
+        ax.plot(xs, ys, marker="o", linewidth=2.2, label=f"{cpu_power:g}W")
 
-    lines.append(
-        f'  <text class="label" x="{margin_l + plot_w / 2}" y="{height - 22}" text-anchor="middle">data size per time slot</text>\n'
-    )
-    lines.append(
-        f'  <text class="label" transform="translate(24 {margin_t + plot_h / 2}) rotate(-90)" text-anchor="middle">breach ratio</text>\n'
-    )
-    lines.append("</svg>\n")
-    path.write_text("".join(lines))
+    ax.set_title(f"{constellation}: battery breach ratio by CPU power", fontweight="bold")
+    ax.text(0.5, 1.01, f"input data size per {slot_interval_s}s slot", transform=ax.transAxes, ha="center", color="#666666", fontsize=10)
+    ax.set_xlabel("data size per time slot")
+    ax.set_ylabel("breach ratio")
+    ax.set_ylim(BREACH_RATIO_AXIS_MIN, BREACH_RATIO_AXIS_MAX)
+    ax.set_xticks(range(len(data_sizes)))
+    ax.set_xticklabels([format_bits(data_size) for data_size in data_sizes])
+    ax.grid(True, alpha=0.7)
+    ax.legend(title="CPU power", loc="best")
+    save_png_pdf(fig, path)
+    plt.close(fig)
 
 
 if __name__ == "__main__":

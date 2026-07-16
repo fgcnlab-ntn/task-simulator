@@ -27,6 +27,7 @@ from satmulator.cli import (
 from satmulator.orbit import iter_circular_states
 from satmulator.runlog import append_json_line, iter_state_steps, write_json
 from satmulator.scheduler import create_scheduler
+from tools.plot_output import save_png_pdf
 
 DEFAULT_CONFIG = Path("configs/template.json")
 DEFAULT_OUTPUT = Path("eclipse_time")
@@ -35,7 +36,7 @@ DEFAULT_DURATION_S = 43_200
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Run a no-task eclipse-time experiment and write SVG plots."
+        description="Run a no-task eclipse-time experiment and write PNG/PDF plots."
     )
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     parser.add_argument("--out", type=Path, default=DEFAULT_OUTPUT)
@@ -66,15 +67,15 @@ def main() -> int:
     durations = run_eclipse_experiment(run_args)
     summary = summarize_durations(durations)
     write_summary(args.out / "eclipse_time_summary.json", summary)
-    write_bar_svg(args.out / "eclipse_time_bar.svg", summary)
+    write_bar_plot(args.out / "eclipse_time_bar", summary)
     bins = histogram_bins(durations)
-    write_pdf_svg(args.out / "eclipse_time_pdf.svg", bins, summary)
-    write_cdf_svg(args.out / "eclipse_time_cdf.svg", durations, summary)
+    write_pdf_plot(args.out / "eclipse_time_pdf", bins, summary)
+    write_cdf_plot(args.out / "eclipse_time_cdf", durations, summary)
     satellite_sunlit_ratios = satellite_sunlit_ratios_from_csv(
         args.out / "satellite_sunlit_ratios.csv"
     )
-    write_satellite_sunlit_ratio_cdf_svg(
-        args.out / "satellite_sunlit_ratio_cdf.svg",
+    write_satellite_sunlit_ratio_cdf_plot(
+        args.out / "satellite_sunlit_ratio_cdf",
         satellite_sunlit_ratios,
         summary=summarize_ratios(satellite_sunlit_ratios),
         label=constellation_label(run_args),
@@ -413,7 +414,7 @@ def _pyplot():
     return plt
 
 
-def write_bar_svg(path: Path, summary: dict[str, object]) -> None:
+def write_bar_plot(path: Path, summary: dict[str, object]) -> None:
     plt = _pyplot()
     stats = [
         {
@@ -454,11 +455,11 @@ def write_bar_svg(path: Path, summary: dict[str, object]) -> None:
         fontsize=10,
         bbox={"boxstyle": "round,pad=0.25", "facecolor": "white", "edgecolor": "#cccccc"},
     )
-    fig.savefig(path, format="svg")
+    save_png_pdf(fig, path)
     plt.close(fig)
 
 
-def write_pdf_svg(path: Path, bins: list[dict[str, float]], summary: dict[str, object]) -> None:
+def write_pdf_plot(path: Path, bins: list[dict[str, float]], summary: dict[str, object]) -> None:
     plt = _pyplot()
     lefts = [bin_["left"] for bin_ in bins]
     widths = [bin_["right"] - bin_["left"] for bin_ in bins]
@@ -498,11 +499,11 @@ def write_pdf_svg(path: Path, bins: list[dict[str, float]], summary: dict[str, o
         fontsize=10,
         bbox={"boxstyle": "round,pad=0.25", "facecolor": "white", "edgecolor": "#cccccc"},
     )
-    fig.savefig(path, format="svg")
+    save_png_pdf(fig, path)
     plt.close(fig)
 
 
-def write_cdf_svg(path: Path, durations_s: list[float], summary: dict[str, object]) -> None:
+def write_cdf_plot(path: Path, durations_s: list[float], summary: dict[str, object]) -> None:
     plt = _pyplot()
     values = sorted(durations_s)
     cdf = [(index + 1) / len(values) for index in range(len(values))]
@@ -515,11 +516,11 @@ def write_cdf_svg(path: Path, durations_s: list[float], summary: dict[str, objec
     ax.set_ylim(0.0, 1.02)
     ax.set_xlim(values[0], values[-1])
     ax.grid(True, alpha=0.7)
-    fig.savefig(path, format="svg")
+    save_png_pdf(fig, path)
     plt.close(fig)
 
 
-def write_satellite_sunlit_ratio_cdf_svg(
+def write_satellite_sunlit_ratio_cdf_plot(
     path: Path,
     sunlit_ratios_pct: list[float],
     *,
@@ -561,7 +562,7 @@ def write_satellite_sunlit_ratio_cdf_svg(
         fontsize=10,
         bbox={"boxstyle": "round,pad=0.25", "facecolor": "white", "edgecolor": "#cccccc"},
     )
-    fig.savefig(path, format="svg")
+    save_png_pdf(fig, path)
     plt.close(fig)
 
 

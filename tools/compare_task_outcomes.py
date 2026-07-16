@@ -12,6 +12,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from satmulator.plot_styles import method_style, run_display_label
+from tools.plot_output import format_written, save_png_pdf
 
 
 FALLBACK_COLORS = [
@@ -90,18 +91,7 @@ def load_fail_rate(run_dir: Path) -> tuple[int, float]:
     return failed, rate
 
 
-def output_format(path: Path) -> str:
-    suffix = path.suffix.lower()
-    if suffix == ".svg":
-        return "svg"
-    if suffix == ".png":
-        return "png"
-    if suffix in {".jpg", ".jpeg"}:
-        return "jpg"
-    raise ValueError("output path must end with .svg, .png, .jpg, or .jpeg")
-
-
-def write_figure(path: Path, series: list[dict[str, object]]) -> None:
+def write_figure(path: Path, series: list[dict[str, object]]) -> tuple[Path, Path]:
     plt = _pyplot()
     fig, ax = plt.subplots(figsize=(8.2, 5.1))
 
@@ -142,8 +132,9 @@ def write_figure(path: Path, series: list[dict[str, object]]) -> None:
             fontweight="bold",
         )
 
-    fig.savefig(path, format=output_format(path), dpi=300)
+    written = save_png_pdf(fig, path)
     plt.close(fig)
+    return written
 
 
 def main() -> int:
@@ -161,7 +152,7 @@ def main() -> int:
         "--out",
         type=Path,
         required=True,
-        help="Output figure path, ending with .svg, .png, .jpg, or .jpeg",
+        help="Output figure path or prefix. Writes .png and .pdf.",
     )
     args = parser.parse_args()
 
@@ -185,8 +176,8 @@ def main() -> int:
             }
         )
 
-    write_figure(args.out, series)
-    print(f"Wrote {args.out}")
+    written = write_figure(args.out, series)
+    print(f"Wrote {format_written(written)}")
     return 0
 
 

@@ -11,15 +11,20 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from satmulator.plot_styles import method_style, run_display_label
+from satmulator.plot_styles import canonical_method, method_style, ordered_methods
+from tools.plot_output import save_png_pdf
 
 RUN_METHODS = [
     "local-only",
     "nearest-sunlit",
     "greedy-energy",
+    "phoenix",
     "method3",
-    "phoenix2",
+    "method3mod",
 ]
+METHOD_ORDER_INDEX = {
+    method: index for index, method in enumerate(ordered_methods(RUN_METHODS))
+}
 
 LOADING_RE = re.compile(r"^r(?P<pct>\d+(?:\.\d+)?)$")
 
@@ -65,6 +70,10 @@ def task_failure_ratio(summary: dict) -> float:
     return 0.0 if generated == 0 else float(tasks["failed"]) / generated
 
 
+def method_order_key(method: str) -> int:
+    return METHOD_ORDER_INDEX[canonical_method(method)]
+
+
 def collect_rows(base_dir: Path) -> list[dict[str, float | str]]:
     rows: list[dict[str, float | str]] = []
     for group_dir in sorted(path for path in base_dir.iterdir() if path.is_dir()):
@@ -82,7 +91,7 @@ def collect_rows(base_dir: Path) -> list[dict[str, float | str]]:
                 {
                     "run": group_dir.name,
                     "method": method,
-                    "label": run_display_label(method),
+                    "label": method_style(method).label,
                     "loading_pct": loading,
                     "below_e_safe_ratio": float(
                         objective.get("avg_eclipse_unsafe_ratio", 0.0)
@@ -93,7 +102,13 @@ def collect_rows(base_dir: Path) -> list[dict[str, float | str]]:
                     "task_failure_ratio": task_failure_ratio(summary),
                 }
             )
-    return sorted(rows, key=lambda row: (float(row["loading_pct"]), str(row["method"])))
+    return sorted(
+        rows,
+        key=lambda row: (
+            float(row["loading_pct"]),
+            method_order_key(str(row["method"])),
+        ),
+    )
 
 
 def write_csv(rows: list[dict[str, float | str]], path: Path) -> None:
@@ -130,15 +145,18 @@ def plot_metric(
     plt = _pyplot()
     fig, ax = plt.subplots(figsize=(9, 5.4))
 
-    method_order = ["local-only", "nearest-sunlit", "greedy-energy", "method3", "phoenix2"]
-    for method in method_order:
+    methods = sorted(
+        {str(row["method"]) for row in rows},
+        key=method_order_key,
+    )
+    for method in methods:
         points = [row for row in rows if row["method"] == method]
         if not points:
             continue
         xs = [float(row["loading_pct"]) for row in points]
         ys = [100.0 * float(row[metric]) for row in points]
         style = method_style(method)
-        label = run_display_label(method)
+        label = style.label
         ax.plot(
             xs,
             ys,
@@ -162,7 +180,7 @@ def plot_metric(
     ax.set_xticks(sorted({float(row["loading_pct"]) for row in rows}))
     ax.set_ylim(bottom=0)
     ax.legend(
-        ncol=5,
+        ncol=len(methods),
         loc="upper center",
         bbox_to_anchor=(0.5, 0.895),
         bbox_transform=fig.transFigure,
@@ -170,7 +188,7 @@ def plot_metric(
     )
     fig.subplots_adjust(top=0.84)
     path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(path)
+    save_png_pdf(fig, path)
     plt.close(fig)
 
 
@@ -187,21 +205,20 @@ def main() -> None:
         raise SystemExit(f"no run groups found under {args.base_dir}")
 
     write_csv(rows, args.out_dir / "final-loading-effects.csv")
-    for suffix in ("svg", "png"):
-        plot_metric(
-            rows,
-            args.out_dir / f"final-loading-below-e-safe.{suffix}",
-            metric="below_e_safe_ratio",
-            ylabel="Eclipse breach / eclipse satellites (%)",
-            title="Task loading vs eclipse-side battery breaches",
-        )
-        plot_metric(
-            rows,
-            args.out_dir / f"final-loading-task-fail-ratio.{suffix}",
-            metric="task_failure_ratio",
-            ylabel="Task failure ratio (%)",
-            title="Task loading vs task failure ratio",
-        )
+    plot_metric(
+        rows,
+        args.out_dir / "final-loading-below-e-safe",
+        metric="below_e_safe_ratio",
+        ylabel="Eclipse breach / eclipse satellites (%)",
+        title="Task loading vs eclipse-side battery breaches",
+    )
+    plot_metric(
+        rows,
+        args.out_dir / "final-loading-task-fail-ratio",
+        metric="task_failure_ratio",
+        ylabel="Task failure ratio (%)",
+        title="Task loading vs task failure ratio",
+    )
 
 
 if __name__ == "__main__":

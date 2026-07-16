@@ -17,6 +17,7 @@ from satmulator.plot_styles import (
     method_style,
     run_display_label,
 )
+from tools.plot_output import format_written, save_png_pdf
 
 
 RUN_METHODS = [
@@ -24,7 +25,7 @@ RUN_METHODS = [
     "nearest-sunlit",
     "greedy-energy",
     "method3",
-    "phoenix2",
+    "phoenix",
 ]
 
 METHOD_DIRS = {
@@ -32,7 +33,8 @@ METHOD_DIRS = {
     "nearest-sunlit": "nearest-sunlit",
     "greedy-energy": "greedy-energy",
     "method3": "method3",
-    "phoenix2": "phoenix2",
+    "method3mod": "method3mod",
+    "phoenix": "phoenix",
 }
 
 RUN_STYLES = {
@@ -40,7 +42,8 @@ RUN_STYLES = {
     "nearest-sunlit": method_style("nearest-sunlit"),
     "greedy-energy": method_style("greedy-energy"),
     "method3": method_style("method3"),
-    "phoenix2": method_style("phoenix2"),
+    "method3mod": method_style("method3mod"),
+    "phoenix": method_style("phoenix"),
 }
 
 
@@ -57,7 +60,10 @@ def _plotting():
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    import seaborn as sns
+    try:
+        import seaborn as sns
+    except ModuleNotFoundError:
+        sns = None
 
     plt.rcParams.update(
         {
@@ -73,34 +79,24 @@ def _plotting():
             "savefig.facecolor": "white",
         }
     )
-    sns.set_theme(
-        context="paper",
-        style="whitegrid",
-        rc={
-            "figure.facecolor": "white",
-            "axes.facecolor": "white",
-            "axes.edgecolor": "#333333",
-            "axes.labelcolor": "#222222",
-            "axes.titleweight": "bold",
-            "font.size": 11,
-            "grid.color": "#d9d9d9",
-            "grid.linewidth": 0.8,
-            "savefig.bbox": "tight",
-            "savefig.facecolor": "white",
-        },
-    )
+    if sns is not None:
+        sns.set_theme(
+            context="paper",
+            style="whitegrid",
+            rc={
+                "figure.facecolor": "white",
+                "axes.facecolor": "white",
+                "axes.edgecolor": "#333333",
+                "axes.labelcolor": "#222222",
+                "axes.titleweight": "bold",
+                "font.size": 11,
+                "grid.color": "#d9d9d9",
+                "grid.linewidth": 0.8,
+                "savefig.bbox": "tight",
+                "savefig.facecolor": "white",
+            },
+        )
     return plt, sns
-
-
-def output_format(path: Path) -> str:
-    suffix = path.suffix.lower()
-    if suffix == ".svg":
-        return "svg"
-    if suffix == ".png":
-        return "png"
-    if suffix in {".jpg", ".jpeg"}:
-        return "jpg"
-    raise ValueError("output path must end with .svg, .png, .jpg, or .jpeg")
 
 
 def discover_run_dirs(base_dir: Path) -> list[Path]:
@@ -480,7 +476,7 @@ def write_violin(
     title: str,
     scale_width_by_count: bool,
     annotate_failure_rate: bool,
-) -> None:
+) -> tuple[Path, Path]:
     plt, sns = _plotting()
     fig, ax = plt.subplots(figsize=(9.4, 5.8))
 
@@ -547,8 +543,9 @@ def write_violin(
     ax.legend(loc="upper left", framealpha=0.94)
     ax.margins(y=0.08)
 
-    fig.savefig(path, format=output_format(path), dpi=300)
+    written = save_png_pdf(fig, path)
     plt.close(fig)
+    return written
 
 
 def write_illumination_violin(
@@ -558,51 +555,102 @@ def write_illumination_violin(
     ylabel: str,
     title: str,
     annotate_failure_rate: bool,
-) -> None:
+) -> tuple[Path, Path]:
     plt, sns = _plotting()
+    import numpy as np
+    from matplotlib.patches import Patch
+
     fig, ax = plt.subplots(figsize=(9.4, 5.8))
 
     labels: list[str] = []
-    method_column: list[str] = []
-    illumination_column: list[str] = []
-    loading_column: list[float] = []
     for item in series:
         label = str(item["label"])
         if annotate_failure_rate:
             label = f"{label}\nfail {100.0 * float(item['failure_ratio']):.1f}%"
         labels.append(label)
+
+    def kde_shape(values: list[float]) -> tuple[np.ndarray, np.ndarray]:
+        observations = np.asarray(values, dtype=float)
+        if observations.size == 0:
+            return np.asarray([0.0, 1.0]), np.asarray([0.0, 0.0])
+
+        low = float(np.min(observations))
+        high = float(np.max(observations))
+        if math.isclose(low, high):
+            spread = max(0.005, abs(low) * 0.02)
+            low = max(0.0, low - spread)
+            high = high + spread
+        grid = np.linspace(low, high, 256)
+
+        std = float(np.std(observations, ddof=1)) if observations.size > 1 else 0.0
+        if std > 0.0:
+            q25, q75 = np.percentile(observations, [25, 75])
+            iqr_sigma = float((q75 - q25) / 1.349) if q75 > q25 else std
+            sigma = min(std, iqr_sigma) if iqr_sigma > 0.0 else std
+            bandwidth = 0.9 * sigma * observations.size ** (-1.0 / 5.0)
+        else:
+            bandwidth = 0.0
+        bandwidth = max(bandwidth, (high - low) / 80.0, 0.002)
+
+        z = (grid[:, None] - observations[None, :]) / bandwidth
+        density = np.exp(-0.5 * z * z).sum(axis=1)
+        density /= observations.size * bandwidth * math.sqrt(2.0 * math.pi)
+
+        area = float(np.trapezoid(density, grid))
+        if not math.isfinite(area) or area <= 0.0:
+            density = np.ones_like(grid)
+            area = float(np.trapezoid(density, grid))
+        density /= area
+        return grid, density
+
+    colors = {"sunlit": "#FF7F0E", "eclipse": "#1F77B4"}
+    shapes: list[dict[str, object]] = []
+    for index, item in enumerate(series):
         values_by_state = item["values_by_state"]
         if not isinstance(values_by_state, dict):
             raise ValueError("illumination series is missing values_by_state")
-        for state, display in (("sunlit", "sunlit"), ("eclipse", "eclipse")):
-            for value in values_by_state[state]:
-                method_column.append(label)
-                illumination_column.append(display)
-                loading_column.append(value)
+        for state in ("sunlit", "eclipse"):
+            grid, density = kde_shape(list(values_by_state[state]))
+            shapes.append(
+                {
+                    "index": index,
+                    "state": state,
+                    "grid": grid,
+                    "density": density,
+                    "peak": float(np.max(density)),
+                }
+            )
 
-    sns.violinplot(
-        data={
-            "method": method_column,
-            "illumination": illumination_column,
-            "loading": loading_column,
-        },
-        x="method",
-        y="loading",
-        hue="illumination",
-        order=labels,
-        hue_order=["sunlit", "eclipse"],
-        palette={"sunlit": "#FF7F0E", "eclipse": "#1F77B4"},
-        split=True,
-        density_norm="width",
-        cut=0,
-        inner=None,
-        linewidth=1.0,
-        saturation=1.0,
-        ax=ax,
-    )
-    for body in ax.collections:
-        body.set_edgecolor(EDGE_COLOR)
-        body.set_alpha(0.62)
+    max_peak = max(float(shape["peak"]) for shape in shapes)
+    density_scale = (1.8 / 2.0) / max_peak
+    for shape in shapes:
+        index = int(shape["index"])
+        state = str(shape["state"])
+        grid = shape["grid"]
+        density = shape["density"]
+        if not isinstance(grid, np.ndarray) or not isinstance(density, np.ndarray):
+            raise TypeError("invalid KDE shape")
+        width = density * density_scale
+        if state == "sunlit":
+            ax.fill_betweenx(
+                grid,
+                index - width,
+                index,
+                facecolor=colors[state],
+                edgecolor=EDGE_COLOR,
+                linewidth=1.0,
+                alpha=0.62,
+            )
+        else:
+            ax.fill_betweenx(
+                grid,
+                index,
+                index + width,
+                facecolor=colors[state],
+                edgecolor=EDGE_COLOR,
+                linewidth=1.0,
+                alpha=0.62,
+            )
 
     offsets = {"sunlit": -0.18, "eclipse": 0.18}
     for index, item in enumerate(series):
@@ -621,18 +669,27 @@ def write_illumination_violin(
                 zorder=3,
             )
 
-    ax.scatter([], [], marker="o", s=24, color="#222222", label="median")
+    ax.legend(
+        handles=[
+            Patch(facecolor=colors["sunlit"], edgecolor=EDGE_COLOR, label="sunlit"),
+            Patch(facecolor=colors["eclipse"], edgecolor=EDGE_COLOR, label="eclipse"),
+            ax.scatter([], [], marker="o", s=24, color="#222222", label="median"),
+        ],
+        loc="upper left",
+        framealpha=0.94,
+        ncols=2,
+    )
     ax.set_xticks(list(range(len(series))))
     ax.set_xticklabels(labels, rotation=0, ha="center")
     ax.set_xlabel("")
     ax.set_ylabel(ylabel)
     ax.set_title(title)
     ax.grid(True, axis="y", alpha=0.7)
-    ax.legend(loc="upper left", framealpha=0.94, ncols=2)
     ax.margins(y=0.08)
 
-    fig.savefig(path, format=output_format(path), dpi=300)
+    written = save_png_pdf(fig, path)
     plt.close(fig)
+    return written
 
 
 def build_series(
@@ -735,7 +792,7 @@ def main() -> int:
     parser.add_argument(
         "--out",
         type=Path,
-        help="Output figure path. Defaults to base_dir/loading-violin.png",
+        help="Output figure path or prefix. Writes .png and .pdf.",
     )
     parser.add_argument(
         "--summary-csv",
@@ -770,9 +827,9 @@ def main() -> int:
         raise ValueError("--labels count must match the number of runs")
 
     default_name = (
-        "loading-illumination-violin.png"
+        "loading-illumination-violin"
         if args.plot == "illumination-relative"
-        else "loading-violin.png"
+        else "loading-violin"
     )
     out = args.out or (args.base_dir / default_name)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -784,7 +841,7 @@ def main() -> int:
             labels=args.labels,
             use_cache=not args.no_cache,
         )
-        write_illumination_violin(
+        written = write_illumination_violin(
             out,
             series,
             ylabel=ylabel,
@@ -800,7 +857,7 @@ def main() -> int:
             metric=args.metric,
             use_cache=not args.no_cache,
         )
-        write_violin(
+        written = write_violin(
             out,
             series,
             ylabel=ylabel,
@@ -810,7 +867,7 @@ def main() -> int:
             annotate_failure_rate=not args.no_failure_labels,
         )
         write_summary_csv(summary_csv, series)
-    print(f"Wrote {out}")
+    print(f"Wrote {format_written(written)}")
     print(f"Wrote {summary_csv}")
     for run_dir in run_dirs:
         if not args.no_cache:

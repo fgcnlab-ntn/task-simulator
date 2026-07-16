@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Iterable
 
 
-METHOD_ALPHA = 0.75
+METHOD_ALPHA = 0.65
 EDGE_COLOR = "#222222"
 
 
@@ -23,8 +23,9 @@ METHOD_ORDER: tuple[str, ...] = (
     "local-only",
     "nearest-sunlit",
     "greedy-energy",
-    "phoenix2",
+    "phoenix",
     "Method3",
+    "method3-mod",
 )
 
 _METHOD_STYLES: dict[str, MethodPlotStyle] = {
@@ -52,8 +53,8 @@ _METHOD_STYLES: dict[str, MethodPlotStyle] = {
         hatch="xx",
         marker="^",
     ),
-    "phoenix2": MethodPlotStyle(
-        method="phoenix2",
+    "phoenix": MethodPlotStyle(
+        method="phoenix",
         label="phoenix",
         color="#2CA02C",
         alpha=METHOD_ALPHA,
@@ -68,15 +69,26 @@ _METHOD_STYLES: dict[str, MethodPlotStyle] = {
         hatch="**",
         marker="*",
     ),
+    "method3-mod": MethodPlotStyle(
+        method="method3-mod",
+        label="method3-mod",
+        color="#9467BD",
+        alpha=METHOD_ALPHA,
+        hatch="++",
+        marker="X",
+    ),
 }
 
 _METHOD_ALIASES = {
     "local-only": "local-only",
     "nearest-sunlit": "nearest-sunlit",
     "greedy-energy": "greedy-energy",
-    "phoenix2": "phoenix2",
+    "phoenix": "phoenix",
+    "phoenix2": "phoenix",
     "method3": "Method3",
     "Method3": "Method3",
+    "method3mod": "method3-mod",
+    "method3-mod": "method3-mod",
 }
 
 

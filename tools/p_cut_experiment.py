@@ -6,7 +6,9 @@ from __future__ import annotations
 import argparse
 import csv
 import math
+import os
 import sys
+import tempfile
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -14,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from satmulator.cli import effective_run_config, load_standalone_json_config, validate_args
 from satmulator.runlog import append_json_line, write_json
+from tools.plot_output import save_png_pdf
 
 DEFAULT_CONFIG = Path("configs/template.json")
 DEFAULT_OUTPUT = Path("experiments/P_cut")
@@ -132,14 +135,14 @@ def main() -> int:
         summaries.append(summary)
         suffix = safe_pct_suffix(safe_battery_pct)
         write_json(run_args.out / f"p_cut_summary_{suffix}.json", summary)
-        write_energy_svg(
-            run_args.out / f"p_cut_energy_{suffix}.svg",
+        write_energy_plot(
+            run_args.out / f"p_cut_energy_{suffix}",
             results,
             safe_energy_j,
             safe_battery_pct,
         )
-    write_combined_energy_svg(
-        run_args.out / "p_cut_energy_combined.svg",
+    write_combined_energy_plot(
+        run_args.out / "p_cut_energy_combined",
         results,
         summaries,
     )
@@ -256,21 +259,39 @@ def write_results_jsonl(path: Path, results: list[dict[str, float | int | str]])
             append_json_line(output, row)
 
 
-def write_energy_svg(
+def _pyplot():
+    cache_dir = Path(tempfile.gettempdir()) / "satmulator-matplotlib"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    os.environ.setdefault("MPLCONFIGDIR", str(cache_dir))
+    os.environ.setdefault("XDG_CACHE_HOME", str(cache_dir))
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    plt.rcParams.update(
+        {
+            "figure.facecolor": "white",
+            "axes.facecolor": "white",
+            "axes.edgecolor": "#333333",
+            "axes.labelcolor": "#222222",
+            "font.size": 11,
+            "grid.color": "#d9d9d9",
+            "grid.linewidth": 0.8,
+            "savefig.bbox": "tight",
+            "savefig.facecolor": "white",
+        }
+    )
+    return plt
+
+
+def write_energy_plot(
     path: Path,
     results: list[dict[str, float | int | str]],
     safe_energy_j: float,
     safe_battery_pct: float,
 ) -> None:
-    width = 900
-    height = 560
-    margin_left = 90
-    margin_right = 30
-    margin_top = 50
-    margin_bottom = 80
-    plot_w = width - margin_left - margin_right
-    plot_h = height - margin_top - margin_bottom
-
+    plt = _pyplot()
     max_energy_j = max(
         [safe_energy_j, *[float(row["total_eclipse_energy_j"]) for row in results]],
         default=1.0,
@@ -284,31 +305,6 @@ def write_energy_svg(
         else 0.0
     )
     safe_y = safe_energy_j / unit_divisor
-    max_x = max(max(xs) if xs else 1.0, 1.0)
-    max_y = max(max([*ys, safe_y]) if ys else safe_y, 1.0)
-    x_ticks, max_x = nice_tick_values(max_x, target_count=6)
-    y_ticks, max_y = nice_tick_values(max_y, target_count=5)
-
-    def sx(x: float) -> float:
-        return margin_left + plot_w * x / max_x
-
-    def sy(y: float) -> float:
-        return margin_top + plot_h * (1.0 - y / max_y)
-
-    points = " ".join(f"{sx(x):.2f},{sy(y):.2f}" for x, y in zip(xs, ys))
-    circles = "\n".join(
-        f'<circle cx="{sx(x):.2f}" cy="{sy(y):.2f}" r="4" fill="#1f77b4" />'
-        for x, y in zip(xs, ys)
-    )
-    idle_line = (
-        f'<line x1="{margin_left}" y1="{sy(idle_y):.2f}" '
-        f'x2="{margin_left + plot_w}" y2="{sy(idle_y):.2f}" '
-        'stroke="#d62728" stroke-width="2" stroke-dasharray="6 4" />'
-        f'<text x="{margin_left + plot_w - 6}" y="{sy(idle_y) - 8:.2f}" '
-        'text-anchor="end" fill="#d62728">'
-        f'idle baseline {idle_y:g} {unit_name}'
-        '</text>'
-    )
     eclipse_seconds = (
         float(results[0]["eclipse_duration_s"])
         if results
@@ -319,68 +315,26 @@ def write_energy_svg(
         if eclipse_seconds > 0 and results
         else 0.0
     )
-    safe_marker = (
-        f'<line x1="{margin_left}" y1="{sy(safe_y):.2f}" '
-        f'x2="{margin_left + plot_w}" y2="{sy(safe_y):.2f}" '
-        'stroke="#ff7f0e" stroke-width="2" stroke-dasharray="10 5" />'
-        f'<text x="{margin_left + plot_w - 6}" y="{sy(safe_y) - 8:.2f}" '
-        'text-anchor="end" fill="#ff7f0e">'
-        f'safe battery budget {safe_y:g} {unit_name}; limit ≈ {safe_power_w:.1f} W'
-        '</text>'
-    )
-
-    x_axis = "\n".join(
-        f'<line x1="{sx(t):.2f}" y1="{margin_top + plot_h}" x2="{sx(t):.2f}" y2="{margin_top + plot_h + 6}" stroke="#333" />'
-        f'<text x="{sx(t):.2f}" y="{height - 45}" text-anchor="middle">{t:g}</text>'
-        for t in x_ticks
-    )
-    y_axis = "\n".join(
-        f'<line x1="{margin_left - 6}" y1="{sy(t):.2f}" x2="{margin_left}" y2="{sy(t):.2f}" stroke="#333" />'
-        f'<text x="{margin_left - 10}" y="{sy(t) + 4:.2f}" text-anchor="end">{t:g}</text>'
-        f'<line x1="{margin_left}" y1="{sy(t):.2f}" x2="{margin_left + plot_w}" y2="{sy(t):.2f}" stroke="#eee" />'
-        for t in y_ticks
-    )
-
-    svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">
-  <style>
-    text {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 13px; fill: #222; }}
-    .title {{ font-size: 20px; font-weight: 700; }}
-    .label {{ font-size: 15px; font-weight: 600; }}
-  </style>
-  <rect width="100%" height="100%" fill="white" />
-  <text class="title" x="{width / 2}" y="28" text-anchor="middle">P_cut: CPU power vs one-satellite eclipse energy (safe battery {safe_battery_pct:g}%)</text>
-  <rect x="{margin_left}" y="{margin_top}" width="{plot_w}" height="{plot_h}" fill="#fafafa" stroke="#ccc" />
-  {y_axis}
-  <line x1="{margin_left}" y1="{margin_top + plot_h}" x2="{margin_left + plot_w}" y2="{margin_top + plot_h}" stroke="#333" />
-  <line x1="{margin_left}" y1="{margin_top}" x2="{margin_left}" y2="{margin_top + plot_h}" stroke="#333" />
-  {x_axis}
-  {safe_marker}
-  {idle_line}
-  <polyline points="{points}" fill="none" stroke="#1f77b4" stroke-width="3" />
-  {circles}
-  <text class="label" x="{margin_left + plot_w / 2}" y="{height - 12}" text-anchor="middle">CPU power (W)</text>
-  <text class="label" transform="translate(22 {margin_top + plot_h / 2}) rotate(-90)" text-anchor="middle">Total eclipse energy ({unit_name})</text>
-</svg>
-'''
-    path.write_text(svg)
+    fig, ax = plt.subplots(figsize=(9.0, 5.6))
+    ax.plot(xs, ys, marker="o", color="#1f77b4", linewidth=2.5)
+    ax.axhline(idle_y, color="#d62728", linestyle="--", linewidth=1.8, label=f"idle baseline {idle_y:g} {unit_name}")
+    ax.axhline(safe_y, color="#ff7f0e", linestyle=(0, (8, 4)), linewidth=1.8, label=f"safe budget {safe_y:g} {unit_name}; limit ~= {safe_power_w:.1f} W")
+    ax.set_title(f"P_cut: CPU power vs one-satellite eclipse energy (safe battery {safe_battery_pct:g}%)", fontweight="bold")
+    ax.set_xlabel("CPU power (W)")
+    ax.set_ylabel(f"Total eclipse energy ({unit_name})")
+    ax.grid(True, alpha=0.7)
+    ax.legend(loc="best")
+    save_png_pdf(fig, path)
+    plt.close(fig)
 
 
-def write_combined_energy_svg(
+def write_combined_energy_plot(
     path: Path,
     results: list[dict[str, float | int | str]],
     summaries: list[dict[str, float | int | str]],
 ) -> None:
     if not results or not summaries:
         return
-
-    width = 980
-    height = 610
-    margin_left = 90
-    margin_right = 40
-    margin_top = 58
-    margin_bottom = 82
-    plot_w = width - margin_left - margin_right
-    plot_h = height - margin_top - margin_bottom
 
     idle_energy_j = float(results[0]["idle_energy_j"])
     eclipse_seconds = float(results[0]["eclipse_duration_s"])
@@ -408,95 +362,35 @@ def write_combined_energy_svg(
     xs = [float(row["cpu_power_w"]) for row in results]
     ys = [float(row["total_eclipse_energy_j"]) / unit_divisor for row in results]
     max_x = max([*xs, *[float(cutoff["p_cut_w"]) for cutoff in cutoffs], 1.0])
-    max_y = max([*ys, *[float(cutoff["safe_energy_j"]) / unit_divisor for cutoff in cutoffs], 1.0])
-    x_ticks, max_x = nice_tick_values(max_x, target_count=7)
-    y_ticks, max_y = nice_tick_values(max_y, target_count=5)
 
-    def sx(x: float) -> float:
-        return margin_left + plot_w * x / max_x
-
-    def sy(y: float) -> float:
-        return margin_top + plot_h * (1.0 - y / max_y)
-
-    # The energy relation is linear.  Draw the full line through the displayed
-    # x-range so P_cut values beyond the sampled powers are still visible.
-    line_y0 = idle_energy_j / unit_divisor
-    line_y1 = (idle_energy_j + max_x * eclipse_seconds) / unit_divisor
-    energy_line = (
-        f'<line x1="{sx(0):.2f}" y1="{sy(line_y0):.2f}" '
-        f'x2="{sx(max_x):.2f}" y2="{sy(line_y1):.2f}" '
-        'stroke="#1f77b4" stroke-width="3" />'
-    )
-    circles = "\n".join(
-        f'<circle cx="{sx(x):.2f}" cy="{sy(y):.2f}" r="4" fill="#1f77b4" />'
-        for x, y in zip(xs, ys)
-    )
+    plt = _pyplot()
+    fig, ax = plt.subplots(figsize=(9.8, 6.1))
+    line_xs = [0.0, max_x]
+    line_ys = [
+        idle_energy_j / unit_divisor,
+        (idle_energy_j + max_x * eclipse_seconds) / unit_divisor,
+    ]
+    ax.plot(line_xs, line_ys, color="#1f77b4", linewidth=2.5, label="energy model")
+    ax.scatter(xs, ys, color="#1f77b4", s=28, zorder=3)
 
     colors = ["#d62728", "#ff7f0e", "#2ca02c", "#9467bd", "#8c564b"]
-    markers = []
     for index, cutoff in enumerate(sorted(cutoffs, key=lambda item: float(item["safe_battery_pct"]))):
         color = colors[index % len(colors)]
         safe_pct = float(cutoff["safe_battery_pct"])
         safe_y = float(cutoff["safe_energy_j"]) / unit_divisor
         p_cut_w = float(cutoff["p_cut_w"])
-        x = sx(p_cut_w)
-        y = sy(safe_y)
-        label_y = y - 10 - index * 2
-        markers.append(
-            f'<line x1="{margin_left}" y1="{y:.2f}" '
-            f'x2="{margin_left + plot_w}" y2="{y:.2f}" '
-            f'stroke="{color}" stroke-width="2" stroke-dasharray="8 5" />'
-        )
-        markers.append(
-            f'<line x1="{x:.2f}" y1="{y:.2f}" '
-            f'x2="{x:.2f}" y2="{margin_top + plot_h}" '
-            f'stroke="{color}" stroke-width="2" stroke-dasharray="4 5" />'
-        )
-        markers.append(
-            f'<circle cx="{x:.2f}" cy="{y:.2f}" r="5" fill="{color}" />'
-        )
-        markers.append(
-            f'<text x="{min(x + 8, margin_left + plot_w - 6):.2f}" '
-            f'y="{label_y:.2f}" text-anchor="start" fill="{color}">'
-            f'{safe_pct:g}% min: P_cut ≈ {p_cut_w:.1f} W'
-            '</text>'
-        )
+        ax.axhline(safe_y, color=color, linestyle=(0, (8, 4)), linewidth=1.6)
+        ax.axvline(p_cut_w, color=color, linestyle=(0, (3, 5)), linewidth=1.4)
+        ax.scatter([p_cut_w], [safe_y], color=color, s=34, zorder=4, label=f"{safe_pct:g}% min: P_cut ~= {p_cut_w:.1f} W")
 
-    x_axis = "\n".join(
-        f'<line x1="{sx(t):.2f}" y1="{margin_top + plot_h}" x2="{sx(t):.2f}" y2="{margin_top + plot_h + 6}" stroke="#333" />'
-        f'<text x="{sx(t):.2f}" y="{height - 44}" text-anchor="middle">{t:g}</text>'
-        for t in x_ticks
-    )
-    y_axis = "\n".join(
-        f'<line x1="{margin_left - 6}" y1="{sy(t):.2f}" x2="{margin_left}" y2="{sy(t):.2f}" stroke="#333" />'
-        f'<text x="{margin_left - 10}" y="{sy(t) + 4:.2f}" text-anchor="end">{t:g}</text>'
-        f'<line x1="{margin_left}" y1="{sy(t):.2f}" x2="{margin_left + plot_w}" y2="{sy(t):.2f}" stroke="#eee" />'
-        for t in y_ticks
-    )
-
-    svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">
-  <style>
-    text {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 13px; fill: #222; }}
-    .title {{ font-size: 20px; font-weight: 700; }}
-    .label {{ font-size: 15px; font-weight: 600; }}
-    .note {{ font-size: 12px; fill: #666; }}
-  </style>
-  <rect width="100%" height="100%" fill="white" />
-  <text class="title" x="{width / 2}" y="28" text-anchor="middle">P_cut by minimum battery limit</text>
-  <text class="note" x="{width / 2}" y="49" text-anchor="middle">One satellite, {eclipse_seconds:g}s eclipse, idle power {float(results[0]["idle_energy_j"]) / eclipse_seconds:g} W</text>
-  <rect x="{margin_left}" y="{margin_top}" width="{plot_w}" height="{plot_h}" fill="#fafafa" stroke="#ccc" />
-  {y_axis}
-  <line x1="{margin_left}" y1="{margin_top + plot_h}" x2="{margin_left + plot_w}" y2="{margin_top + plot_h}" stroke="#333" />
-  <line x1="{margin_left}" y1="{margin_top}" x2="{margin_left}" y2="{margin_top + plot_h}" stroke="#333" />
-  {x_axis}
-  {energy_line}
-  {circles}
-  {''.join(markers)}
-  <text class="label" x="{margin_left + plot_w / 2}" y="{height - 12}" text-anchor="middle">CPU power (W)</text>
-  <text class="label" transform="translate(22 {margin_top + plot_h / 2}) rotate(-90)" text-anchor="middle">Total eclipse energy ({unit_name})</text>
-</svg>
-'''
-    path.write_text(svg)
+    ax.set_title("P_cut by minimum battery limit", fontweight="bold")
+    ax.set_xlabel("CPU power (W)")
+    ax.set_ylabel(f"Total eclipse energy ({unit_name})")
+    ax.grid(True, alpha=0.7)
+    ax.legend(loc="best")
+    fig.text(0.5, 0.94, f"One satellite, {eclipse_seconds:g}s eclipse, idle power {idle_energy_j / eclipse_seconds:g} W", ha="center", fontsize=10, color="#666666")
+    save_png_pdf(fig, path)
+    plt.close(fig)
 
 
 def p_cut_power_w(

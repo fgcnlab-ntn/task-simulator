@@ -3,7 +3,14 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import os
+import sys
+import tempfile
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from tools.plot_output import format_written, save_png_pdf
 
 
 def load_summary(output_dir: Path) -> dict:
@@ -74,105 +81,51 @@ def write_csv(path: Path, rows: list[dict]) -> None:
         writer.writerows(rows)
 
 
-def write_svg(path: Path, rows: list[dict]) -> None:
-    width = 900
-    height = 420
-    margin_l = 90
-    margin_r = 40
-    margin_t = 60
-    margin_b = 90
-    plot_w = width - margin_l - margin_r
-    plot_h = height - margin_t - margin_b
+def _pyplot():
+    cache_dir = Path(tempfile.gettempdir()) / "satmulator-matplotlib"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    os.environ.setdefault("MPLCONFIGDIR", str(cache_dir))
+    os.environ.setdefault("XDG_CACHE_HOME", str(cache_dir))
+    import matplotlib
 
-    values = [row["fail_rate_pct"] for row in rows]
-    max_value = max(values) if values else 1.0
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
 
-    # Keep the y-axis readable even when failure rates are small.
-    if max_value <= 0:
-        max_value = 1.0
-
-    bar_gap = 40
-    bar_w = (plot_w - bar_gap * (len(rows) - 1)) / max(1, len(rows))
-
-    def y_at(value: float) -> float:
-        return margin_t + plot_h * (1.0 - value / max_value)
-
-    def fmt_pct(value: float) -> str:
-        return f"{value:.2f}%"
-
-    lines: list[str] = []
-    lines.append(
-        f'<svg xmlns="http://www.w3.org/2000/svg" '
-        f'width="{width}" height="{height}" viewBox="0 0 {width} {height}">\n'
+    plt.rcParams.update(
+        {
+            "figure.facecolor": "white",
+            "axes.facecolor": "white",
+            "axes.edgecolor": "#333333",
+            "axes.labelcolor": "#222222",
+            "font.size": 11,
+            "grid.color": "#d9d9d9",
+            "grid.linewidth": 0.8,
+            "savefig.bbox": "tight",
+            "savefig.facecolor": "white",
+        }
     )
-    lines.append('<rect width="100%" height="100%" fill="#0b1020"/>\n')
+    return plt
 
-    lines.append(
-        '<text x="24" y="34" fill="white" '
-        'font-family="sans-serif" font-size="22">'
-        "Task failure rate by scheduler"
-        "</text>\n"
-    )
 
-    x_axis_y = height - margin_b
+def write_plot(path: Path, rows: list[dict]) -> tuple[Path, Path]:
+    plt = _pyplot()
+    fig, ax = plt.subplots(figsize=(9.0, 4.6))
+    labels = [str(row["method"]) for row in rows]
+    values = [float(row["fail_rate_pct"]) for row in rows]
+    x = list(range(len(rows)))
 
-    # Axes.
-    lines.append(
-        f'<line x1="{margin_l}" y1="{x_axis_y}" '
-        f'x2="{width - margin_r}" y2="{x_axis_y}" '
-        f'stroke="#9fb3c8"/>\n'
-    )
-    lines.append(
-        f'<line x1="{margin_l}" y1="{margin_t}" '
-        f'x2="{margin_l}" y2="{x_axis_y}" '
-        f'stroke="#9fb3c8"/>\n'
-    )
-
-    # Y-axis labels.
-    lines.append(
-        f'<text x="28" y="{margin_t + 5}" fill="#cbd5e1" '
-        f'font-family="sans-serif" font-size="13">{fmt_pct(max_value)}</text>\n'
-    )
-    lines.append(
-        f'<text x="58" y="{x_axis_y + 5}" fill="#cbd5e1" '
-        f'font-family="sans-serif" font-size="13">0%</text>\n'
-    )
-
-    # Bars.
-    for i, row in enumerate(rows):
-        value = row["fail_rate_pct"]
-        x = margin_l + i * (bar_w + bar_gap)
-        y = y_at(value)
-        h = x_axis_y - y
-        label = row["method"]
-
-        lines.append(
-            f'<rect x="{x:.1f}" y="{y:.1f}" '
-            f'width="{bar_w:.1f}" height="{h:.1f}" '
-            f'rx="6" fill="#ffb703"/>\n'
-        )
-
-        lines.append(
-            f'<text x="{x + bar_w / 2:.1f}" y="{y - 8:.1f}" '
-            f'fill="white" font-family="sans-serif" font-size="13" '
-            f'text-anchor="middle">{fmt_pct(value)}</text>\n'
-        )
-
-        lines.append(
-            f'<text x="{x + bar_w / 2:.1f}" y="{x_axis_y + 28}" '
-            f'fill="white" font-family="sans-serif" font-size="14" '
-            f'text-anchor="middle">{label}</text>\n'
-        )
-
-        detail = f"{row['failed']}/{row['generated']}"
-        lines.append(
-            f'<text x="{x + bar_w / 2:.1f}" y="{x_axis_y + 48}" '
-            f'fill="#cbd5e1" font-family="sans-serif" font-size="12" '
-            f'text-anchor="middle">{detail}</text>\n'
-        )
-
-    lines.append("</svg>\n")
-    path.write_text("".join(lines))
+    ax.bar(x, values, color="#ffb703", edgecolor="#222222", linewidth=0.8)
+    ax.set_title("Task failure rate by scheduler", fontweight="bold")
+    ax.set_ylabel("Failed tasks (%)")
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels)
+    ax.set_ylim(0.0, max(values) * 1.18 if values else 1.0)
+    ax.grid(True, axis="y", alpha=0.7)
+    for xpos, value, row in zip(x, values, rows):
+        ax.text(xpos, value, f"{value:.2f}%\n{row['failed']}/{row['generated']}", ha="center", va="bottom", fontsize=9)
+    written = save_png_pdf(fig, path)
+    plt.close(fig)
+    return written
 
 
 def main() -> int:
@@ -200,7 +153,7 @@ def main() -> int:
         "--out",
         type=Path,
         default=Path("output/compare"),
-        help="Directory for comparison CSV/SVG files",
+        help="Directory for comparison CSV/PNG/PDF files",
     )
 
     args = parser.parse_args()
@@ -216,10 +169,10 @@ def main() -> int:
         rows.append(load_fail_rate(run_dir, label=label))
 
     write_csv(args.out / "fail_rate_comparison.csv", rows)
-    write_svg(args.out / "fail_rate_comparison.svg", rows)
+    written = write_plot(args.out / "fail_rate_comparison", rows)
 
     print(f"Wrote {args.out / 'fail_rate_comparison.csv'}")
-    print(f"Wrote {args.out / 'fail_rate_comparison.svg'}")
+    print(f"Wrote {format_written(written)}")
 
     for row in rows:
         print(

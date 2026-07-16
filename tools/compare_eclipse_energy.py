@@ -3,7 +3,14 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import os
+import sys
+import tempfile
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from tools.plot_output import format_written, save_png_pdf
 
 
 def scheduler_label(output_dir: Path, summary: dict) -> str:
@@ -63,77 +70,59 @@ def write_csv(path: Path, rows: list[dict]) -> None:
         writer.writerows(rows)
 
 
-def write_svg(path: Path, rows: list[dict], metric: str, title: str) -> None:
-    width = 900
-    height = 420
-    margin_l = 90
-    margin_r = 40
-    margin_t = 60
-    margin_b = 90
-    plot_w = width - margin_l - margin_r
-    plot_h = height - margin_t - margin_b
+def _pyplot():
+    cache_dir = Path(tempfile.gettempdir()) / "satmulator-matplotlib"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    os.environ.setdefault("MPLCONFIGDIR", str(cache_dir))
+    os.environ.setdefault("XDG_CACHE_HOME", str(cache_dir))
+    import matplotlib
 
-    values = [row[metric] for row in rows]
-    max_value = max(values) if values else 1.0
-    if max_value <= 0:
-        max_value = 1.0
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
 
-    bar_gap = 40
-    bar_w = (plot_w - bar_gap * (len(rows) - 1)) / max(1, len(rows))
-
-    def y_at(value: float) -> float:
-        return margin_t + plot_h * (1.0 - value / max_value)
-
-    def fmt_j(value: float) -> str:
-        if value >= 1_000_000:
-            return f"{value / 1_000_000:.2f} MJ"
-        if value >= 1_000:
-            return f"{value / 1_000:.2f} kJ"
-        return f"{value:.2f} J"
-
-    lines = []
-    lines.append(
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">\n'
+    plt.rcParams.update(
+        {
+            "figure.facecolor": "white",
+            "axes.facecolor": "white",
+            "axes.edgecolor": "#333333",
+            "axes.labelcolor": "#222222",
+            "font.size": 11,
+            "grid.color": "#d9d9d9",
+            "grid.linewidth": 0.8,
+            "savefig.bbox": "tight",
+            "savefig.facecolor": "white",
+        }
     )
-    lines.append('<rect width="100%" height="100%" fill="#0b1020"/>\n')
-    lines.append(
-        f'<text x="24" y="34" fill="white" font-family="sans-serif" font-size="22">{title}</text>\n'
-    )
+    return plt
 
-    x_axis_y = height - margin_b
-    lines.append(
-        f'<line x1="{margin_l}" y1="{x_axis_y}" x2="{width - margin_r}" y2="{x_axis_y}" stroke="#9fb3c8"/>\n'
-    )
-    lines.append(
-        f'<line x1="{margin_l}" y1="{margin_t}" x2="{margin_l}" y2="{x_axis_y}" stroke="#9fb3c8"/>\n'
-    )
 
-    lines.append(
-        f'<text x="18" y="{margin_t + 5}" fill="#cbd5e1" font-family="sans-serif" font-size="13">{fmt_j(max_value)}</text>\n'
-    )
-    lines.append(
-        f'<text x="38" y="{x_axis_y + 5}" fill="#cbd5e1" font-family="sans-serif" font-size="13">0</text>\n'
-    )
+def fmt_j(value: float) -> str:
+    if value >= 1_000_000:
+        return f"{value / 1_000_000:.2f} MJ"
+    if value >= 1_000:
+        return f"{value / 1_000:.2f} kJ"
+    return f"{value:.2f} J"
 
-    for i, row in enumerate(rows):
-        value = row[metric]
-        x = margin_l + i * (bar_w + bar_gap)
-        y = y_at(value)
-        h = x_axis_y - y
-        label = row["method"]
 
-        lines.append(
-            f'<rect x="{x:.1f}" y="{y:.1f}" width="{bar_w:.1f}" height="{h:.1f}" rx="6" fill="#8ecae6"/>\n'
-        )
-        lines.append(
-            f'<text x="{x + bar_w / 2:.1f}" y="{y - 8:.1f}" fill="white" font-family="sans-serif" font-size="13" text-anchor="middle">{fmt_j(value)}</text>\n'
-        )
-        lines.append(
-            f'<text x="{x + bar_w / 2:.1f}" y="{x_axis_y + 28}" fill="white" font-family="sans-serif" font-size="14" text-anchor="middle">{label}</text>\n'
-        )
+def write_plot(path: Path, rows: list[dict], metric: str, title: str) -> tuple[Path, Path]:
+    plt = _pyplot()
+    fig, ax = plt.subplots(figsize=(9.0, 4.6))
+    labels = [str(row["method"]) for row in rows]
+    values = [float(row[metric]) for row in rows]
+    x = list(range(len(rows)))
 
-    lines.append("</svg>\n")
-    path.write_text("".join(lines))
+    ax.bar(x, values, color="#8ecae6", edgecolor="#222222", linewidth=0.8)
+    ax.set_title(title, fontweight="bold")
+    ax.set_ylabel("Energy (J)")
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels)
+    ax.set_ylim(0.0, max(values) * 1.18 if values else 1.0)
+    ax.grid(True, axis="y", alpha=0.7)
+    for xpos, value in zip(x, values):
+        ax.text(xpos, value, fmt_j(value), ha="center", va="bottom", fontsize=9)
+    written = save_png_pdf(fig, path)
+    plt.close(fig)
+    return written
 
 
 def main() -> int:
@@ -150,7 +139,7 @@ def main() -> int:
         "--out",
         type=Path,
         default=Path("output/compare"),
-        help="Directory for comparison CSV/SVG files",
+        help="Directory for comparison CSV/PNG/PDF files",
     )
     args = parser.parse_args()
 
@@ -160,22 +149,22 @@ def main() -> int:
 
     write_csv(args.out / "eclipse_energy_comparison.csv", rows)
 
-    write_svg(
-        args.out / "eclipse_task_energy_comparison.svg",
+    task_written = write_plot(
+        args.out / "eclipse_task_energy_comparison",
         rows,
         metric="eclipse_task_j",
         title="Eclipsed-side task energy consumption by scheduler",
     )
-    write_svg(
-        args.out / "eclipse_total_energy_comparison.svg",
+    total_written = write_plot(
+        args.out / "eclipse_total_energy_comparison",
         rows,
         metric="eclipse_total_j",
         title="Eclipsed-side total energy by scheduler",
     )
 
     print(f"Wrote {args.out / 'eclipse_energy_comparison.csv'}")
-    print(f"Wrote {args.out / 'eclipse_task_energy_comparison.svg'}")
-    print(f"Wrote {args.out / 'eclipse_total_energy_comparison.svg'}")
+    print(f"Wrote {format_written(task_written)}")
+    print(f"Wrote {format_written(total_written)}")
 
     return 0
 
