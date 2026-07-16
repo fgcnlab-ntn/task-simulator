@@ -1,7 +1,7 @@
 {
   "run": {
     "name": "phoenix",
-    "description": "PHOENIX-inspired scheduler experiment without ground stations"
+    "description": "PHOENIX bounded-state scheduler experiment without ground stations"
   },
   "orbit": {
     "orbit_model": "circular",
@@ -75,7 +75,7 @@
     "alpha": 0.5
   },
   "output": {
-    "path": "output/final-1day-r80-dead180/phoenix"
+    "path": "output/final-loading-ratio/r80/phoenix"
   },
   "logging": {
     "task_events": "summary"

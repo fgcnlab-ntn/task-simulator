@@ -75,7 +75,7 @@
     "alpha": 0.5
   },
   "output": {
-    "path": "output/final-1day-r40-dead180/nearest-sunlit"
+    "path": "output/final-loading-ratio/r40/nearest-sunlit"
   },
   "logging": {
     "task_events": "summary"

@@ -75,7 +75,7 @@
     "alpha": 0.5
   },
   "output": {
-    "path": "output/final-1day-r30-dead180/local-only"
+    "path": "output/final-loading-ratio/r30/local-only"
   },
   "logging": {
     "task_events": "summary"

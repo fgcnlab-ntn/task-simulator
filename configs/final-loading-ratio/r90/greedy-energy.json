@@ -75,7 +75,7 @@
     "alpha": 0.5
   },
   "output": {
-    "path": "output/final-1day-r90-dead180/greedy-energy"
+    "path": "output/final-loading-ratio/r90/greedy-energy"
   },
   "logging": {
     "task_events": "summary"

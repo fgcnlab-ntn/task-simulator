@@ -75,7 +75,7 @@
     "alpha": 0.5
   },
   "output": {
-    "path": "output/final-1day-r60-dead180/method3"
+    "path": "output/final-loading-ratio/r60/method3"
   },
   "logging": {
     "task_events": "summary"
