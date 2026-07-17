@@ -133,7 +133,7 @@ def main() -> int:
         "runs",
         nargs="+",
         type=Path,
-        help="Output directories, e.g. output/compare/local output/compare/method1",
+        help="Output directories, e.g. output/compare/local output/compare/method3",
     )
     parser.add_argument(
         "--out",

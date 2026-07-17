@@ -138,7 +138,7 @@ def main() -> int:
         type=Path,
         help=(
             "Output directories, e.g. "
-            "output/compare/local output/compare/nearest_sunlit output/compare/method1"
+            "output/compare/local output/compare/nearest_sunlit output/compare/method3"
         ),
     )
     parser.add_argument(
