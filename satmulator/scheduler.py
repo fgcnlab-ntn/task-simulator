@@ -2259,20 +2259,16 @@ class Method5Scheduler(Method3Scheduler):
     """
     Method5: fairness-gated predictive sunlit dispatching.
 
-    Normal mode:
-        Compare local execution and one safest current sunlit target.
+    Main idea:
+    1. Fold queue load into predicted post-completion energy.
+    2. Normally compare local execution and one safest current sunlit target.
+    3. Allow deferral only if the source satellite's defer count is not above
+       the active-source average defer count.
+    4. If deferral is blocked, search sunlit targets in safety order and stop
+       at the first deadline-feasible safe target.
 
-    Defer mode:
-        Deferral is allowed only when the source satellite's deferred-task
-        count is not above the average deferred-task count.
-
-    Fallback mode:
-        If normal execution is infeasible and defer is not allowed, scan current
-        sunlit satellites by predicted post-completion safety and assign the
-        task to the safest feasible one.
-
-    This avoids fixed top-K tuning and prevents deferral from piling up on the
-    same source satellite.
+    This avoids a fixed top-K parameter and prevents deferral from piling up on
+    a small number of source satellites.
     """
 
     name = "method5"
@@ -2325,9 +2321,9 @@ class Method5Scheduler(Method3Scheduler):
             time_s=time_s,
         )
 
-        # The reserved queue plus this candidate are approximated as active
-        # compute over the busy window. This folds queue load into energy
-        # prediction without per-step simulation.
+        # The existing reserved queue plus this candidate task are approximated
+        # as active compute over the busy window. This folds queue load into
+        # energy prediction without per-step simulation.
         task_energy_j = duration_s * compute_config.cpu_power_w
 
         energy_j = projected_battery_after_step(
@@ -2500,7 +2496,10 @@ class Method5Scheduler(Method3Scheduler):
         if energy_j < battery.min_safe_j:
             return None
 
-        margin = self._safety_margin(energy_j=energy_j, battery=battery)
+        margin = self._safety_margin(
+            energy_j=energy_j,
+            battery=battery,
+        )
 
         return {
             "mode": "local",
@@ -2551,7 +2550,10 @@ class Method5Scheduler(Method3Scheduler):
             battery=battery,
         )
 
-        margin = self._safety_margin(energy_j=energy_j, battery=battery)
+        margin = self._safety_margin(
+            energy_j=energy_j,
+            battery=battery,
+        )
 
         return {
             "mode": "offload",
@@ -2599,13 +2601,23 @@ class Method5Scheduler(Method3Scheduler):
         *,
         source_sat_id: int,
         defer_count_by_sat: dict[int, int],
+        active_source_ids: set[int],
     ) -> bool:
-        if not defer_count_by_sat:
+        if not active_source_ids:
             return True
 
-        avg_defer = sum(defer_count_by_sat.values()) / len(defer_count_by_sat)
+        total_defer = sum(
+            defer_count_by_sat.get(sat_id, 0) for sat_id in active_source_ids
+        )
+        num_active_sources = len(active_source_ids)
 
-        return defer_count_by_sat.get(source_sat_id, 0) <= avg_defer
+        source_defer = defer_count_by_sat.get(source_sat_id, 0)
+
+        # Equivalent to:
+        # source_defer <= ceil(total_defer / num_active_sources)
+        #
+        # Written in integer form to avoid importing math.
+        return source_defer * num_active_sources <= total_defer + num_active_sources - 1
 
     def _defer_deadline_feasible(
         self,
@@ -2629,7 +2641,8 @@ class Method5Scheduler(Method3Scheduler):
         self,
         *,
         source: SatelliteView,
-        satellite_views: list[SatelliteView],
+        by_id: dict[int, SatelliteView],
+        sunlit_heap: list[tuple[float, float, int]],
         route_parents: dict[int, int | None],
         reserved_available_time: dict[int, float],
         time_s: int,
@@ -2639,9 +2652,53 @@ class Method5Scheduler(Method3Scheduler):
         compute_config: ComputeConfig,
         battery: BatteryConfig,
     ) -> dict | None:
-        best: dict | None = None
+        import heapq
 
-        for sat in satellite_views:
+        popped: list[tuple[float, float, int]] = []
+        checked_sat_ids: set[int] = set()
+
+        while sunlit_heap:
+            neg_margin, recorded_available_time, sat_id = heapq.heappop(sunlit_heap)
+
+            if sat_id in checked_sat_ids:
+                continue
+
+            if sat_id == source.sat_id:
+                popped.append((neg_margin, recorded_available_time, sat_id))
+                checked_sat_ids.add(sat_id)
+                continue
+
+            sat = by_id.get(sat_id)
+            if sat is None or not sat.sunlit:
+                checked_sat_ids.add(sat_id)
+                continue
+
+            current_available_time = reserved_available_time[sat_id]
+            current_margin = self._baseline_sunlit_margin(
+                sat=sat,
+                reserved_available_time=reserved_available_time,
+                time_s=time_s,
+                step_s=step_s,
+                compute_config=compute_config,
+                battery=battery,
+            )
+
+            current_entry = (
+                -current_margin,
+                current_available_time,
+                sat_id,
+            )
+
+            # Stale entry. Push the updated value and keep searching.
+            if (
+                abs(recorded_available_time - current_available_time) > 1e-9
+                or abs(neg_margin - current_entry[0]) > 1e-9
+            ):
+                heapq.heappush(sunlit_heap, current_entry)
+                continue
+
+            checked_sat_ids.add(sat_id)
+
             candidate = self._make_sunlit_candidate(
                 sat=sat,
                 source=source,
@@ -2655,33 +2712,63 @@ class Method5Scheduler(Method3Scheduler):
                 battery=battery,
             )
 
-            if candidate is None:
-                continue
-
-            if not candidate["deadline_feasible"]:
-                continue
-
-            if not candidate["energy_safe"]:
-                continue
-
-            if best is None:
-                best = candidate
-                continue
-
             if (
-                candidate["margin"],
-                -candidate["finish_time"],
-                -candidate["route"].hop_count,
-                -candidate["sat_id"],
-            ) > (
-                best["margin"],
-                -best["finish_time"],
-                -best["route"].hop_count,
-                -best["sat_id"],
+                candidate is not None
+                and candidate["deadline_feasible"]
+                and candidate["energy_safe"]
             ):
-                best = candidate
+                # Restore previously popped candidates, but do not restore the
+                # selected candidate. The caller will push its updated state
+                # after assignment.
+                for item in popped:
+                    heapq.heappush(sunlit_heap, item)
 
-        return best
+                return candidate
+
+            # Candidate was examined but not selected, so keep it available for
+            # future tasks.
+            popped.append(current_entry)
+
+        for item in popped:
+            heapq.heappush(sunlit_heap, item)
+
+        return None
+
+    def _push_updated_sunlit_state(
+        self,
+        *,
+        sat_id: int,
+        by_id: dict[int, SatelliteView],
+        sunlit_heap: list[tuple[float, float, int]],
+        reserved_available_time: dict[int, float],
+        time_s: int,
+        step_s: int,
+        compute_config: ComputeConfig,
+        battery: BatteryConfig,
+    ) -> None:
+        import heapq
+
+        sat = by_id[sat_id]
+        if not sat.sunlit:
+            return
+
+        margin = self._baseline_sunlit_margin(
+            sat=sat,
+            reserved_available_time=reserved_available_time,
+            time_s=time_s,
+            step_s=step_s,
+            compute_config=compute_config,
+            battery=battery,
+        )
+
+        heapq.heappush(
+            sunlit_heap,
+            (
+                -margin,
+                reserved_available_time[sat_id],
+                sat_id,
+            ),
+        )
 
     def assign_tasks(
         self,
@@ -2697,8 +2784,6 @@ class Method5Scheduler(Method3Scheduler):
         isl_graph: ISLGraph,
         scheduler_config: SchedulerConfig,
     ) -> list[Assignment]:
-        import heapq
-
         by_id = {sat.sat_id: sat for sat in satellite_views}
 
         reserved_available_time = {
@@ -2716,15 +2801,16 @@ class Method5Scheduler(Method3Scheduler):
             task.source_sat for task in ordered_tasks if task.source_sat is not None
         }
 
+        active_source_ids: set[int] = set(unique_sources)
+
         route_parents_by_source: dict[int, dict[int, int | None]] = {
             source_sat: route_parents_from_source(isl_graph, source_sat)
             for source_sat in unique_sources
         }
 
-        # Track defer count per satellite. This follows the average-defer gate:
-        # a source can defer only if its defer count is not above the current
-        # constellation-wide average.
-        defer_count_by_sat: dict[int, int] = {sat.sat_id: 0 for sat in satellite_views}
+        # Track defer count only over active source satellites. This avoids
+        # diluting the average by satellites that have no tasks in this batch.
+        defer_count_by_sat: dict[int, int] = {sat_id: 0 for sat_id in active_source_ids}
 
         sunlit_heap: list[tuple[float, float, int]] = []
         self._rebuild_sunlit_heap(
@@ -2750,6 +2836,7 @@ class Method5Scheduler(Method3Scheduler):
 
             route_parents = route_parents_by_source[source.sat_id]
 
+            # Candidate 1: local execution.
             local_candidate = self._make_local_candidate(
                 source=source,
                 reserved_available_time=reserved_available_time,
@@ -2761,6 +2848,7 @@ class Method5Scheduler(Method3Scheduler):
                 battery=battery,
             )
 
+            # Candidate 2: one safest currently sunlit target from the heap.
             sunlit_candidate = None
             safest_sunlit_id = self._peek_safest_sunlit_from_heap(
                 sunlit_heap=sunlit_heap,
@@ -2806,23 +2894,16 @@ class Method5Scheduler(Method3Scheduler):
 
                 reserved_available_time[chosen["sat_id"]] = chosen["finish_time"]
 
-                if by_id[chosen["sat_id"]].sunlit:
-                    margin = self._baseline_sunlit_margin(
-                        sat=by_id[chosen["sat_id"]],
-                        reserved_available_time=reserved_available_time,
-                        time_s=time_s,
-                        step_s=step_s,
-                        compute_config=compute_config,
-                        battery=battery,
-                    )
-                    heapq.heappush(
-                        sunlit_heap,
-                        (
-                            -margin,
-                            reserved_available_time[chosen["sat_id"]],
-                            chosen["sat_id"],
-                        ),
-                    )
+                self._push_updated_sunlit_state(
+                    sat_id=chosen["sat_id"],
+                    by_id=by_id,
+                    sunlit_heap=sunlit_heap,
+                    reserved_available_time=reserved_available_time,
+                    time_s=time_s,
+                    step_s=step_s,
+                    compute_config=compute_config,
+                    battery=battery,
+                )
 
                 if num_sunlit > 0 and len(sunlit_heap) > 3 * num_sunlit:
                     self._rebuild_sunlit_heap(
@@ -2837,9 +2918,11 @@ class Method5Scheduler(Method3Scheduler):
 
                 continue
 
+            # If immediate execution is not feasible, check fair deferral.
             defer_ok = self._defer_allowed(
                 source_sat_id=source.sat_id,
                 defer_count_by_sat=defer_count_by_sat,
+                active_source_ids=active_source_ids,
             )
 
             defer_deadline_ok, defer_finish = self._defer_deadline_feasible(
@@ -2867,9 +2950,12 @@ class Method5Scheduler(Method3Scheduler):
                 deferred_available_time[source.sat_id] = defer_finish
                 continue
 
+            # If deferral is blocked, search sunlit targets lazily in safety
+            # order and stop at the first feasible safe target.
             fallback = self._fallback_sunlit_search(
                 source=source,
-                satellite_views=satellite_views,
+                by_id=by_id,
+                sunlit_heap=sunlit_heap,
                 route_parents=route_parents,
                 reserved_available_time=reserved_available_time,
                 time_s=time_s,
@@ -2892,23 +2978,16 @@ class Method5Scheduler(Method3Scheduler):
 
                 reserved_available_time[fallback["sat_id"]] = fallback["finish_time"]
 
-                if by_id[fallback["sat_id"]].sunlit:
-                    margin = self._baseline_sunlit_margin(
-                        sat=by_id[fallback["sat_id"]],
-                        reserved_available_time=reserved_available_time,
-                        time_s=time_s,
-                        step_s=step_s,
-                        compute_config=compute_config,
-                        battery=battery,
-                    )
-                    heapq.heappush(
-                        sunlit_heap,
-                        (
-                            -margin,
-                            reserved_available_time[fallback["sat_id"]],
-                            fallback["sat_id"],
-                        ),
-                    )
+                self._push_updated_sunlit_state(
+                    sat_id=fallback["sat_id"],
+                    by_id=by_id,
+                    sunlit_heap=sunlit_heap,
+                    reserved_available_time=reserved_available_time,
+                    time_s=time_s,
+                    step_s=step_s,
+                    compute_config=compute_config,
+                    battery=battery,
+                )
 
                 if num_sunlit > 0 and len(sunlit_heap) > 3 * num_sunlit:
                     self._rebuild_sunlit_heap(
