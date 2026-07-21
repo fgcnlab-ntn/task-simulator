@@ -34,6 +34,8 @@ METHOD_DIRS = {
     "greedy-energy": "greedy-energy",
     "method3": "method3",
     "method3mod": "method3mod",
+    "method3mod-first": "method3mod-first",
+    "method5": "method5",
     "phoenix": "phoenix",
 }
 
@@ -43,7 +45,11 @@ RUN_STYLES = {
     "greedy-energy": method_style("greedy-energy"),
     "method3": method_style("method3"),
     "method3mod": method_style("method3mod"),
+    "method3mod-first": method_style("method3mod-first"),
+    "method5": method_style("method5"),
+    "method7": method_style("method7"),
     "phoenix": method_style("phoenix"),
+    "phoenix2": method_style("phoenix2"),
 }
 
 
@@ -621,8 +627,9 @@ def write_illumination_violin(
                 }
             )
 
-    max_peak = max(float(shape["peak"]) for shape in shapes)
-    density_scale = (1.8 / 2.0) / max_peak
+    # Match seaborn's density_norm="width": each half violin gets the same
+    # maximum width, so a sharply concentrated series cannot flatten the rest.
+    half_width = 0.42
     for shape in shapes:
         index = int(shape["index"])
         state = str(shape["state"])
@@ -630,7 +637,8 @@ def write_illumination_violin(
         density = shape["density"]
         if not isinstance(grid, np.ndarray) or not isinstance(density, np.ndarray):
             raise TypeError("invalid KDE shape")
-        width = density * density_scale
+        peak = float(shape["peak"])
+        width = density * (half_width / peak) if peak > 0.0 else np.zeros_like(density)
         if state == "sunlit":
             ax.fill_betweenx(
                 grid,

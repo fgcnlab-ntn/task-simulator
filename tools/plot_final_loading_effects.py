@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from satmulator.plot_styles import canonical_method, method_style, ordered_methods
 from tools.plot_output import save_png_pdf
 
-RUN_METHODS = [
+DEFAULT_RUN_METHODS = [
     "local-only",
     "nearest-sunlit",
     "greedy-energy",
@@ -22,10 +22,6 @@ RUN_METHODS = [
     "method3",
     "method3mod",
 ]
-METHOD_ORDER_INDEX = {
-    method: index for index, method in enumerate(ordered_methods(RUN_METHODS))
-}
-
 LOADING_RE = re.compile(r"^r(?P<pct>\d+(?:\.\d+)?)$")
 
 
@@ -70,19 +66,40 @@ def task_failure_ratio(summary: dict) -> float:
     return 0.0 if generated == 0 else float(tasks["failed"]) / generated
 
 
-def method_order_key(method: str) -> int:
-    return METHOD_ORDER_INDEX[canonical_method(method)]
+def method_order_map(methods: list[str]) -> dict[str, int]:
+    return {
+        canonical_method(method): index
+        for index, method in enumerate(ordered_methods(methods))
+    }
 
 
-def collect_rows(base_dir: Path) -> list[dict[str, float | str]]:
+def method_summary_file(group_dir: Path, method: str) -> Path | None:
+    summary_file = group_dir / method / "summary.json"
+    if summary_file.exists():
+        return summary_file
+    if method == "phoenix2" and group_dir.name == "r70":
+        fallback_file = group_dir / "phoenix" / "summary.json"
+        if fallback_file.exists():
+            return fallback_file
+    return None
+
+
+def collect_rows(
+    base_dir: Path,
+    *,
+    methods: list[str],
+    runs: set[str] | None = None,
+) -> list[dict[str, float | str]]:
     rows: list[dict[str, float | str]] = []
     for group_dir in sorted(path for path in base_dir.iterdir() if path.is_dir()):
-        if not any((group_dir / method / "run.json").exists() for method in RUN_METHODS):
+        if runs is not None and group_dir.name not in runs:
+            continue
+        if not any(method_summary_file(group_dir, method) is not None for method in methods):
             continue
         loading = loading_pct(group_dir)
-        for method in RUN_METHODS:
-            summary_file = group_dir / method / "summary.json"
-            if not summary_file.exists():
+        for method in methods:
+            summary_file = method_summary_file(group_dir, method)
+            if summary_file is None:
                 continue
             summary = json.loads(summary_file.read_text())
             objective = summary.get("objective", {})
@@ -102,11 +119,12 @@ def collect_rows(base_dir: Path) -> list[dict[str, float | str]]:
                     "task_failure_ratio": task_failure_ratio(summary),
                 }
             )
+    order_index = method_order_map(methods)
     return sorted(
         rows,
         key=lambda row: (
             float(row["loading_pct"]),
-            method_order_key(str(row["method"])),
+            order_index[canonical_method(str(row["method"]))],
         ),
     )
 
@@ -138,6 +156,7 @@ def plot_metric(
     rows: list[dict[str, float | str]],
     path: Path,
     *,
+    methods: list[str],
     metric: str,
     ylabel: str,
     title: str,
@@ -145,11 +164,12 @@ def plot_metric(
     plt = _pyplot()
     fig, ax = plt.subplots(figsize=(9, 5.4))
 
-    methods = sorted(
+    method_index = method_order_map(methods)
+    plotted_methods = sorted(
         {str(row["method"]) for row in rows},
-        key=method_order_key,
+        key=lambda method: method_index[canonical_method(method)],
     )
-    for method in methods:
+    for method in plotted_methods:
         points = [row for row in rows if row["method"] == method]
         if not points:
             continue
@@ -180,7 +200,7 @@ def plot_metric(
     ax.set_xticks(sorted({float(row["loading_pct"]) for row in rows}))
     ax.set_ylim(bottom=0)
     ax.legend(
-        ncol=len(methods),
+        ncol=len(plotted_methods),
         loc="upper center",
         bbox_to_anchor=(0.5, 0.895),
         bbox_transform=fig.transFigure,
@@ -198,9 +218,24 @@ def main() -> None:
     )
     parser.add_argument("--base-dir", type=Path, default=Path("output"))
     parser.add_argument("--out-dir", type=Path, default=Path("output/compare"))
+    parser.add_argument(
+        "--methods",
+        nargs="+",
+        default=DEFAULT_RUN_METHODS,
+        help="Method directories to include, in plot order.",
+    )
+    parser.add_argument(
+        "--runs",
+        nargs="+",
+        help="Optional run group names to include, such as r70 r80 r90.",
+    )
     args = parser.parse_args()
 
-    rows = collect_rows(args.base_dir)
+    rows = collect_rows(
+        args.base_dir,
+        methods=args.methods,
+        runs=set(args.runs) if args.runs is not None else None,
+    )
     if not rows:
         raise SystemExit(f"no run groups found under {args.base_dir}")
 
@@ -208,6 +243,7 @@ def main() -> None:
     plot_metric(
         rows,
         args.out_dir / "final-loading-below-e-safe",
+        methods=args.methods,
         metric="below_e_safe_ratio",
         ylabel="Eclipse breach / eclipse satellites (%)",
         title="Task loading vs eclipse-side battery breaches",
@@ -215,6 +251,7 @@ def main() -> None:
     plot_metric(
         rows,
         args.out_dir / "final-loading-task-fail-ratio",
+        methods=args.methods,
         metric="task_failure_ratio",
         ylabel="Task failure ratio (%)",
         title="Task loading vs task failure ratio",
