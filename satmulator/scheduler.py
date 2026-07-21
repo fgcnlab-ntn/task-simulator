@@ -111,6 +111,78 @@ def reversed_route_nodes_from_parents(
     return nodes
 
 
+def reserved_energy_for_sat(reserved_energy, sat_id: int) -> float:
+    if isinstance(reserved_energy, dict):
+        return reserved_energy.get(sat_id, 0.0)
+    if 0 <= sat_id < len(reserved_energy):
+        return reserved_energy[sat_id]
+    return 0.0
+
+
+def hard_limit_reserved_energy_by_sat(
+    *,
+    satellite_views: list[SatelliteView],
+    time_s: int,
+    step_s: int,
+    battery: BatteryConfig,
+    compute_config: ComputeConfig,
+) -> dict[int, float]:
+    """Energy already committed before considering new assignments.
+
+    The baseline hard constraint is intentionally per-slot and local: do not
+    accept a new route if the currently known eclipse-side drain would leave an
+    eclipse satellite below ``battery.min_safe_j``.  Runtime applies one idle
+    drain per satellite per step, and pre-existing compute queues cannot be
+    cancelled by the current scheduler call, so reserve both terms up front for
+    eclipse satellites.  Sunlit satellites are not constrained because they can
+    harvest during the step.
+    """
+
+    if time_s <= 0:
+        idle_energy_j = 0.0
+    else:
+        idle_energy_j = battery.idle_w * step_s
+
+    return {
+        sat.sat_id: (
+            0.0
+            if sat.sunlit
+            else idle_energy_j + sat.queue_backlog_s * compute_config.cpu_power_w
+        )
+        for sat in satellite_views
+    }
+
+
+def eclipse_route_respects_hard_limit(
+    *,
+    route_cost,
+    satellite_by_id: dict[int, SatelliteView],
+    reserved_energy,
+    battery: BatteryConfig,
+) -> bool:
+    for sat_id, energy_j in route_cost.energy_by_sat.items():
+        sat = satellite_by_id[sat_id]
+        if sat.sunlit:
+            continue
+        projected = sat.battery_j - reserved_energy_for_sat(reserved_energy, sat_id)
+        projected -= energy_j
+        if projected < battery.min_safe_j:
+            return False
+    return True
+
+
+def reserve_route_energy(
+    *,
+    route_cost,
+    reserved_energy,
+) -> None:
+    for sat_id, energy_j in route_cost.energy_by_sat.items():
+        if isinstance(reserved_energy, dict):
+            reserved_energy[sat_id] = reserved_energy.get(sat_id, 0.0) + energy_j
+        elif 0 <= sat_id < len(reserved_energy):
+            reserved_energy[sat_id] += energy_j
+
+
 def routes_from_source(graph: ISLGraph, source_sat: int) -> dict[int, Route]:
     """Return shortest routes from one source to every reachable satellite."""
 
@@ -578,6 +650,13 @@ class GreedyEnergyScheduler(Scheduler):
         reserved_available_time = {
             sat.sat_id: float(time_s) + sat.queue_backlog_s for sat in satellite_views
         }
+        reserved_energy = hard_limit_reserved_energy_by_sat(
+            satellite_views=satellite_views,
+            time_s=time_s,
+            step_s=step_s,
+            battery=battery,
+            compute_config=compute_config,
+        )
         reserved_local_cycles = {
             sat.sat_id: sat.queue_backlog_s * compute_config.cpu_frequency_hz
             for sat in satellite_views
@@ -653,8 +732,35 @@ class GreedyEnergyScheduler(Scheduler):
                     candidate.assignment.target_sat,
                 ),
             )
+            chosen_cost = estimate_route_cost(
+                task=task,
+                route=chosen.assignment.route,
+                compute_config=compute_config,
+                isl_config=isl_config,
+            )
+            if not eclipse_route_respects_hard_limit(
+                route_cost=chosen_cost,
+                satellite_by_id=by_id,
+                reserved_energy=reserved_energy,
+                battery=battery,
+            ):
+                assignments.append(
+                    Assignment(
+                        task_id=task.task_id,
+                        route=chosen.assignment.route,
+                        mode="fail",
+                        score=float("inf"),
+                        failed_reason="battery_hard_constraint",
+                    )
+                )
+                continue
+
             assignments.append(chosen.assignment)
             reserved_available_time[chosen.assignment.target_sat] = chosen.finish_time_s
+            reserve_route_energy(
+                route_cost=chosen_cost,
+                reserved_energy=reserved_energy,
+            )
             if chosen.assignment.mode == "local":
                 reserved_local_cycles[source.sat_id] += task_cycles
 
