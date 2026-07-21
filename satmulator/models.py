@@ -194,6 +194,7 @@ class SatelliteView:
     plane: int | None = None
     slot: int | None = None
     next_sunlit_time_s: float | None = None
+    next_eclipse_time_s: float | None = None
 
 
 @dataclass(frozen=True)

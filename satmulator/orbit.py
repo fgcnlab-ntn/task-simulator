@@ -54,7 +54,7 @@ def update_circular_next_sunlit_times(
     time_s: int,
     mean_motion: float,
 ) -> None:
-    """Estimate next sunlight cheaply from the current circular plane phase."""
+    """Estimate the next illumination transitions from circular plane phase."""
 
     if sats_per_plane <= 0 or mean_motion <= 0.0:
         return
@@ -67,17 +67,53 @@ def update_circular_next_sunlit_times(
             env.satellites[base + slot].sunlit for slot in range(sats_per_plane)
         ]
 
+        def next_delta_with_state(
+            slot: int,
+            desired_sunlit: bool,
+            *,
+            start_delta: int = 1,
+        ) -> int | None:
+            for delta_slots in range(start_delta, 2 * sats_per_plane + 1):
+                if (
+                    sunlit_by_slot[(slot + delta_slots) % sats_per_plane]
+                    == desired_sunlit
+                ):
+                    return delta_slots
+            return None
+
         for slot, is_sunlit in enumerate(sunlit_by_slot):
             sat = env.satellites[base + slot]
             if is_sunlit:
-                sat.next_sunlit_time_s = float(time_s)
+                next_eclipse_delta = next_delta_with_state(slot, False)
+                sat.next_eclipse_time_s = (
+                    None
+                    if next_eclipse_delta is None
+                    else float(time_s)
+                    + max(0, next_eclipse_delta - 1) * slot_duration_s
+                )
+                next_sunlit_delta = (
+                    None
+                    if next_eclipse_delta is None
+                    else next_delta_with_state(
+                        slot,
+                        True,
+                        start_delta=next_eclipse_delta + 1,
+                    )
+                )
+                sat.next_sunlit_time_s = (
+                    float(time_s)
+                    if next_eclipse_delta is None
+                    else (
+                        None
+                        if next_sunlit_delta is None
+                        else float(time_s)
+                        + next_sunlit_delta * slot_duration_s
+                    )
+                )
                 continue
 
-            next_delta_slots = None
-            for delta_slots in range(1, sats_per_plane + 1):
-                if sunlit_by_slot[(slot + delta_slots) % sats_per_plane]:
-                    next_delta_slots = delta_slots
-                    break
+            sat.next_eclipse_time_s = float(time_s)
+            next_delta_slots = next_delta_with_state(slot, True)
 
             sat.next_sunlit_time_s = (
                 None
