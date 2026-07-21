@@ -2505,10 +2505,13 @@ class Phoenix2Scheduler(_PhoenixSchedulerBase):
             sat.sat_id: float(time_s) + sat.queue_backlog_s for sat in satellite_views
         }
         deferred_available_time = dict(reserved_available_time)
-        reserved_energy = {
-            sat.sat_id: sat.queue_backlog_s * compute_config.cpu_power_w
-            for sat in satellite_views
-        }
+        reserved_energy = hard_limit_reserved_energy_by_sat(
+            satellite_views=satellite_views,
+            time_s=time_s,
+            step_s=step_s,
+            battery=battery,
+            compute_config=compute_config,
+        )
         ordered_tasks = sorted(
             tasks,
             key=lambda task: (task.created_time_s + task.deadline_s, task.task_id),
@@ -2608,17 +2611,35 @@ class Phoenix2Scheduler(_PhoenixSchedulerBase):
                 continue
 
             assignment, finish_time = chosen
-            assignments.append(assignment)
-            reserved_available_time[assignment.target_sat] = finish_time
             cost = estimate_route_cost(
                 task=task,
                 route=assignment.route,
                 compute_config=compute_config,
                 isl_config=isl_config,
             )
-            if assignment.mode == "offload":
-                for sat_id, energy_j in cost.energy_by_sat.items():
-                    reserved_energy[sat_id] += energy_j
+            if not eclipse_route_respects_hard_limit(
+                route_cost=cost,
+                satellite_by_id=by_id,
+                reserved_energy=reserved_energy,
+                battery=battery,
+            ):
+                assignments.append(
+                    Assignment(
+                        task_id=task.task_id,
+                        route=assignment.route,
+                        mode="fail",
+                        score=float("inf"),
+                        failed_reason="battery_hard_constraint",
+                    )
+                )
+                continue
+
+            assignments.append(assignment)
+            reserved_available_time[assignment.target_sat] = finish_time
+            reserve_route_energy(
+                route_cost=cost,
+                reserved_energy=reserved_energy,
+            )
             self._remember_assignment_load(
                 assignment,
                 by_id,
