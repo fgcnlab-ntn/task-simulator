@@ -5,6 +5,7 @@ import random
 from dataclasses import dataclass, field
 from typing import Callable
 
+from .battery import battery_is_safe
 from .models import BatteryConfig, Route, SatelliteState, SatelliteView, Task
 
 
@@ -108,7 +109,7 @@ class SatelliteRuntime:
             battery_pct=100.0 * self.battery_j / battery.capacity_j,
             harvested_j=harvested_j,
             consumed_j=consumed_j,
-            safe_battery=self.battery_j >= battery.min_safe_j,
+            safe_battery=battery_is_safe(self.battery_j, battery.min_safe_j),
             generated_tasks=generated_tasks,
             completed_tasks=completed_tasks,
             failed_tasks=failed_tasks,

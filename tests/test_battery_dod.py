@@ -1,5 +1,6 @@
 import unittest
 
+from satmulator.battery import ENERGY_EPSILON_J, battery_is_safe
 from satmulator.models import (
     Assignment,
     BatteryConfig,
@@ -44,6 +45,18 @@ def compute_config() -> ComputeConfig:
 
 
 class BatteryDoDTests(unittest.TestCase):
+    def test_safe_limit_ignores_only_floating_point_noise(self) -> None:
+        minimum_j = 151200.0
+
+        self.assertTrue(battery_is_safe(minimum_j, minimum_j))
+        self.assertTrue(battery_is_safe(107999.99999999894, 108000.0))
+        self.assertTrue(
+            battery_is_safe(minimum_j - ENERGY_EPSILON_J / 2.0, minimum_j)
+        )
+        self.assertFalse(
+            battery_is_safe(minimum_j - ENERGY_EPSILON_J * 2.0, minimum_j)
+        )
+
     def test_apply_step_executes_task_that_crosses_dod_limit(self) -> None:
         battery = BatteryConfig(
             capacity_j=100.0,

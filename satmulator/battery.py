@@ -3,6 +3,17 @@ from __future__ import annotations
 from .models import BatteryConfig
 
 
+# Battery updates accumulate floating-point error over thousands of steps.
+# One microjoule is still negligible beside the simulator's joule-scale loads.
+ENERGY_EPSILON_J = 1.0e-6
+
+
+def battery_is_safe(battery_j: float, min_safe_j: float) -> bool:
+    """Return whether battery energy meets the limit within numeric noise."""
+
+    return battery_j + ENERGY_EPSILON_J >= min_safe_j
+
+
 def validate_battery_config(battery: BatteryConfig) -> None:
     if battery.capacity_j <= 0:
         raise ValueError("battery capacity must be positive")
