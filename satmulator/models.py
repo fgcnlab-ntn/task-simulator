@@ -195,6 +195,8 @@ class SatelliteView:
     slot: int | None = None
     next_sunlit_time_s: float | None = None
     next_eclipse_time_s: float | None = None
+    illumination_horizon_time_s: float | None = None
+    pending_task_energy_j: float = 0.0
 
 
 @dataclass(frozen=True)

@@ -37,6 +37,7 @@ class SatelliteRuntime:
     sunlit: bool = False
     next_sunlit_time_s: float | None = None
     next_eclipse_time_s: float | None = None
+    illumination_horizon_time_s: float | None = None
 
     def update_orbit(
         self,
@@ -55,7 +56,7 @@ class SatelliteRuntime:
         self.lon_deg = lon_deg
         self.elevation_km = elevation_km
 
-    def view(self) -> SatelliteView:
+    def view(self, *, pending_task_energy_j: float = 0.0) -> SatelliteView:
         return SatelliteView(
             sat_id=self.sat_id,
             x_km=self.pos_km[0],
@@ -71,6 +72,8 @@ class SatelliteRuntime:
             slot=self.slot,
             next_sunlit_time_s=self.next_sunlit_time_s,
             next_eclipse_time_s=self.next_eclipse_time_s,
+            illumination_horizon_time_s=self.illumination_horizon_time_s,
+            pending_task_energy_j=pending_task_energy_j,
         )
 
     def snapshot(
@@ -165,7 +168,18 @@ class EnvironmentRuntime:
         return [task for sat in self.satellites for task in sat.task_queue]
 
     def views(self) -> list[SatelliteView]:
-        return [sat.view() for sat in self.satellites]
+        pending_energy_by_sat: dict[int, float] = {}
+        for running in self.running_tasks:
+            for sat_id, energy_j in running.transmission_energy_by_sat.items():
+                pending_energy_by_sat[sat_id] = (
+                    pending_energy_by_sat.get(sat_id, 0.0) + energy_j
+                )
+        return [
+            sat.view(
+                pending_task_energy_j=pending_energy_by_sat.get(sat.sat_id, 0.0)
+            )
+            for sat in self.satellites
+        ]
 
     def emit_task_event(self, event_type: str, task_id: int, **details: object) -> None:
         if self.task_event_sink is None:

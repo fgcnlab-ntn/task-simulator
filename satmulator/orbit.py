@@ -3,6 +3,7 @@ from __future__ import annotations
 import datetime as dt
 import math
 import random
+from array import array
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -46,80 +47,130 @@ def validate_compute_config(compute: ComputeConfig) -> None:
         raise ValueError("CPU power must be non-negative")
 
 
-def update_circular_next_sunlit_times(
+@dataclass(frozen=True)
+class CircularIlluminationTimeline:
+    """Step-aligned illumination and transition lookup for a circular run."""
+
+    step_s: int
+    duration_s: int
+    sunlit_by_step: tuple[bytes, ...]
+    next_eclipse_step: tuple[array, ...]
+    next_sunlit_step: tuple[array, ...]
+
+    @property
+    def horizon_time_s(self) -> float:
+        # The runtime applies the final sampled illumination for one full slot.
+        return float(self.duration_s + self.step_s)
+
+    def apply(self, *, env: EnvironmentRuntime, step_index: int) -> None:
+        sunlit = self.sunlit_by_step[step_index]
+        next_eclipse = self.next_eclipse_step[step_index]
+        next_sunlit = self.next_sunlit_step[step_index]
+        for sat in env.satellites:
+            sat_id = sat.sat_id
+            sat.sunlit = bool(sunlit[sat_id])
+            eclipse_step = next_eclipse[sat_id]
+            sunlit_step = next_sunlit[sat_id]
+            sat.next_eclipse_time_s = (
+                None if eclipse_step < 0 else float(eclipse_step * self.step_s)
+            )
+            sat.next_sunlit_time_s = (
+                None if sunlit_step < 0 else float(sunlit_step * self.step_s)
+            )
+            sat.illumination_horizon_time_s = self.horizon_time_s
+
+
+def build_circular_illumination_timeline(
     *,
-    env: EnvironmentRuntime,
+    start: dt.datetime | None,
+    sun_ephemeris,
+    satellites: int,
     planes: int,
     sats_per_plane: int,
-    time_s: int,
+    duration_s: int,
+    step_s: int,
+    radius_km: float,
+    inclination_rad: float,
+    raan_spread_rad: float,
+    walker_phase: int,
     mean_motion: float,
-) -> None:
-    """Estimate the next illumination transitions from circular plane phase."""
+) -> CircularIlluminationTimeline:
+    """Precompute exact simulator-slot illumination and transition lookups."""
 
-    if sats_per_plane <= 0 or mean_motion <= 0.0:
-        return
+    times = tuple(range(0, duration_s + 1, step_s))
+    sunlit_rows: list[bytes] = []
+    for time_s in times:
+        time_utc = None if start is None else start + dt.timedelta(seconds=time_s)
+        sun_vector = (
+            None
+            if time_utc is None or sun_ephemeris is None
+            else sun_vector_from_ephemeris(sun_ephemeris, time_utc)
+        )
+        sun_unit = (1.0, 0.0, 0.0) if sun_vector is None else vector_unit(sun_vector)
+        if sun_unit is None:
+            raise ValueError("Sun vector norm must be positive")
 
-    slot_duration_s = (2.0 * math.pi / mean_motion) / sats_per_plane
-
-    for plane in range(planes):
-        base = plane * sats_per_plane
-        sunlit_by_slot = [
-            env.satellites[base + slot].sunlit for slot in range(sats_per_plane)
-        ]
-
-        def next_delta_with_state(
-            slot: int,
-            desired_sunlit: bool,
-            *,
-            start_delta: int = 1,
-        ) -> int | None:
-            for delta_slots in range(start_delta, 2 * sats_per_plane + 1):
-                if (
-                    sunlit_by_slot[(slot + delta_slots) % sats_per_plane]
-                    == desired_sunlit
-                ):
-                    return delta_slots
-            return None
-
-        for slot, is_sunlit in enumerate(sunlit_by_slot):
-            sat = env.satellites[base + slot]
-            if is_sunlit:
-                next_eclipse_delta = next_delta_with_state(slot, False)
-                sat.next_eclipse_time_s = (
-                    None
-                    if next_eclipse_delta is None
-                    else float(time_s)
-                    + max(0, next_eclipse_delta - 1) * slot_duration_s
+        row = bytearray(satellites)
+        for plane in range(planes):
+            raan = raan_spread_rad * plane / planes
+            plane_phase = 2.0 * math.pi * walker_phase * plane / satellites
+            for slot in range(sats_per_plane):
+                sat_id = plane * sats_per_plane + slot
+                arg = (
+                    2.0 * math.pi * slot / sats_per_plane
+                    + plane_phase
+                    + mean_motion * time_s
                 )
-                next_sunlit_delta = (
-                    None
-                    if next_eclipse_delta is None
-                    else next_delta_with_state(
-                        slot,
-                        True,
-                        start_delta=next_eclipse_delta + 1,
-                    )
+                pos, _vel = circular_state(
+                    radius_km, inclination_rad, raan, arg
                 )
-                sat.next_sunlit_time_s = (
-                    float(time_s)
-                    if next_eclipse_delta is None
-                    else (
-                        None
-                        if next_sunlit_delta is None
-                        else float(time_s)
-                        + next_sunlit_delta * slot_duration_s
-                    )
-                )
-                continue
+                row[sat_id] = is_sunlit_cylindrical_shadow(pos, sun_unit)
+        sunlit_rows.append(bytes(row))
 
-            sat.next_eclipse_time_s = float(time_s)
-            next_delta_slots = next_delta_with_state(slot, True)
+    step_count = len(sunlit_rows)
+    next_eclipse = [array("i", [-1]) * satellites for _ in range(step_count)]
+    next_sunlit = [array("i", [-1]) * satellites for _ in range(step_count)]
 
-            sat.next_sunlit_time_s = (
-                None
-                if next_delta_slots is None
-                else float(time_s) + next_delta_slots * slot_duration_s
-            )
+    for sat_id in range(satellites):
+        run_start = 0
+        while run_start < step_count:
+            state = bool(sunlit_rows[run_start][sat_id])
+            run_end = run_start + 1
+            while (
+                run_end < step_count
+                and bool(sunlit_rows[run_end][sat_id]) == state
+            ):
+                run_end += 1
+
+            if state:
+                eclipse_step = run_end if run_end < step_count else -1
+                sunlit_step = -1
+                if eclipse_step >= 0:
+                    sunlit_step = eclipse_step
+                    while (
+                        sunlit_step < step_count
+                        and not bool(sunlit_rows[sunlit_step][sat_id])
+                    ):
+                        sunlit_step += 1
+                    if sunlit_step >= step_count:
+                        sunlit_step = -1
+                for step_index in range(run_start, run_end):
+                    next_eclipse[step_index][sat_id] = eclipse_step
+                    next_sunlit[step_index][sat_id] = sunlit_step
+            else:
+                sunlit_step = run_end if run_end < step_count else -1
+                for step_index in range(run_start, run_end):
+                    next_eclipse[step_index][sat_id] = step_index
+                    next_sunlit[step_index][sat_id] = sunlit_step
+            run_start = run_end
+
+    return CircularIlluminationTimeline(
+        step_s=step_s,
+        duration_s=duration_s,
+        sunlit_by_step=tuple(sunlit_rows),
+        next_eclipse_step=tuple(next_eclipse),
+        next_sunlit_step=tuple(next_sunlit),
+    )
 
 
 @dataclass
@@ -686,6 +737,20 @@ def iter_circular_states(
         if start is None or sun_position_file is None
         else load_sun_ephemeris(sun_position_file)
     )
+    illumination_timeline = build_circular_illumination_timeline(
+        start=start,
+        sun_ephemeris=sun_ephemeris,
+        satellites=satellites,
+        planes=planes,
+        sats_per_plane=sats_per_plane,
+        duration_s=duration_s,
+        step_s=step_s,
+        radius_km=radius_km,
+        inclination_rad=inclination_rad,
+        raan_spread_rad=raan_spread_rad,
+        walker_phase=walker_phase,
+        mean_motion=mean_motion,
+    )
 
     env = EnvironmentRuntime(
         rng=random.Random(task_config.random_seed),
@@ -708,6 +773,7 @@ def iter_circular_states(
     )
 
     for time_s in range(0, duration_s + 1, step_s):
+        step_index = time_s // step_s
         env.time_s = time_s
         env.time_utc = None if start is None else start + dt.timedelta(seconds=time_s)
         sun_vector = (
@@ -731,7 +797,9 @@ def iter_circular_states(
                     + mean_motion * time_s
                 )
                 pos, vel = circular_state(radius_km, inclination_rad, raan, arg)
-                sunlit = is_sunlit_cylindrical_shadow(pos, sun_unit)
+                sunlit = bool(
+                    illumination_timeline.sunlit_by_step[step_index][sat_id]
+                )
 
                 env.satellites[sat_id].update_orbit(
                     pos_km=pos,
@@ -739,12 +807,9 @@ def iter_circular_states(
                     sunlit=sunlit,
                 )
 
-        update_circular_next_sunlit_times(
+        illumination_timeline.apply(
             env=env,
-            planes=planes,
-            sats_per_plane=sats_per_plane,
-            time_s=time_s,
-            mean_motion=mean_motion,
+            step_index=step_index,
         )
 
         new_tasks, expired_tasks = generate_step_tasks(env, task_config, compute_config)
