@@ -110,23 +110,14 @@ def estimate_route_cost(
             energy_by_sat=energy_by_sat,
         )
 
-    forward_hops = tuple(zip(route.nodes, route.nodes[1:]))
     input_tx_energy_j = transmission_energy_j(task.input_bits, isl_config)
     output_tx_energy_j = transmission_energy_j(task.output_bits, isl_config)
 
-    for sender, _receiver in forward_hops:
-        add_energy(
-            energy_by_sat,
-            sender,
-            input_tx_energy_j,
-        )
-
-    for _receiver, sender in reversed(forward_hops):
-        add_energy(
-            energy_by_sat,
-            sender,
-            output_tx_energy_j,
-        )
+    add_energy(energy_by_sat, route.source_sat, input_tx_energy_j)
+    relay_energy_j = input_tx_energy_j + output_tx_energy_j
+    for relay in route.nodes[1:-1]:
+        add_energy(energy_by_sat, relay, relay_energy_j)
+    add_energy(energy_by_sat, route.target_sat, output_tx_energy_j)
 
     return RouteCost(
         compute_time_s=timing.compute_time_s,
