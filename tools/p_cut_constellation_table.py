@@ -19,7 +19,7 @@ from satmulator.runlog import write_json
 from tools.plot_output import save_png_pdf
 
 
-DEFAULT_BATTERY_CONFIG = Path("configs/template.json")
+DEFAULT_BATTERY_CONFIG = Path("configs/base/template.json")
 DEFAULT_ECLIPSE_ROOT = Path("experiments/eclipse_time")
 DEFAULT_OUTPUT = Path("experiments/P_cut")
 DEFAULT_SAFE_BATTERY_PCTS = tuple(float(value) for value in range(90, -10, -10))

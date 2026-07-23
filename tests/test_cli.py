@@ -33,7 +33,10 @@ class EffectiveRunConfigTests(unittest.TestCase):
 
     def test_objective_alpha_is_a_formal_config_section(self) -> None:
         self.assertEqual(DEFAULT_CONFIG["objective_alpha"], 0.5)
-        self.assertEqual(load_json_config(Path("configs/template.json"))["objective_alpha"], 0.5)
+        self.assertEqual(
+            load_json_config(Path("configs/base/template.json"))["objective_alpha"],
+            0.5,
+        )
         with self.assertRaisesRegex(ValueError, "objective.alpha"):
             validate_args(args_for(objective_alpha=1.1))
 
@@ -51,7 +54,7 @@ class EffectiveRunConfigTests(unittest.TestCase):
             [
                 "minimal_orbit.py",
                 "--config",
-                "configs/template.json",
+                "configs/base/template.json",
                 "--duration-s",
                 "60",
                 "--step-s",
@@ -75,7 +78,7 @@ class EffectiveRunConfigTests(unittest.TestCase):
             [
                 "minimal_orbit.py",
                 "--config",
-                "configs/template.json",
+                "configs/base/template.json",
                 "--satellites",
                 "1",
             ],
@@ -158,7 +161,9 @@ class EffectiveRunConfigTests(unittest.TestCase):
             validate_args(args_for(logging_task_events="chatty"))
 
     def test_oneweb_648_config_uses_walker_delta_layout(self) -> None:
-        args = args_for(**load_standalone_json_config(Path("configs/oneweb_648.json")))
+        args = args_for(
+            **load_standalone_json_config(Path("configs/base/oneweb_648.json"))
+        )
 
         self.assertEqual(args.orbit_model, "circular")
         self.assertEqual(args.satellites, 648)
@@ -169,7 +174,9 @@ class EffectiveRunConfigTests(unittest.TestCase):
         self.assertEqual(args.inclination_deg, 87.9)
 
     def test_kuiper_784_config_uses_walker_delta_layout(self) -> None:
-        args = args_for(**load_standalone_json_config(Path("configs/kuiper_784.json")))
+        args = args_for(
+            **load_standalone_json_config(Path("configs/base/kuiper_784.json"))
+        )
 
         self.assertEqual(args.orbit_model, "circular")
         self.assertEqual(args.satellites, 784)
@@ -182,7 +189,7 @@ class EffectiveRunConfigTests(unittest.TestCase):
     def test_kuiper_1156_high_inclination_config_uses_walker_delta_layout(self) -> None:
         args = args_for(
             **load_standalone_json_config(
-                Path("configs/kuiper_1156_630km_51p9deg.json")
+                Path("configs/base/kuiper_1156_630km_51p9deg.json")
             )
         )
 
@@ -195,7 +202,9 @@ class EffectiveRunConfigTests(unittest.TestCase):
         self.assertEqual(args.inclination_deg, 51.9)
 
     def test_iridium_66_config_uses_walker_star_layout(self) -> None:
-        args = args_for(**load_standalone_json_config(Path("configs/iridium_66.json")))
+        args = args_for(
+            **load_standalone_json_config(Path("configs/base/iridium_66.json"))
+        )
 
         self.assertEqual(args.orbit_model, "circular")
         self.assertEqual(args.satellites, 66)

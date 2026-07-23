@@ -18,7 +18,7 @@ from satmulator.cli import effective_run_config, load_standalone_json_config, va
 from satmulator.runlog import append_json_line, write_json
 from tools.plot_output import save_png_pdf
 
-DEFAULT_CONFIG = Path("configs/template.json")
+DEFAULT_CONFIG = Path("configs/base/template.json")
 DEFAULT_OUTPUT = Path("experiments/P_cut")
 DEFAULT_ECLIPSE_DURATION_S = 32 * 60
 DEFAULT_CPU_POWERS_W = tuple(float(power) for power in range(0, 35, 5))

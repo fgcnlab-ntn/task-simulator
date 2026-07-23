@@ -29,7 +29,7 @@ from satmulator.runlog import append_json_line, iter_state_steps, write_json
 from satmulator.scheduler import create_scheduler
 from tools.plot_output import save_png_pdf
 
-DEFAULT_CONFIG = Path("configs/template.json")
+DEFAULT_CONFIG = Path("configs/base/template.json")
 DEFAULT_OUTPUT = Path("eclipse_time")
 DEFAULT_DURATION_S = 43_200
 

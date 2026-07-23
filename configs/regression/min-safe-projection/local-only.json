@@ -1,7 +1,7 @@
 {
   "run": {
-    "name": "method5",
-    "description": "Method 5 scheduler experiment"
+    "name": "local-only",
+    "description": "Short high-load min_safe projection regression based on final-loading-ratio/r80; only load and duration are adjusted."
   },
   "orbit": {
     "orbit_model": "circular",
@@ -15,13 +15,13 @@
   },
   "time": {
     "start_utc": "2026-05-22T12:00:00Z",
-    "duration_s": 86400,
+    "duration_s": 5400,
     "step_s": 30
   },
   "battery": {
     "capacity_j": 216000.0,
     "initial_pct": 100.0,
-    "min_safe_pct": 70.0,
+    "min_safe_pct": 50.0,
     "harvest_w": 120.0,
     "idle_w": 20.0
   },
@@ -31,14 +31,26 @@
     "generation_mode": "demand-points",
     "random_seed": 42,
     "tasks_per_sat": 1,
-    "tasks_per_step_choices": [5600],
-    "tasks_per_step_weights": [1.0],
+    "tasks_per_step_choices": [
+      12800
+    ],
+    "tasks_per_step_weights": [
+      1.0
+    ],
     "input_bits": 20000000.0,
-    "input_bits_choices": [20000000.0],
-    "input_bits_weights": [1.0],
+    "input_bits_choices": [
+      20000000.0
+    ],
+    "input_bits_weights": [
+      1.0
+    ],
     "output_bits": 1000000.0,
-    "output_bits_choices": [1000000.0],
-    "output_bits_weights": [1.0],
+    "output_bits_choices": [
+      1000000.0
+    ],
+    "output_bits_weights": [
+      1.0
+    ],
     "demand_points_file": "data/demand/global_population_2025_5deg.csv",
     "min_elevation_deg": 30.0,
     "deadline_s": 180.0,
@@ -47,7 +59,7 @@
   "compute": {
     "cycles_per_input_bit": 737.5,
     "cpu_frequency_hz": 2500000000.0,
-    "cpu_power_w": 80.0
+    "cpu_power_w": 60.0
   },
   "isl": {
     "rate_bps": 1000000000.0,
@@ -56,14 +68,14 @@
     "max_range_km": 5000.0
   },
   "scheduler": {
-    "name": "method5",
+    "name": "local",
     "cpu_utilization_limit": 1.0
   },
   "objective": {
-    "alpha": 0.5
+    "alpha": 0.0
   },
   "output": {
-    "path": "output/final-1day-r70-dead180/method5"
+    "path": "output/regression/min-safe-projection/local-only"
   },
   "logging": {
     "task_events": "summary"

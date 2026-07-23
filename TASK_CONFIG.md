@@ -108,4 +108,5 @@ are always recorded.
 ## Compatibility
 
 The default config still uses `satellite-deterministic`, so old runs keep the
-same behavior.  The new task-oriented mode is enabled by `configs/demand_points.json`.
+same behavior.  The new task-oriented mode is enabled by
+`configs/base/demand_points.json`.

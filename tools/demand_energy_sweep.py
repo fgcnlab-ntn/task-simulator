@@ -22,7 +22,7 @@ from satmulator.runlog import append_json_line, write_json
 from tools.plot_output import save_png_pdf
 
 
-DEFAULT_CONFIG = Path("configs/demand_points.json")
+DEFAULT_CONFIG = Path("configs/base/demand_points.json")
 DEFAULT_OUTPUT = Path("experiments/breach_ratio/demand_energy_sweep")
 DEFAULT_DATA_SIZES_BITS = (1.0e6, 1.0e7, 1.0e8)
 DEFAULT_SLOT_INTERVALS_S = (30, 60, 120, 300)
