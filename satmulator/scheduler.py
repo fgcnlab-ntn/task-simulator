@@ -146,19 +146,43 @@ def reserved_energy_for_sat(reserved_energy, sat_id: int) -> float:
 
 
 class BatteryReservation:
-    """Batch-local battery headroom and transmission-energy ledger."""
+    """Batch-local compute and transmission reservations.
+
+    Safety is evaluated with the same illumination projection used by the
+    scheduler's slow path.  A scalar energy budget is insufficient here:
+    sunlit compute can keep the battery increasing while still preventing it
+    from recharging enough for the following eclipse.
+    """
 
     def __init__(
         self,
         *,
-        remaining_j: dict[int, float],
-        free_sunlit_compute_s: dict[int, float],
+        satellite_by_id: dict[int, SatelliteView],
+        projected_minimum_j: dict[int, float],
+        time_s: int,
+        step_s: int,
+        battery: BatteryConfig,
         compute_config: ComputeConfig,
     ) -> None:
-        self.remaining_j = remaining_j
-        self.free_sunlit_compute_s = free_sunlit_compute_s
-        self.spent_transmission_j = {sat_id: 0.0 for sat_id in remaining_j}
+        self.satellite_by_id = satellite_by_id
+        self.projected_minimum_j = projected_minimum_j
+        self.time_s = time_s
+        self.step_s = step_s
+        self.battery = battery
         self.compute_config = compute_config
+        self.reserved_compute_s = {sat_id: 0.0 for sat_id in satellite_by_id}
+        self.spent_transmission_j = {
+            sat_id: 0.0 for sat_id in satellite_by_id
+        }
+
+    @property
+    def remaining_j(self) -> dict[int, float]:
+        """Return projected headroom for compatibility and diagnostics."""
+
+        return {
+            sat_id: max(0.0, minimum_j - self.battery.min_safe_j)
+            for sat_id, minimum_j in self.projected_minimum_j.items()
+        }
 
     @classmethod
     def build(
@@ -170,8 +194,8 @@ class BatteryReservation:
         battery: BatteryConfig,
         compute_config: ComputeConfig,
     ) -> BatteryReservation:
-        remaining_j = {}
-        free_sunlit_compute_s = {}
+        satellite_by_id = {sat.sat_id: sat for sat in satellite_views}
+        projected_minimum_j = {}
         for sat in satellite_views:
             minimum_j = minimum_projected_battery_until_recharge(
                 sat=sat,
@@ -182,59 +206,69 @@ class BatteryReservation:
                 compute_config=compute_config,
                 extra_energy_j=sat.pending_task_energy_j,
             )
-            remaining_j[sat.sat_id] = max(0.0, minimum_j - battery.min_safe_j)
-            next_eclipse = (
-                sat.next_eclipse_time_s
-                if sat.next_eclipse_time_s is not None
-                else sat.illumination_horizon_time_s
-            )
-            free_sunlit_compute_s[sat.sat_id] = (
-                max(
-                    0.0,
-                    next_eclipse
-                    - float(time_s)
-                    - sat.queue_backlog_s,
-                )
-                if (
-                    sat.sunlit
-                    and next_eclipse is not None
-                    and next_eclipse > float(time_s)
-                    and battery.harvest_w
-                    >= battery.idle_w + compute_config.cpu_power_w
-                )
-                else 0.0
-            )
+            projected_minimum_j[sat.sat_id] = minimum_j
         return cls(
-            remaining_j=remaining_j,
-            free_sunlit_compute_s=free_sunlit_compute_s,
+            satellite_by_id=satellite_by_id,
+            projected_minimum_j=projected_minimum_j,
+            time_s=time_s,
+            step_s=step_s,
+            battery=battery,
             compute_config=compute_config,
         )
 
+    def _projected_minimum(
+        self,
+        *,
+        sat_id: int,
+        additional_compute_s: float = 0.0,
+        additional_transmission_j: float = 0.0,
+    ) -> float:
+        sat = self.satellite_by_id[sat_id]
+        return _minimum_projected_battery_until_recharge_impl(
+            sat=sat,
+            available_time_s=float(self.time_s) + sat.queue_backlog_s,
+            time_s=self.time_s,
+            step_s=self.step_s,
+            battery=self.battery,
+            compute_config=self.compute_config,
+            extra_compute_time_s=(
+                self.reserved_compute_s[sat_id] + additional_compute_s
+            ),
+            extra_energy_j=(
+                sat.pending_task_energy_j
+                + self.spent_transmission_j[sat_id]
+                + additional_transmission_j
+            ),
+        )
+
     def allows(self, *, route: Route, route_cost: RouteCost) -> bool:
-        target_compute_j = (
-            route_cost.compute_time_s * self.compute_config.cpu_power_w
+        transmission_by_sat = route_transmission_energy_by_sat(
+            route=route,
+            route_cost=route_cost,
+            compute_config=self.compute_config,
         )
-        charge_target_compute = (
-            route_cost.compute_time_s
-            > self.free_sunlit_compute_s.get(route.target_sat, 0.0) + 1.0e-9
-        )
-        for sat_id, energy_j in route_cost.energy_by_sat.items():
-            if sat_id == route.target_sat:
-                energy_j = max(0.0, energy_j - target_compute_j)
-                if charge_target_compute:
-                    energy_j += target_compute_j
-            if energy_j > self.remaining_j.get(sat_id, 0.0) + 1.0e-9:
+        touched_sat_ids = set(transmission_by_sat)
+        touched_sat_ids.add(route.target_sat)
+        for sat_id in touched_sat_ids:
+            minimum_j = self._projected_minimum(
+                sat_id=sat_id,
+                additional_compute_s=(
+                    route_cost.compute_time_s
+                    if sat_id == route.target_sat
+                    else 0.0
+                ),
+                additional_transmission_j=transmission_by_sat.get(sat_id, 0.0),
+            )
+            if not battery_is_safe(minimum_j, self.battery.min_safe_j):
                 return False
         return True
 
     def allows_compute(self, *, sat_id: int, compute_time_s: float) -> bool:
-        free_compute_s = self.free_sunlit_compute_s.get(sat_id, 0.0)
-        compute_j = (
-            0.0
-            if compute_time_s <= free_compute_s + 1.0e-9
-            else compute_time_s * self.compute_config.cpu_power_w
+        minimum_j = self._projected_minimum(
+            sat_id=sat_id,
+            additional_compute_s=compute_time_s,
         )
-        return compute_j <= self.remaining_j.get(sat_id, 0.0) + 1.0e-9
+        return battery_is_safe(minimum_j, self.battery.min_safe_j)
 
     def reserve(self, *, route: Route, route_cost: RouteCost) -> None:
         transmission_by_sat = route_transmission_energy_by_sat(
@@ -246,21 +280,14 @@ class BatteryReservation:
             self.spent_transmission_j[sat_id] = (
                 self.spent_transmission_j.get(sat_id, 0.0) + energy_j
             )
-        if (
-            route_cost.compute_time_s
-            > self.free_sunlit_compute_s.get(route.target_sat, 0.0) + 1.0e-9
-        ):
-            transmission_by_sat[route.target_sat] = (
-                transmission_by_sat.get(route.target_sat, 0.0)
-                + route_cost.compute_time_s * self.compute_config.cpu_power_w
+        self.reserved_compute_s[route.target_sat] += route_cost.compute_time_s
+
+        touched_sat_ids = set(transmission_by_sat)
+        touched_sat_ids.add(route.target_sat)
+        for sat_id in touched_sat_ids:
+            self.projected_minimum_j[sat_id] = self._projected_minimum(
+                sat_id=sat_id
             )
-        for sat_id, energy_j in transmission_by_sat.items():
-            self.remaining_j[sat_id] = self.remaining_j.get(sat_id, 0.0) - energy_j
-        self.free_sunlit_compute_s[route.target_sat] = max(
-            0.0,
-            self.free_sunlit_compute_s.get(route.target_sat, 0.0)
-            - route_cost.compute_time_s,
-        )
 
 
 def hard_limit_reserved_energy_by_sat(
@@ -407,7 +434,7 @@ def _project_interval(
     return battery_j, minimum_j
 
 
-def minimum_projected_battery_until_recharge(
+def _minimum_projected_battery_until_recharge_impl(
     *,
     sat: SatelliteView,
     available_time_s: float,
@@ -480,6 +507,33 @@ def minimum_projected_battery_until_recharge(
         consume_until(horizon_s, False)
 
     return minimum_j
+
+
+def minimum_projected_battery_until_recharge(
+    *,
+    sat: SatelliteView,
+    available_time_s: float,
+    time_s: int,
+    step_s: int,
+    battery: BatteryConfig,
+    compute_config: ComputeConfig | None = None,
+    compute_power_w: float | None = None,
+    extra_compute_time_s: float = 0.0,
+    extra_energy_j: float = 0.0,
+) -> float:
+    """Project the minimum battery through the next eclipse/recharge window."""
+
+    return _minimum_projected_battery_until_recharge_impl(
+        sat=sat,
+        available_time_s=available_time_s,
+        time_s=time_s,
+        step_s=step_s,
+        battery=battery,
+        compute_config=compute_config,
+        compute_power_w=compute_power_w,
+        extra_compute_time_s=extra_compute_time_s,
+        extra_energy_j=extra_energy_j,
+    )
 
 
 def route_respects_battery_projection(

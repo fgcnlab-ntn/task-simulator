@@ -183,13 +183,57 @@ def test_battery_reservation_keeps_headroom_and_spending_separate() -> None:
     )
     initial_headroom = reservation.remaining_j[0]
     route = Route((0,))
-    cost = RouteCost(15.0, 0.0, {0: 15.0})
+    cost = RouteCost(5.0, 0.0, {0: 5.0})
 
     assert not isinstance(reservation, dict)
     reservation.reserve(route=route, route_cost=cost)
 
-    assert reservation.remaining_j[0] == pytest.approx(initial_headroom - 15.0)
+    assert reservation.remaining_j[0] == pytest.approx(initial_headroom - 5.0)
+    assert reservation.reserved_compute_s[0] == 5.0
     assert reservation.spent_transmission_j[0] == 0.0
+
+
+def test_sunlit_compute_is_not_free_when_it_prevents_eclipse_recharge() -> None:
+    battery = BatteryConfig(
+        capacity_j=216_000.0,
+        initial_j=216_000.0,
+        min_safe_j=108_000.0,
+        harvest_w=120.0,
+        idle_w=20.0,
+    )
+    compute = ComputeConfig(
+        cycles_per_input_bit=737.5,
+        cpu_frequency_hz=2.5e9,
+        cpu_power_w=80.0,
+    )
+    sat = SatelliteView(
+        sat_id=0,
+        x_km=0.0,
+        y_km=0.0,
+        z_km=0.0,
+        sunlit=True,
+        battery_j=120_000.0,
+        next_eclipse_time_s=600.0,
+        next_sunlit_time_s=3_600.0,
+        illumination_horizon_time_s=3_600.0,
+    )
+    reservation = BatteryReservation.build(
+        satellite_views=[sat],
+        time_s=0,
+        step_s=30,
+        battery=battery,
+        compute_config=compute,
+    )
+    route = Route((0,))
+    cost = RouteCost(
+        compute_time_s=600.0,
+        transmission_time_s=0.0,
+        energy_by_sat={0: 48_000.0},
+    )
+
+    assert battery.harvest_w >= battery.idle_w + compute.cpu_power_w
+    assert reservation.remaining_j[0] == 12_000.0
+    assert not reservation.allows(route=route, route_cost=cost)
 
 
 def test_phoenix2_tries_safe_peer_after_local_battery_rejection() -> None:
