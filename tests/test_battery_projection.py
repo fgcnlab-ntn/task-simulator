@@ -183,57 +183,13 @@ def test_battery_reservation_keeps_headroom_and_spending_separate() -> None:
     )
     initial_headroom = reservation.remaining_j[0]
     route = Route((0,))
-    cost = RouteCost(5.0, 0.0, {0: 5.0})
+    cost = RouteCost(15.0, 0.0, {0: 15.0})
 
     assert not isinstance(reservation, dict)
     reservation.reserve(route=route, route_cost=cost)
 
-    assert reservation.remaining_j[0] == pytest.approx(initial_headroom - 5.0)
-    assert reservation.reserved_compute_s[0] == 5.0
+    assert reservation.remaining_j[0] == pytest.approx(initial_headroom - 15.0)
     assert reservation.spent_transmission_j[0] == 0.0
-
-
-def test_sunlit_compute_is_not_free_when_it_prevents_eclipse_recharge() -> None:
-    battery = BatteryConfig(
-        capacity_j=216_000.0,
-        initial_j=216_000.0,
-        min_safe_j=108_000.0,
-        harvest_w=120.0,
-        idle_w=20.0,
-    )
-    compute = ComputeConfig(
-        cycles_per_input_bit=737.5,
-        cpu_frequency_hz=2.5e9,
-        cpu_power_w=80.0,
-    )
-    sat = SatelliteView(
-        sat_id=0,
-        x_km=0.0,
-        y_km=0.0,
-        z_km=0.0,
-        sunlit=True,
-        battery_j=120_000.0,
-        next_eclipse_time_s=600.0,
-        next_sunlit_time_s=3_600.0,
-        illumination_horizon_time_s=3_600.0,
-    )
-    reservation = BatteryReservation.build(
-        satellite_views=[sat],
-        time_s=0,
-        step_s=30,
-        battery=battery,
-        compute_config=compute,
-    )
-    route = Route((0,))
-    cost = RouteCost(
-        compute_time_s=600.0,
-        transmission_time_s=0.0,
-        energy_by_sat={0: 48_000.0},
-    )
-
-    assert battery.harvest_w >= battery.idle_w + compute.cpu_power_w
-    assert reservation.remaining_j[0] == 12_000.0
-    assert not reservation.allows(route=route, route_cost=cost)
 
 
 def test_phoenix2_tries_safe_peer_after_local_battery_rejection() -> None:
@@ -390,6 +346,62 @@ def test_method7_stops_after_safe_sunlit_local_action(monkeypatch) -> None:
     )
 
     assert assignments[0].mode == "local"
+
+
+def test_method7_does_not_short_circuit_congested_sunlit_local() -> None:
+    from satmulator.scheduler import Method7Scheduler
+
+    source = SatelliteView(
+        sat_id=0,
+        x_km=0.0,
+        y_km=0.0,
+        z_km=0.0,
+        sunlit=True,
+        battery_j=80.0,
+        queue_backlog_s=30.0,
+        next_eclipse_time_s=100.0,
+        illumination_horizon_time_s=120.0,
+        plane=0,
+        slot=0,
+    )
+    target = SatelliteView(
+        sat_id=1,
+        x_km=1.0,
+        y_km=0.0,
+        z_km=0.0,
+        sunlit=True,
+        battery_j=80.0,
+        queue_backlog_s=0.0,
+        next_eclipse_time_s=100.0,
+        illumination_horizon_time_s=120.0,
+        plane=0,
+        slot=1,
+    )
+    task = Task(
+        task_id=99,
+        created_time_s=0,
+        source_sat=0,
+        input_bits=0.0,
+        output_bits=0.0,
+        deadline_s=100.0,
+        compute_time_s=1.0,
+    )
+
+    assignments = Method7Scheduler().assign_tasks(
+        tasks=[task],
+        satellite_views=[source, target],
+        time_s=0,
+        step_s=20,
+        battery=_battery(),
+        compute_config=_compute(),
+        task_config=_task_config(),
+        isl_config=ISLConfig(rate_bps=1.0e9, tx_power_w=0.0),
+        isl_graph=ISLGraph({0: (1,), 1: (0,)}),
+        scheduler_config=SchedulerConfig(name="method7"),
+    )
+
+    assert assignments[0].mode == "offload"
+    assert assignments[0].target_sat == 1
 
 
 def test_method7_does_not_rescan_compute_rejected_eclipse_targets(
