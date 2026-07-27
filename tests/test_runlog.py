@@ -321,6 +321,61 @@ class RunLogTests(unittest.TestCase):
             )
             self.assertEqual((output / "tasks.jsonl").read_text(), "")
 
+    def test_state_steps_off_keeps_summary_without_per_satellite_log(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            start = dt.datetime(2026, 6, 14, tzinfo=dt.timezone.utc)
+            log = RunLog(
+                output,
+                start,
+                {
+                    "logging": {
+                        "task_events": "summary",
+                        "state_steps": "off",
+                    }
+                },
+            )
+
+            log.write_task_event(
+                {"type": "task_generated", "time_s": 0, "task_id": 1}
+            )
+            log.write_task_event(
+                {"type": "task_completed", "time_s": 30, "task_id": 1}
+            )
+            log.write_step([sample_state(30)])
+            log.complete()
+
+            self.assertFalse((output / "states.jsonl").exists())
+            summary = json.loads((output / "summary.json").read_text())
+            self.assertEqual(summary["steps"], 1)
+            self.assertEqual(summary["tasks"]["generated"], 1)
+            self.assertEqual(summary["tasks"]["completed"], 1)
+
+    def test_summary_mode_drops_individual_battery_breach_events(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            start = dt.datetime(2026, 6, 14, tzinfo=dt.timezone.utc)
+            log = RunLog(output, start, {"logging": {"task_events": "summary"}})
+            unsafe = replace(sample_state(), safe_battery=False, sunlit=False)
+
+            log.write_step([unsafe])
+            log.complete()
+
+            self.assertEqual((output / "tasks.jsonl").read_text(), "")
+            summary = json.loads((output / "summary.json").read_text())
+            self.assertEqual(
+                summary["battery_violations"]["unique_breached_satellites"],
+                1,
+            )
+
+    def test_rejects_invalid_state_step_mode(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            start = dt.datetime(2026, 6, 14, tzinfo=dt.timezone.utc)
+
+            with self.assertRaisesRegex(ValueError, "logging.state_steps"):
+                RunLog(output, start, {"logging": {"state_steps": "summary"}})
+
     def test_lifecycle_task_event_mode_drops_assignment_chatter(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory)

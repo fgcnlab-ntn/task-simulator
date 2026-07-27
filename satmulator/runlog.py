@@ -219,9 +219,8 @@ class RunLog:
 
     Streaming JSONL run output.
 
-    State records are flushed per step because they are sparse and useful for
-    crash recovery. Task events are buffered unless the run is closed, because
-    large workloads can emit millions of task lifecycle records.
+    Full state records are flushed per step for crash recovery. Large experiment
+    matrices can disable them while retaining the incrementally computed summary.
     """
 
     def __init__(self, output_dir: Path, start: dt.datetime, config: dict[str, object]):
@@ -231,7 +230,12 @@ class RunLog:
         self.run_path = output_dir / "run.json"
         self.summary_path = output_dir / "summary.json"
         self._task_event_mode = task_event_mode(config)
-        self._states = (output_dir / "states.jsonl").open("w")
+        self._state_step_mode = state_step_mode(config)
+        self._states = (
+            (output_dir / "states.jsonl").open("w")
+            if self._state_step_mode == "full"
+            else None
+        )
         self._tasks = (output_dir / "tasks.jsonl").open("w")
         self._generated_ids: set[int] = set()
         self._terminal_ids: set[int] = set()
@@ -301,17 +305,18 @@ class RunLog:
         self._breached_sat_ids.update(new_breach_ids)
         self._eclipse_breached_sat_ids.update(new_eclipse_breach_ids)
 
-        append_json_line(
-            self._states,
-            state_record(
-                self.start,
-                states,
-                context,
-                new_breach_ids,
-                new_eclipse_breach_ids,
-            ),
-            flush=True,
-        )
+        if self._states is not None:
+            append_json_line(
+                self._states,
+                state_record(
+                    self.start,
+                    states,
+                    context,
+                    new_breach_ids,
+                    new_eclipse_breach_ids,
+                ),
+                flush=True,
+            )
         self._write_battery_breach_events(states, new_breach_ids, eclipse=False)
         self._write_battery_breach_events(
             states, new_eclipse_breach_ids, eclipse=True
@@ -330,7 +335,7 @@ class RunLog:
         *,
         eclipse: bool,
     ) -> None:
-        if not breached_ids:
+        if self._task_event_mode in {"summary", "off"} or not breached_ids:
             return
         by_id = {state.sat_id: state for state in states}
         event_type = "battery_eclipse_breach" if eclipse else "battery_breach"
@@ -515,7 +520,7 @@ class RunLog:
         self.close()
 
     def close(self) -> None:
-        if not self._states.closed:
+        if self._states is not None and not self._states.closed:
             self._states.flush()
             self._states.close()
         if not self._tasks.closed:
@@ -530,4 +535,14 @@ def task_event_mode(config: dict[str, object]) -> str:
     mode = logging.get("task_events", "full")
     if mode not in {"full", "lifecycle", "summary", "off"}:
         raise ValueError("logging.task_events must be full, lifecycle, summary, or off")
+    return str(mode)
+
+
+def state_step_mode(config: dict[str, object]) -> str:
+    logging = config.get("logging")
+    if not isinstance(logging, dict):
+        return "full"
+    mode = logging.get("state_steps", "full")
+    if mode not in {"full", "off"}:
+        raise ValueError("logging.state_steps must be full or off")
     return str(mode)

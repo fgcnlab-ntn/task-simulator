@@ -160,6 +160,10 @@ class EffectiveRunConfigTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "logging.task_events"):
             validate_args(args_for(logging_task_events="chatty"))
 
+    def test_logging_state_steps_is_validated(self) -> None:
+        with self.assertRaisesRegex(ValueError, "logging.state_steps"):
+            validate_args(args_for(logging_state_steps="summary"))
+
     def test_oneweb_648_config_uses_walker_delta_layout(self) -> None:
         args = args_for(
             **load_standalone_json_config(Path("configs/base/oneweb_648.json"))

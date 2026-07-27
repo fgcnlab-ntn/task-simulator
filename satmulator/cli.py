@@ -60,6 +60,7 @@ DEFAULT_CONFIG = {
     "isl_max_range_km": 5000.0,
     "out": "output/minimal_orbit",
     "logging_task_events": "full",
+    "logging_state_steps": "full",
     "scheduler_cpu_utilization_limit": 1.0,
     "objective_alpha": 0.5,
 }
@@ -128,11 +129,13 @@ CONFIG_SECTIONS = {
     "output": {"path": "out"},
     "logging": {
         "task_events": "logging_task_events",
+        "state_steps": "logging_state_steps",
     },
 }
 
 OPTIONAL_CONFIG_KEYS = {
     "task": {"compute_time_s"},
+    "logging": {"state_steps"},
 }
 
 def parse_args() -> argparse.Namespace:
@@ -318,6 +321,9 @@ def validate_args(args: argparse.Namespace) -> None:
         raise ValueError(
             "logging.task_events must be full, lifecycle, summary, or off"
         )
+    logging_state_steps = getattr(args, "logging_state_steps", "full")
+    if logging_state_steps not in {"full", "off"}:
+        raise ValueError("logging.state_steps must be full or off")
 
 
 def walker_raan_spread_deg(args: argparse.Namespace) -> float:
@@ -389,7 +395,7 @@ def effective_run_config(args: argparse.Namespace) -> dict:
             "inclination_deg": args.inclination_deg,
             "walker_phase": args.walker_phase,
         }
-    return {
+    config = {
         "run": {
             "name": args.run_name,
             "description": args.run_description,
@@ -456,6 +462,9 @@ def effective_run_config(args: argparse.Namespace) -> dict:
             "task_events": getattr(args, "logging_task_events", "full"),
         },
     }
+    if getattr(args, "logging_state_steps", "full") != "full":
+        config["logging"]["state_steps"] = args.logging_state_steps
+    return config
 
 
 def run(args: argparse.Namespace) -> int:
