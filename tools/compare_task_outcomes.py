@@ -6,6 +6,7 @@ import os
 import sys
 import tempfile
 from pathlib import Path
+from matplotlib.ticker import MultipleLocator
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
@@ -62,7 +63,7 @@ def _pyplot():
             "axes.edgecolor": "#333333",
             "axes.labelcolor": "#222222",
             "axes.titleweight": "bold",
-            "font.size": 11,
+            "font.size": 22,
             "grid.color": "#d9d9d9",
             "grid.linewidth": 0.8,
             "savefig.bbox": "tight",
@@ -113,23 +114,26 @@ def write_figure(path: Path, series: list[dict[str, object]]) -> tuple[Path, Pat
         )
     ax.set_xticks(x)
     ax.set_xticklabels(labels)
-    ax.set_ylabel("Failed tasks (%)")
-    ax.set_title("Task Fail Rate")
-    ax.set_ylim(0.0, 100.0)
+    ax.set_ylabel("%", rotation=0, va="center", labelpad=18)
+    ax.tick_params(axis="y", which="major", left=True, length=7, width=1.0)
+    ax.yaxis.set_minor_locator(MultipleLocator(10))
+    ax.tick_params(axis="y", which="minor", left=True, length=5, width=1.0)
+    ax.set_ylim(0.0, 80.0)
     ax.grid(True, axis="y", alpha=0.7)
 
     for xpos, rate, count in zip(x, rates, failed):
         if count == 0:
             continue
-        ax.text(
-            xpos,
-            rate,
+
+        ax.annotate(
             f"{rate:.1f}%",
+            xy=(xpos, rate),
+            xytext=(0, 4),
+            textcoords="offset points",
             ha="center",
             va="bottom",
             color="#222222",
-            fontsize=8,
-            fontweight="bold",
+            fontsize=22,
         )
 
     written = save_png_pdf(fig, path)

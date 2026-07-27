@@ -8,6 +8,7 @@ import re
 import sys
 import tempfile
 from pathlib import Path
+from matplotlib.ticker import MultipleLocator
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -42,7 +43,7 @@ def _pyplot():
             "axes.edgecolor": "#333333",
             "axes.labelcolor": "#222222",
             "axes.titleweight": "bold",
-            "font.size": 11,
+            "font.size": 24,
             "grid.color": "#d9d9d9",
             "grid.linewidth": 0.8,
             "legend.frameon": False,
@@ -92,6 +93,8 @@ def collect_rows(
 ) -> list[dict[str, float | str]]:
     rows: list[dict[str, float | str]] = []
     for group_dir in sorted(path for path in base_dir.iterdir() if path.is_dir()):
+        if group_dir.name == "r30":
+            continue
         if runs is not None and group_dir.name not in runs:
             continue
         if not any(method_summary_file(group_dir, method) is not None for method in methods):
@@ -159,7 +162,6 @@ def plot_metric(
     methods: list[str],
     metric: str,
     ylabel: str,
-    title: str,
 ) -> None:
     plt = _pyplot()
     fig, ax = plt.subplots(figsize=(9, 5.4))
@@ -188,9 +190,8 @@ def plot_metric(
             marker=style.marker,
         )
 
-    fig.suptitle(title, fontweight="bold", y=0.955)
-    ax.set_xlabel("Task loading (%)")
-    ax.set_ylabel(ylabel)
+    ax.set_xlabel("Task intensity (%)")
+    ax.set_ylabel(ylabel, rotation=0, va="center", labelpad=16)
     ax.grid(True, axis="both", alpha=0.75)
     x_values = [float(row["loading_pct"]) for row in rows]
     x_min = min(x_values)
@@ -198,13 +199,20 @@ def plot_metric(
     padding = max(1.0, (x_max - x_min) * 0.08)
     ax.set_xlim(x_min - padding, x_max + padding)
     ax.set_xticks(sorted({float(row["loading_pct"]) for row in rows}))
-    ax.set_ylim(bottom=0)
-    ax.legend(
+    ax.set_ylim(-3, 80)
+    ax.set_yticks([0, 20, 40, 60, 80])
+    ax.yaxis.set_minor_locator(MultipleLocator(10))
+    ax.tick_params(axis="y", which="major", left=True, length=7, width=1.0)
+    ax.tick_params(axis="y", which="minor", left=True, length=5, width=1.0)
+    fig.legend(
         ncol=len(plotted_methods),
         loc="upper center",
-        bbox_to_anchor=(0.5, 0.895),
-        bbox_transform=fig.transFigure,
+        bbox_to_anchor=(0.51, 0.97),
         borderaxespad=0.0,
+        frameon=True,
+        columnspacing=0.4,
+        handletextpad=0.4,
+        handlelength=1.3,
     )
     fig.subplots_adjust(top=0.84)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -246,15 +254,13 @@ def main() -> None:
         methods=args.methods,
         metric="below_e_safe_ratio",
         ylabel="Eclipse breach / eclipse satellites (%)",
-        title="Task loading vs eclipse-side battery breaches",
     )
     plot_metric(
         rows,
         args.out_dir / "final-loading-task-fail-ratio",
         methods=args.methods,
         metric="task_failure_ratio",
-        ylabel="Task failure ratio (%)",
-        title="Task loading vs task failure ratio",
+        ylabel="%",
     )
 
 

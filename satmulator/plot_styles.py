@@ -24,30 +24,29 @@ METHOD_ORDER: tuple[str, ...] = (
     "nearest-sunlit",
     "greedy-energy",
     "phoenix",
-    "Method3",
-    "method3-mod",
+    "method7",
 )
 
 _METHOD_STYLES: dict[str, MethodPlotStyle] = {
     "local-only": MethodPlotStyle(
         method="local-only",
-        label="local-only",
+        label="LO",
         color="#7F7F7F",
         alpha=METHOD_ALPHA,
-        hatch="--",
+        hatch="\\",
         marker="o",
     ),
     "nearest-sunlit": MethodPlotStyle(
         method="nearest-sunlit",
-        label="nearest-sunlit",
+        label="NS",
         color="#1F77B4",
         alpha=METHOD_ALPHA,
-        hatch=r"\\",
+        hatch=".",
         marker="s",
     ),
     "greedy-energy": MethodPlotStyle(
         method="greedy-energy",
-        label="greedy-energy",
+        label="LEB",
         color="#FF7F0E",
         alpha=METHOD_ALPHA,
         hatch="xx",
@@ -55,27 +54,19 @@ _METHOD_STYLES: dict[str, MethodPlotStyle] = {
     ),
     "phoenix": MethodPlotStyle(
         method="phoenix",
-        label="phoenix",
+        label="PHX",
         color="#2CA02C",
         alpha=METHOD_ALPHA,
         hatch="//",
         marker="D",
     ),
-    "Method3": MethodPlotStyle(
-        method="Method3",
-        label="Method3",
+    "method7": MethodPlotStyle(
+        method="method7",
+        label="Starlit",
         color="#D62728",
         alpha=METHOD_ALPHA,
         hatch="**",
         marker="*",
-    ),
-    "method3-mod": MethodPlotStyle(
-        method="method3-mod",
-        label="method3-mod",
-        color="#9467BD",
-        alpha=METHOD_ALPHA,
-        hatch="++",
-        marker="X",
     ),
 }
 
@@ -83,12 +74,8 @@ _METHOD_ALIASES = {
     "local-only": "local-only",
     "nearest-sunlit": "nearest-sunlit",
     "greedy-energy": "greedy-energy",
-    "phoenix": "phoenix",
     "phoenix2": "phoenix",
-    "method3": "Method3",
-    "Method3": "Method3",
-    "method3mod": "method3-mod",
-    "method3-mod": "method3-mod",
+    "method7": "method7",
 }
 
 

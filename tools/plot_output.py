@@ -23,8 +23,18 @@ def output_paths(path: Path) -> tuple[Path, Path]:
 def save_png_pdf(fig, path: Path, *, dpi: int = RASTER_DPI) -> tuple[Path, Path]:
     png_path, pdf_path = output_paths(path)
     png_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(png_path, format="png", dpi=dpi)
-    fig.savefig(pdf_path, format="pdf")
+    fig.savefig(
+        png_path,
+        format="png",
+        dpi=dpi,
+        bbox_inches="tight",
+    )
+    fig.savefig(
+        pdf_path,
+        format="pdf",
+        transparent=True,
+        bbox_inches="tight",
+    )
     return png_path, pdf_path
 
 

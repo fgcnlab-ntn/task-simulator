@@ -12,720 +12,464 @@ from typing import Iterable
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from satmulator.plot_styles import (
-    EDGE_COLOR,
-    method_style,
-    run_display_label,
-)
+cache_dir = Path(tempfile.gettempdir()) / "satmulator-matplotlib"
+cache_dir.mkdir(parents=True, exist_ok=True)
+os.environ.setdefault("MPLCONFIGDIR", str(cache_dir))
+os.environ.setdefault("XDG_CACHE_HOME", str(cache_dir))
+
+import matplotlib
+
+matplotlib.use("Agg")
+
+import matplotlib.pyplot as plt
+import seaborn as sns
+from matplotlib.collections import PolyCollection
+from matplotlib.lines import Line2D
+from matplotlib.patches import Patch
+from matplotlib.ticker import FuncFormatter, MultipleLocator
+
+from satmulator.plot_styles import EDGE_COLOR, method_style
 from tools.plot_output import format_written, save_png_pdf
 
 
-RUN_METHODS = [
+RUN_METHODS = (
     "local-only",
     "nearest-sunlit",
     "greedy-energy",
-    "method3",
-    "phoenix",
-]
+    "phoenix2",
+    "method7",
+)
+COMPLETED_CACHE_NAME = "loading-completed-tasks.csv"
+ILLUMINATION_CACHE_NAME = "loading-illumination-compute-ratio.csv"
 
-METHOD_DIRS = {
-    "local-only": "local-only",
-    "nearest-sunlit": "nearest-sunlit",
-    "greedy-energy": "greedy-energy",
-    "method3": "method3",
-    "method3mod": "method3mod",
-    "method3mod-first": "method3mod-first",
-    "method5": "method5",
-    "phoenix": "phoenix",
-}
-
-RUN_STYLES = {
-    "local-only": method_style("local-only"),
-    "nearest-sunlit": method_style("nearest-sunlit"),
-    "greedy-energy": method_style("greedy-energy"),
-    "method3": method_style("method3"),
-    "method3mod": method_style("method3mod"),
-    "method3mod-first": method_style("method3mod-first"),
-    "method5": method_style("method5"),
-    "method7": method_style("method7"),
-    "phoenix": method_style("phoenix"),
-    "phoenix2": method_style("phoenix2"),
-}
-
-
-def style_for_method(method: str):
-    return RUN_STYLES[method]
-
-
-def _plotting():
-    cache_dir = Path(tempfile.gettempdir()) / "satmulator-matplotlib"
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    os.environ.setdefault("MPLCONFIGDIR", str(cache_dir))
-    os.environ.setdefault("XDG_CACHE_HOME", str(cache_dir))
-    import matplotlib
-
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-    try:
-        import seaborn as sns
-    except ModuleNotFoundError:
-        sns = None
-
-    plt.rcParams.update(
-        {
-            "figure.facecolor": "white",
-            "axes.facecolor": "white",
-            "axes.edgecolor": "#333333",
-            "axes.labelcolor": "#222222",
-            "axes.titleweight": "bold",
-            "font.size": 11,
-            "grid.color": "#d9d9d9",
-            "grid.linewidth": 0.8,
-            "savefig.bbox": "tight",
-            "savefig.facecolor": "white",
-        }
-    )
-    if sns is not None:
-        sns.set_theme(
-            context="paper",
-            style="whitegrid",
-            rc={
-                "figure.facecolor": "white",
-                "axes.facecolor": "white",
-                "axes.edgecolor": "#333333",
-                "axes.labelcolor": "#222222",
-                "axes.titleweight": "bold",
-                "font.size": 11,
-                "grid.color": "#d9d9d9",
-                "grid.linewidth": 0.8,
-                "savefig.bbox": "tight",
-                "savefig.facecolor": "white",
-            },
-        )
-    return plt, sns
+sns.set_theme(
+    context="paper",
+    style="whitegrid",
+    rc={
+        "figure.facecolor": "white",
+        "axes.facecolor": "white",
+        "axes.edgecolor": "#333333",
+        "axes.labelcolor": "#222222",
+        "font.size": 25,
+        "axes.labelsize": 25,
+        "axes.titlesize": 25,
+        "xtick.labelsize": 25,
+        "ytick.labelsize": 25,
+        "legend.fontsize": 25,
+        "grid.color": "#d9d9d9",
+        "grid.linewidth": 0.8,
+        "savefig.bbox": "tight",
+        "savefig.facecolor": "white",
+    },
+)
 
 
 def discover_run_dirs(base_dir: Path) -> list[Path]:
-    dirs: list[Path] = []
-    for method in RUN_METHODS:
-        run_dir = base_dir / METHOD_DIRS[method]
-        if run_dir.is_dir():
-            dirs.append(run_dir)
-    return dirs
+    return [
+        base_dir / method
+        for method in RUN_METHODS
+        if (base_dir / method).is_dir()
+    ]
 
 
-def compute_time_per_completed_task(run_dir: Path) -> float:
-    run = json.loads((run_dir / "run.json").read_text())
-    config = run["config"]
-    task = config["task"]
-    fixed_compute_time = task.get("compute_time_s")
-    if fixed_compute_time is not None:
-        return float(fixed_compute_time)
-
-    choices = task.get("input_bits_choices")
-    if isinstance(choices, list) and len(choices) == 1:
-        input_bits = float(choices[0])
-    else:
-        input_bits = float(task["input_bits"])
-
-    weights = task.get("input_bits_weights")
-    if isinstance(choices, list) and len(choices) > 1:
-        raise ValueError(
-            f"{run_dir}: cannot derive exact compute loading from completed "
-            "task counts when input_bits_choices has multiple values; use "
-            "--metric completed-tasks or --metric task-energy-j"
-        )
-    if isinstance(weights, list) and len(weights) > 1:
-        raise ValueError(
-            f"{run_dir}: cannot derive exact compute loading from completed "
-            "task counts when input_bits_weights has multiple values; use "
-            "--metric completed-tasks or --metric task-energy-j"
-        )
-
-    compute = config["compute"]
-    return input_bits * float(compute["cycles_per_input_bit"]) / float(
-        compute["cpu_frequency_hz"]
-    )
+def load_run(run_dir: Path) -> dict:
+    path = run_dir / "run.json"
+    if not path.exists():
+        raise FileNotFoundError(f"missing run.json: {path}")
+    return json.loads(path.read_text())
 
 
-def cpu_power_w(run_dir: Path) -> float:
-    run = json.loads((run_dir / "run.json").read_text())
-    return float(run["config"]["compute"]["cpu_power_w"])
-
-
-def step_s(run_dir: Path) -> float:
-    run = json.loads((run_dir / "run.json").read_text())
-    return float(run["config"]["time"]["step_s"])
-
-
-def task_failure_ratio(run_dir: Path) -> float:
-    summary = json.loads((run_dir / "summary.json").read_text())
-    tasks = summary["tasks"]
-    generated = int(tasks["generated"])
-    if generated == 0:
-        return 0.0
-    return float(tasks["failed"]) / generated
-
-
-def satellite_count(run_dir: Path) -> int:
-    run = json.loads((run_dir / "run.json").read_text())
+def satellite_count(run: dict) -> int:
     return int(run["config"]["orbit"]["satellites"])
 
 
-def aggregate_state_loading(
-    run_dir: Path,
-    *,
-    metric: str,
-) -> tuple[list[float], str]:
-    count = satellite_count(run_dir)
-    values = [0.0 for _ in range(count)]
-
-    if metric == "completed-compute-s":
-        scale = compute_time_per_completed_task(run_dir)
-        field = "completed"
-        ylabel = "Per-satellite total completed compute time (s)"
-    elif metric == "completed-tasks":
-        scale = 1.0
-        field = "completed"
-        ylabel = "Per-satellite completed tasks"
-    elif metric == "task-energy-cpu-s":
-        scale = 1.0 / cpu_power_w(run_dir)
-        field = "task_energy_j"
-        ylabel = "Per-satellite task energy, CPU-second equivalent (s)"
-    elif metric == "task-energy-j":
-        scale = 1.0
-        field = "task_energy_j"
-        ylabel = "Per-satellite total task energy (J)"
-    else:
-        raise ValueError(f"unknown metric: {metric}")
-
-    with (run_dir / "states.jsonl").open() as f:
-        for line in f:
+def iter_snapshots(run_dir: Path):
+    path = run_dir / "states.jsonl"
+    if not path.exists():
+        raise FileNotFoundError(f"missing states.jsonl: {path}")
+    with path.open() as stream:
+        for line_number, line in enumerate(stream, start=1):
             if not line.strip():
                 continue
-            snapshot = json.loads(line)
-            for sat in snapshot.get("satellites", []):
-                sat_id = int(sat["id"])
-                if field == "task_energy_j":
-                    values[sat_id] += float(sat["energy_delta_j"]["tasks"]) * scale
-                else:
-                    values[sat_id] += float(sat["task_counts"][field]) * scale
-
-    return values, ylabel
+            try:
+                yield line_number, json.loads(line)
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"{path}:{line_number}: invalid JSON: {exc.msg}") from exc
 
 
-def aggregate_illumination_relative_loading(run_dir: Path) -> tuple[dict[str, list[float]], str]:
-    """Aggregate per-satellite loading ratios split by illumination state.
+def aggregate_completed_tasks(run_dir: Path) -> list[float]:
+    count = satellite_count(load_run(run_dir))
+    values = [0.0] * count
+    for line_number, snapshot in iter_snapshots(run_dir):
+        for satellite in snapshot.get("satellites", []):
+            sat_id = int(satellite["id"])
+            if not 0 <= sat_id < count:
+                raise ValueError(
+                    f"{run_dir}/states.jsonl:{line_number}: invalid satellite id {sat_id}"
+                )
+            values[sat_id] += float(satellite["task_counts"]["completed"])
+    return values
 
-    New logs record task_load.compute_time_s directly.  Old logs did not split
-    compute from transmission, so they fall back to task energy divided by CPU
-    power as a CPU-second equivalent.
-    The t=0 snapshot is skipped because it has no preceding interval.
-    """
 
-    count = satellite_count(run_dir)
-    compute_seconds_by_state = {
-        "sunlit": [0.0 for _ in range(count)],
-        "eclipse": [0.0 for _ in range(count)],
+def aggregate_illumination_utilization(run_dir: Path) -> dict[str, list[float]]:
+    run = load_run(run_dir)
+    count = satellite_count(run)
+    step_s = float(run["config"]["time"]["step_s"])
+    if step_s <= 0.0:
+        raise ValueError(f"{run_dir}: time.step_s must be positive")
+
+    compute_s = {
+        "sunlit": [0.0] * count,
+        "eclipse": [0.0] * count,
     }
-    duration_by_state = {
-        "sunlit": [0.0 for _ in range(count)],
-        "eclipse": [0.0 for _ in range(count)],
+    duration_s = {
+        "sunlit": [0.0] * count,
+        "eclipse": [0.0] * count,
     }
-    task_energy_to_cpu_seconds = 1.0 / cpu_power_w(run_dir)
-    interval_s = step_s(run_dir)
-    exact_compute_load = False
+    for line_number, snapshot in iter_snapshots(run_dir):
+        if float(snapshot.get("time_s", 0.0)) <= 0.0:
+            continue
+        for satellite in snapshot.get("satellites", []):
+            sat_id = int(satellite["id"])
+            if not 0 <= sat_id < count:
+                raise ValueError(
+                    f"{run_dir}/states.jsonl:{line_number}: invalid satellite id {sat_id}"
+                )
+            task_load = satellite.get("task_load")
+            if not isinstance(task_load, dict) or "compute_time_s" not in task_load:
+                raise ValueError(
+                    f"{run_dir}/states.jsonl:{line_number}: satellite {sat_id} "
+                    "has no task_load.compute_time_s"
+                )
+            state = "sunlit" if bool(satellite["sunlit"]) else "eclipse"
+            compute_s[state][sat_id] += float(task_load["compute_time_s"])
+            duration_s[state][sat_id] += step_s
 
-    with (run_dir / "states.jsonl").open() as f:
-        for line in f:
-            if not line.strip():
-                continue
-            snapshot = json.loads(line)
-            if int(snapshot.get("time_s", 0)) == 0:
-                continue
-            for sat in snapshot.get("satellites", []):
-                sat_id = int(sat["id"])
-                state = "sunlit" if bool(sat["sunlit"]) else "eclipse"
-                duration_by_state[state][sat_id] += interval_s
-                task_load = sat.get("task_load")
-                if isinstance(task_load, dict) and "compute_time_s" in task_load:
-                    compute_seconds_by_state[state][sat_id] += float(
-                        task_load["compute_time_s"]
-                    )
-                    exact_compute_load = True
-                else:
-                    compute_seconds_by_state[state][sat_id] += (
-                        float(sat["energy_delta_j"]["tasks"])
-                        * task_energy_to_cpu_seconds
-                    )
-
-    values_by_state: dict[str, list[float]] = {"sunlit": [], "eclipse": []}
-    for state in ("sunlit", "eclipse"):
-        for load, duration in zip(
-            compute_seconds_by_state[state],
-            duration_by_state[state],
-        ):
-            values_by_state[state].append(0.0 if duration == 0.0 else load / duration)
-
-    ylabel = (
-        "Task compute load ratio"
-        if exact_compute_load
-        else "Task-energy equivalent load ratio"
-    )
-    return values_by_state, ylabel
+    values = {"sunlit": [], "eclipse": []}
+    for state in values:
+        values[state] = [
+            0.0 if duration == 0.0 else compute / duration
+            for compute, duration in zip(compute_s[state], duration_s[state])
+        ]
+    return values
 
 
-def cache_path(run_dir: Path, metric: str) -> Path:
-    return run_dir / f"loading-{metric}.csv"
-
-
-def illumination_cache_path(run_dir: Path) -> Path:
-    return run_dir / "loading-illumination-compute-ratio.csv"
-
-
-def load_or_build_loading(
+def load_or_build_completed_tasks(
     run_dir: Path,
     *,
-    metric: str,
     use_cache: bool,
-) -> tuple[list[float], str]:
-    path = cache_path(run_dir, metric)
-    ylabel = metric_ylabel(run_dir, metric)
+) -> list[float]:
+    path = run_dir / COMPLETED_CACHE_NAME
     if use_cache and path.exists():
-        values: list[float] = []
-        with path.open(newline="") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                values.append(float(row["loading"]))
-        return values, ylabel
+        with path.open(newline="") as stream:
+            return [float(row["loading"]) for row in csv.DictReader(stream)]
 
-    values, ylabel = aggregate_state_loading(run_dir, metric=metric)
+    values = aggregate_completed_tasks(run_dir)
     if use_cache:
-        with path.open("w", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=["sat_id", "loading"])
+        with path.open("w", newline="") as stream:
+            writer = csv.DictWriter(stream, fieldnames=["sat_id", "loading"])
             writer.writeheader()
             for sat_id, value in enumerate(values):
                 writer.writerow({"sat_id": sat_id, "loading": f"{value:.12g}"})
-    return values, ylabel
+    return values
 
 
-def load_or_build_illumination_loading(
+def load_or_build_illumination_utilization(
     run_dir: Path,
     *,
     use_cache: bool,
-) -> tuple[dict[str, list[float]], str]:
-    path = illumination_cache_path(run_dir)
-    ylabel = "Task-energy equivalent load ratio"
+) -> dict[str, list[float]]:
+    path = run_dir / ILLUMINATION_CACHE_NAME
     if use_cache and path.exists():
-        values_by_state = {"sunlit": [], "eclipse": []}
-        exact_compute_load = True
-        with path.open(newline="") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                values_by_state["sunlit"].append(float(row["sunlit"]))
-                values_by_state["eclipse"].append(float(row["eclipse"]))
-                exact_compute_load = row.get("source", "compute_time_s") == "compute_time_s"
-        ylabel = (
-            "Task compute load ratio"
-            if exact_compute_load
-            else "Task-energy equivalent load ratio"
-        )
-        return values_by_state, ylabel
+        values = {"sunlit": [], "eclipse": []}
+        with path.open(newline="") as stream:
+            for row in csv.DictReader(stream):
+                values["sunlit"].append(float(row["sunlit"]))
+                values["eclipse"].append(float(row["eclipse"]))
+        return values
 
-    values_by_state, ylabel = aggregate_illumination_relative_loading(run_dir)
+    values = aggregate_illumination_utilization(run_dir)
     if use_cache:
-        with path.open("w", newline="") as f:
-            source = (
-                "compute_time_s"
-                if ylabel == "Task compute load ratio"
-                else "task_energy_cpu_s"
-            )
+        with path.open("w", newline="") as stream:
             writer = csv.DictWriter(
-                f,
-                fieldnames=["sat_id", "sunlit", "eclipse", "source"],
+                stream,
+                fieldnames=["sat_id", "sunlit", "eclipse"],
             )
             writer.writeheader()
             for sat_id, (sunlit, eclipse) in enumerate(
-                zip(values_by_state["sunlit"], values_by_state["eclipse"])
+                zip(values["sunlit"], values["eclipse"])
             ):
                 writer.writerow(
                     {
                         "sat_id": sat_id,
                         "sunlit": f"{sunlit:.12g}",
                         "eclipse": f"{eclipse:.12g}",
-                        "source": source,
                     }
                 )
-    return values_by_state, ylabel
-
-
-def metric_ylabel(run_dir: Path, metric: str) -> str:
-    if metric == "completed-compute-s":
-        compute_time_per_completed_task(run_dir)
-        return "Per-satellite total completed compute time (s)"
-    if metric == "completed-tasks":
-        return "Per-satellite completed tasks"
-    if metric == "task-energy-cpu-s":
-        cpu_power_w(run_dir)
-        return "Per-satellite task energy, CPU-second equivalent (s)"
-    if metric == "task-energy-j":
-        return "Per-satellite total task energy (J)"
-    raise ValueError(f"unknown metric: {metric}")
+    return values
 
 
 def percentile(values: list[float], pct: float) -> float:
-    if not values:
-        return math.nan
     ordered = sorted(values)
+    if not ordered:
+        return math.nan
     if len(ordered) == 1:
         return ordered[0]
     rank = pct / 100.0 * (len(ordered) - 1)
     lower = math.floor(rank)
     upper = math.ceil(rank)
-    if lower == upper:
-        return ordered[lower]
     weight = rank - lower
     return ordered[lower] * (1.0 - weight) + ordered[upper] * weight
 
 
-def median(values: list[float]) -> float:
-    return percentile(values, 50.0)
-
-
 def gini(values: list[float]) -> float:
-    if not values:
-        return math.nan
     ordered = sorted(max(0.0, value) for value in values)
     total = sum(ordered)
+    if not ordered:
+        return math.nan
     if total == 0.0:
         return 0.0
     weighted = sum((index + 1) * value for index, value in enumerate(ordered))
-    n = len(ordered)
-    return (2.0 * weighted) / (n * total) - (n + 1.0) / n
+    count = len(ordered)
+    return (2.0 * weighted) / (count * total) - (count + 1.0) / count
 
 
-def write_summary_csv(path: Path, series: list[dict[str, object]]) -> None:
-    with path.open("w", newline="") as f:
-        writer = csv.DictWriter(
-            f,
-            fieldnames=[
-                "method",
-                "satellites",
-                "mean",
-                "median",
-                "p95",
-                "max",
-                "gini",
-                "failure_ratio",
-            ],
-        )
+def statistics_row(method: str, values: list[float]) -> dict[str, object]:
+    return {
+        "method": method,
+        "satellites": len(values),
+        "mean": sum(values) / len(values),
+        "median": percentile(values, 50.0),
+        "p95": percentile(values, 95.0),
+        "max": max(values),
+        "gini": gini(values),
+    }
+
+
+def write_summary_csv(path: Path, rows: list[dict[str, object]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fields = ["method", "satellites", "mean", "median", "p95", "max", "gini"]
+    with path.open("w", newline="") as stream:
+        writer = csv.DictWriter(stream, fieldnames=fields)
         writer.writeheader()
-        for item in series:
-            values = list(item["values"])
+        for row in rows:
             writer.writerow(
                 {
-                    "method": item["method"],
-                    "satellites": len(values),
-                    "mean": f"{sum(values) / len(values):.12g}" if values else "nan",
-                    "median": f"{median(values):.12g}",
-                    "p95": f"{percentile(values, 95.0):.12g}",
-                    "max": f"{max(values):.12g}" if values else "nan",
-                    "gini": f"{gini(values):.12g}",
-                    "failure_ratio": f"{float(item['failure_ratio']):.12g}",
+                    key: f"{value:.12g}" if isinstance(value, float) else value
+                    for key, value in row.items()
                 }
             )
 
 
-def write_illumination_summary_csv(path: Path, series: list[dict[str, object]]) -> None:
-    with path.open("w", newline="") as f:
-        writer = csv.DictWriter(
-            f,
-            fieldnames=[
-                "method",
-                "illumination",
-                "satellites",
-                "mean",
-                "median",
-                "p95",
-                "max",
-                "gini",
-                "failure_ratio",
-            ],
-        )
-        writer.writeheader()
-        for item in series:
-            values_by_state = item["values_by_state"]
-            if not isinstance(values_by_state, dict):
-                raise ValueError("illumination series is missing values_by_state")
-            for state in ("sunlit", "eclipse"):
-                values = list(values_by_state[state])
-                writer.writerow(
-                    {
-                        "method": item["method"],
-                        "illumination": state,
-                        "satellites": len(values),
-                        "mean": f"{sum(values) / len(values):.12g}" if values else "nan",
-                        "median": f"{median(values):.12g}",
-                        "p95": f"{percentile(values, 95.0):.12g}",
-                        "max": f"{max(values):.12g}" if values else "nan",
-                        "gini": f"{gini(values):.12g}",
-                        "failure_ratio": f"{float(item['failure_ratio']):.12g}",
-                    }
-                )
-
-
-def write_violin(
+def plot_completed_tasks(
     path: Path,
     series: list[dict[str, object]],
-    *,
-    ylabel: str,
-    title: str,
-    scale_width_by_count: bool,
-    annotate_failure_rate: bool,
 ) -> tuple[Path, Path]:
-    plt, sns = _plotting()
-    fig, ax = plt.subplots(figsize=(9.4, 5.8))
-
-    labels = []
+    labels = [str(item["label"]) for item in series]
     method_column: list[str] = []
-    loading_column: list[float] = []
-    palette: dict[str, str] = {}
+    value_column: list[float] = []
     for item in series:
-        label = str(item["label"])
-        if annotate_failure_rate:
-            label = f"{label}\nfail {100.0 * float(item['failure_ratio']):.1f}%"
-        labels.append(label)
-        palette[label] = style_for_method(str(item["method"])).color
-        for value in item["values"]:
-            method_column.append(label)
-            loading_column.append(value)
+        values = list(item["values"])
+        method_column.extend([str(item["label"])] * len(values))
+        value_column.extend(values)
 
-    density_norm = "count" if scale_width_by_count else "width"
+    fig, ax = plt.subplots(figsize=(9.4, 5.9))
     sns.violinplot(
-        data={"method": method_column, "loading": loading_column},
+        data={"method": method_column, "completed": value_column},
         x="method",
-        y="loading",
-        hue="method",
+        y="completed",
         order=labels,
-        hue_order=labels,
-        palette=palette,
-        density_norm=density_norm,
+        color="white",
+        density_norm="width",
+        cut=0,
+        inner=None,
+        linewidth=1.0,
+        ax=ax,
+    )
+    bodies = [
+        collection
+        for collection in ax.collections
+        if isinstance(collection, PolyCollection)
+    ]
+    for body, item in zip(bodies, series):
+        style = method_style(str(item["method"]))
+        body.set_facecolor("none")
+        body.set_edgecolor(style.color)
+        body.set_hatch(style.hatch)
+        body.set_linewidth(1.2)
+        body.set_alpha(1.0)
+
+    for position, item in enumerate(series):
+        median = percentile(list(item["values"]), 50.0)
+        ax.hlines(
+            median,
+            position - 0.18,
+            position + 0.18,
+            color=EDGE_COLOR,
+            linewidth=2.0,
+            zorder=3,
+        )
+
+    ax.set_xlabel("")
+    ax.set_ylabel(r"$10^3$ tasks / Sat.")
+    ax.yaxis.set_major_formatter(
+        FuncFormatter(lambda value, _: f"{value / 1000:g}")
+    )
+    ax.yaxis.set_major_locator(MultipleLocator(2000))
+    ax.yaxis.set_minor_locator(MultipleLocator(1000))
+    ax.tick_params(axis="y", which="major", left=True, length=7, width=1.0)
+    ax.tick_params(axis="y", which="minor", left=True, length=5, width=1.0)
+    ax.grid(True, axis="y", alpha=0.7)
+    ax.legend(
+        handles=[Line2D([0], [0], color=EDGE_COLOR, linewidth=2.0, label="Median")],
+        loc="upper left",
+        borderpad=0.3,
+    )
+    ax.set_ylim(0, 14_000)
+    written = save_png_pdf(fig, path)
+    plt.close(fig)
+    return written
+
+
+def plot_illumination_utilization(
+    path: Path,
+    series: list[dict[str, object]],
+) -> tuple[Path, Path]:
+    labels = [str(item["label"]) for item in series]
+    method_column: list[str] = []
+    state_column: list[str] = []
+    value_column: list[float] = []
+    state_labels = {
+        "sunlit": "Sunlit",
+        "eclipse": "Eclipse",
+    }
+    colors = {
+        "Sunlit": "#F7D077",
+        "Eclipse": "#7534AD",
+    }
+    for item in series:
+        values_by_state = item["values_by_state"]
+        if not isinstance(values_by_state, dict):
+            raise TypeError("illumination series is missing values_by_state")
+        for state in ("sunlit", "eclipse"):
+            values = list(values_by_state[state])
+            if len(values) < 2 or math.isclose(
+                min(values),
+                max(values),
+                rel_tol=0.0,
+                abs_tol=1.0e-12,
+            ):
+                continue
+            method_column.extend([str(item["label"])] * len(values))
+            state_column.extend([state_labels[state]] * len(values))
+            value_column.extend(values)
+
+    fig, ax = plt.subplots(figsize=(9.4, 6.3))
+    sns.violinplot(
+        data={
+            "method": method_column,
+            "illumination": state_column,
+            "utilization": value_column,
+        },
+        x="method",
+        y="utilization",
+        hue="illumination",
+        order=labels,
+        hue_order=["Sunlit", "Eclipse"],
+        palette=colors,
+        split=True,
+        density_norm="width",
+        common_norm=False,
+        width=0.9,
         cut=0,
         inner=None,
         linewidth=1.0,
         saturation=1.0,
-        dodge=False,
         legend=False,
         ax=ax,
     )
-    for body, item in zip(ax.collections, series):
-        body.set_edgecolor(EDGE_COLOR)
-        body.set_alpha(style_for_method(str(item["method"])).alpha)
-
-    values = [list(item["values"]) for item in series]
-    positions = list(range(len(series)))
-    medians = [median(group) for group in values]
-    maxima = [max(group) for group in values]
-
-    ax.scatter(positions, medians, marker="o", s=28, color="#222222", label="median", zorder=3)
-
-    for xpos, max_value in zip(positions, maxima):
-        ax.text(
-            xpos,
-            max_value,
-            f"max {max_value:,.0f}",
-            ha="center",
-            va="bottom",
-            fontsize=8,
-            color="#333333",
-        )
-
-    ax.set_xticks(positions)
-    ax.set_xticklabels(labels, rotation=0, ha="center")
-    ax.set_xlabel("")
-    ax.set_ylabel(ylabel)
-    ax.set_title(title)
-    ax.grid(True, axis="y", alpha=0.7)
-    ax.legend(loc="upper left", framealpha=0.94)
-    ax.margins(y=0.08)
-
-    written = save_png_pdf(fig, path)
-    plt.close(fig)
-    return written
-
-
-def write_illumination_violin(
-    path: Path,
-    series: list[dict[str, object]],
-    *,
-    ylabel: str,
-    title: str,
-    annotate_failure_rate: bool,
-) -> tuple[Path, Path]:
-    plt, sns = _plotting()
-    import numpy as np
-    from matplotlib.patches import Patch
-
-    fig, ax = plt.subplots(figsize=(9.4, 5.8))
-
-    labels: list[str] = []
-    for item in series:
-        label = str(item["label"])
-        if annotate_failure_rate:
-            label = f"{label}\nfail {100.0 * float(item['failure_ratio']):.1f}%"
-        labels.append(label)
-
-    def kde_shape(values: list[float]) -> tuple[np.ndarray, np.ndarray]:
-        observations = np.asarray(values, dtype=float)
-        if observations.size == 0:
-            return np.asarray([0.0, 1.0]), np.asarray([0.0, 0.0])
-
-        low = float(np.min(observations))
-        high = float(np.max(observations))
-        if math.isclose(low, high):
-            spread = max(0.005, abs(low) * 0.02)
-            low = max(0.0, low - spread)
-            high = high + spread
-        grid = np.linspace(low, high, 256)
-
-        std = float(np.std(observations, ddof=1)) if observations.size > 1 else 0.0
-        if std > 0.0:
-            q25, q75 = np.percentile(observations, [25, 75])
-            iqr_sigma = float((q75 - q25) / 1.349) if q75 > q25 else std
-            sigma = min(std, iqr_sigma) if iqr_sigma > 0.0 else std
-            bandwidth = 0.9 * sigma * observations.size ** (-1.0 / 5.0)
-        else:
-            bandwidth = 0.0
-        bandwidth = max(bandwidth, (high - low) / 80.0, 0.002)
-
-        z = (grid[:, None] - observations[None, :]) / bandwidth
-        density = np.exp(-0.5 * z * z).sum(axis=1)
-        density /= observations.size * bandwidth * math.sqrt(2.0 * math.pi)
-
-        area = float(np.trapezoid(density, grid))
-        if not math.isfinite(area) or area <= 0.0:
-            density = np.ones_like(grid)
-            area = float(np.trapezoid(density, grid))
-        density /= area
-        return grid, density
-
-    colors = {"sunlit": "#FF7F0E", "eclipse": "#1F77B4"}
-    shapes: list[dict[str, object]] = []
-    for index, item in enumerate(series):
-        values_by_state = item["values_by_state"]
-        if not isinstance(values_by_state, dict):
-            raise ValueError("illumination series is missing values_by_state")
-        for state in ("sunlit", "eclipse"):
-            grid, density = kde_shape(list(values_by_state[state]))
-            shapes.append(
-                {
-                    "index": index,
-                    "state": state,
-                    "grid": grid,
-                    "density": density,
-                    "peak": float(np.max(density)),
-                }
-            )
-
-    # Match seaborn's density_norm="width": each half violin gets the same
-    # maximum width, so a sharply concentrated series cannot flatten the rest.
-    half_width = 0.42
-    for shape in shapes:
-        index = int(shape["index"])
-        state = str(shape["state"])
-        grid = shape["grid"]
-        density = shape["density"]
-        if not isinstance(grid, np.ndarray) or not isinstance(density, np.ndarray):
-            raise TypeError("invalid KDE shape")
-        peak = float(shape["peak"])
-        width = density * (half_width / peak) if peak > 0.0 else np.zeros_like(density)
-        if state == "sunlit":
-            ax.fill_betweenx(
-                grid,
-                index - width,
-                index,
-                facecolor=colors[state],
-                edgecolor=EDGE_COLOR,
-                linewidth=1.0,
-                alpha=0.62,
-            )
-        else:
-            ax.fill_betweenx(
-                grid,
-                index,
-                index + width,
-                facecolor=colors[state],
-                edgecolor=EDGE_COLOR,
-                linewidth=1.0,
-                alpha=0.62,
-            )
+    for collection in ax.collections:
+        if isinstance(collection, PolyCollection):
+            collection.set_edgecolor(EDGE_COLOR)
+            collection.set_alpha(0.62)
 
     offsets = {"sunlit": -0.18, "eclipse": 0.18}
-    for index, item in enumerate(series):
+    for position, item in enumerate(series):
         values_by_state = item["values_by_state"]
         if not isinstance(values_by_state, dict):
-            raise ValueError("illumination series is missing values_by_state")
+            raise TypeError("illumination series is missing values_by_state")
         for state in ("sunlit", "eclipse"):
-            values = list(values_by_state[state])
-            xpos = index + offsets[state]
-            ax.scatter(
-                [xpos],
-                [median(values)],
-                marker="o",
-                s=24,
-                color="#222222",
+            median = percentile(list(values_by_state[state]), 50.0)
+            center = position + offsets[state]
+            ax.hlines(
+                median,
+                center - 0.10,
+                center + 0.10,
+                color=EDGE_COLOR,
+                linewidth=2.0,
                 zorder=3,
             )
 
-    ax.legend(
+    fig.legend(
         handles=[
-            Patch(facecolor=colors["sunlit"], edgecolor=EDGE_COLOR, label="sunlit"),
-            Patch(facecolor=colors["eclipse"], edgecolor=EDGE_COLOR, label="eclipse"),
-            ax.scatter([], [], marker="o", s=24, color="#222222", label="median"),
+            Patch(
+                facecolor=colors["Sunlit"],
+                edgecolor=EDGE_COLOR,
+                alpha=0.62,
+                label="Sunlit",
+            ),
+            Patch(
+                facecolor=colors["Eclipse"],
+                edgecolor=EDGE_COLOR,
+                alpha=0.62,
+                label="Eclipse",
+            ),
+            Line2D([0], [0], color=EDGE_COLOR, linewidth=2.0, label="Median"),
         ],
-        loc="upper left",
+        loc="upper center",
+        bbox_to_anchor=(0.51, 0.98),
         framealpha=0.94,
-        ncols=2,
+        ncols=3,
+        columnspacing=1.0,
+        # handletextpad=0.4,
+        # handlelength=1.5,
+        # borderpad=0.3,
     )
-    ax.set_xticks(list(range(len(series))))
-    ax.set_xticklabels(labels, rotation=0, ha="center")
     ax.set_xlabel("")
-    ax.set_ylabel(ylabel)
-    ax.set_title(title)
+    ax.set_ylabel("%", rotation=0, va="center", labelpad=10)
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda value, _: f"{100 * value:g}"))
+    ax.yaxis.set_minor_locator(MultipleLocator(0.1))
+    ax.tick_params(axis="y", which="major", left=True, length=7, width=1.0)
+    ax.tick_params(axis="y", which="minor", left=True, length=5, width=1.0)
     ax.grid(True, axis="y", alpha=0.7)
     ax.margins(y=0.08)
-
+    ax.set_ylim(bottom=0.0)
+    fig.subplots_adjust(top=0.84)
     written = save_png_pdf(fig, path)
     plt.close(fig)
     return written
 
 
-def build_series(
+def build_completed_series(
     run_dirs: Iterable[Path],
     *,
     labels: list[str] | None,
-    metric: str,
     use_cache: bool,
-) -> tuple[list[dict[str, object]], str]:
-    series: list[dict[str, object]] = []
-    ylabel = ""
+) -> list[dict[str, object]]:
+    series = []
     for index, run_dir in enumerate(run_dirs):
-        if not (run_dir / "states.jsonl").exists():
-            raise FileNotFoundError(f"missing states.jsonl: {run_dir}")
-        if not (run_dir / "run.json").exists():
-            raise FileNotFoundError(f"missing run.json: {run_dir}")
-        values, ylabel = load_or_build_loading(run_dir, metric=metric, use_cache=use_cache)
         method = run_dir.name
-        label = labels[index] if labels is not None else run_display_label(run_dir)
         series.append(
             {
                 "method": method,
-                "label": label,
-                "values": values,
-                "failure_ratio": task_failure_ratio(run_dir),
+                "label": labels[index] if labels is not None else method_style(method).label,
+                "values": load_or_build_completed_tasks(
+                    run_dir,
+                    use_cache=use_cache,
+                ),
             }
         )
-    return series, ylabel
+    return series
 
 
 def build_illumination_series(
@@ -733,98 +477,57 @@ def build_illumination_series(
     *,
     labels: list[str] | None,
     use_cache: bool,
-) -> tuple[list[dict[str, object]], str]:
-    series: list[dict[str, object]] = []
-    ylabel = ""
+) -> list[dict[str, object]]:
+    series = []
     for index, run_dir in enumerate(run_dirs):
-        if not (run_dir / "states.jsonl").exists():
-            raise FileNotFoundError(f"missing states.jsonl: {run_dir}")
-        if not (run_dir / "run.json").exists():
-            raise FileNotFoundError(f"missing run.json: {run_dir}")
-        values_by_state, ylabel = load_or_build_illumination_loading(
-            run_dir,
-            use_cache=use_cache,
-        )
         method = run_dir.name
-        label = labels[index] if labels is not None else run_display_label(run_dir)
         series.append(
             {
                 "method": method,
-                "label": label,
-                "values_by_state": values_by_state,
-                "failure_ratio": task_failure_ratio(run_dir),
+                "label": labels[index] if labels is not None else method_style(method).label,
+                "values_by_state": load_or_build_illumination_utilization(
+                    run_dir,
+                    use_cache=use_cache,
+                ),
             }
         )
-    return series, ylabel
+    return series
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Plot per-satellite total loading distributions as one violin per "
-            "scheduler method. Loading is aggregated from states.jsonl."
+            "Plot per-satellite completed tasks or sunlit/eclipse compute "
+            "utilization across scheduler runs."
         )
     )
     parser.add_argument(
         "base_dir",
         type=Path,
-        help="Directory containing one run subdirectory per method, e.g. output/final-...",
+        help="Directory containing one run subdirectory per method.",
     )
     parser.add_argument(
         "--runs",
         nargs="*",
         type=Path,
-        help="Optional explicit run directories. Defaults to known method subdirectories under base_dir.",
+        help="Explicit run directories; defaults to the standard five methods.",
     )
-    parser.add_argument("--labels", nargs="*", help="Optional labels matching the run count")
+    parser.add_argument("--labels", nargs="*", help="Labels matching the run count")
     parser.add_argument(
         "--plot",
         choices=["illumination-relative", "total"],
         default="illumination-relative",
-        help=(
-            "Plot type. illumination-relative draws split sunlit/eclipse violins "
-            "using task-energy-equivalent load divided by time in that state."
-        ),
-    )
-    parser.add_argument(
-        "--metric",
-        choices=[
-            "task-energy-cpu-s",
-            "task-energy-j",
-            "completed-compute-s",
-            "completed-tasks",
-        ],
-        default="task-energy-cpu-s",
-        help="Loading metric to aggregate from states.jsonl",
     )
     parser.add_argument(
         "--out",
         type=Path,
-        help="Output figure path or prefix. Writes .png and .pdf.",
+        help="Output figure path or prefix; writes PNG and PDF.",
     )
-    parser.add_argument(
-        "--summary-csv",
-        type=Path,
-        help="Output CSV for method-level statistics. Defaults next to the figure.",
-    )
-    parser.add_argument(
-        "--title",
-        help="Figure title",
-    )
+    parser.add_argument("--summary-csv", type=Path, help="Summary CSV path")
     parser.add_argument(
         "--no-cache",
         action="store_true",
-        help="Do not read or write per-run loading-<metric>.csv cache files",
-    )
-    parser.add_argument(
-        "--fixed-width",
-        action="store_true",
-        help="Use equal maximum violin widths instead of scaling width by satellite count",
-    )
-    parser.add_argument(
-        "--no-failure-labels",
-        action="store_true",
-        help="Do not add each method's task failure rate under the x-axis label",
+        help="Do not read or write per-run aggregation caches.",
     )
     args = parser.parse_args()
 
@@ -834,57 +537,65 @@ def main() -> int:
     if args.labels is not None and len(args.labels) != len(run_dirs):
         raise ValueError("--labels count must match the number of runs")
 
-    default_name = (
-        "loading-illumination-violin"
-        if args.plot == "illumination-relative"
-        else "loading-violin"
-    )
-    out = args.out or (args.base_dir / default_name)
-    out.parent.mkdir(parents=True, exist_ok=True)
-    summary_csv = args.summary_csv or out.with_name(f"{out.stem}-summary.csv")
-
-    if args.plot == "illumination-relative":
-        series, ylabel = build_illumination_series(
+    use_cache = not args.no_cache
+    if args.plot == "total":
+        series = build_completed_series(
             run_dirs,
             labels=args.labels,
-            use_cache=not args.no_cache,
+            use_cache=use_cache,
         )
-        written = write_illumination_violin(
-            out,
-            series,
-            ylabel=ylabel,
-            title=args.title
-            or "Sunlit/eclipsed relative loading distribution by scheduler",
-            annotate_failure_rate=not args.no_failure_labels,
-        )
-        write_illumination_summary_csv(summary_csv, series)
+        out = args.out or args.base_dir / "loading-violin"
+        written = plot_completed_tasks(out, series)
+        summary_rows = [
+            statistics_row(str(item["method"]), list(item["values"]))
+            for item in series
+        ]
     else:
-        series, ylabel = build_series(
+        series = build_illumination_series(
             run_dirs,
             labels=args.labels,
-            metric=args.metric,
-            use_cache=not args.no_cache,
+            use_cache=use_cache,
         )
-        written = write_violin(
-            out,
-            series,
-            ylabel=ylabel,
-            title=args.title
-            or "Per-satellite total loading distribution by scheduler",
-            scale_width_by_count=not args.fixed_width,
-            annotate_failure_rate=not args.no_failure_labels,
-        )
-        write_summary_csv(summary_csv, series)
+        out = args.out or args.base_dir / "loading-illumination-violin"
+        written = plot_illumination_utilization(out, series)
+        summary_rows = []
+        for item in series:
+            values_by_state = item["values_by_state"]
+            if not isinstance(values_by_state, dict):
+                raise TypeError("illumination series is missing values_by_state")
+            for state in ("sunlit", "eclipse"):
+                row = statistics_row(str(item["method"]), list(values_by_state[state]))
+                row["illumination"] = state
+                summary_rows.append(row)
+
+    summary_path = args.summary_csv or out.with_name(f"{out.stem}-summary.csv")
+    if args.plot == "illumination-relative":
+        fields = [
+            "method",
+            "illumination",
+            "satellites",
+            "mean",
+            "median",
+            "p95",
+            "max",
+            "gini",
+        ]
+        summary_path.parent.mkdir(parents=True, exist_ok=True)
+        with summary_path.open("w", newline="") as stream:
+            writer = csv.DictWriter(stream, fieldnames=fields)
+            writer.writeheader()
+            for row in summary_rows:
+                writer.writerow(
+                    {
+                        key: f"{value:.12g}" if isinstance(value, float) else value
+                        for key, value in row.items()
+                    }
+                )
+    else:
+        write_summary_csv(summary_path, summary_rows)
+
     print(f"Wrote {format_written(written)}")
-    print(f"Wrote {summary_csv}")
-    for run_dir in run_dirs:
-        if not args.no_cache:
-            path = (
-                illumination_cache_path(run_dir)
-                if args.plot == "illumination-relative"
-                else cache_path(run_dir, args.metric)
-            )
-            print(f"Cached {path}")
+    print(f"Wrote {summary_path}")
     return 0
 
 
