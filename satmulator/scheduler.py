@@ -716,9 +716,8 @@ class LocalOnlyScheduler(Scheduler):
                     Assignment(
                         task_id=task.task_id,
                         route=route,
-                        mode="fail",
+                        mode="defer",
                         score=float("inf"),
-                        failed_reason="battery_hard_constraint",
                     )
                 )
 
@@ -830,6 +829,26 @@ class NearestSunlitScheduler(Scheduler):
                 compute_config=compute_config,
                 isl_config=isl_config,
             )
+
+            finish_time_s = (
+                max(
+                    float(time_s) + route_cost.transmission_time_s,
+                    reserved_available_time[template.route.target_sat],
+                )
+                + route_cost.compute_time_s
+            )
+            if finish_time_s > task.created_time_s + task.deadline_s:
+                assignments.append(
+                    Assignment(
+                        task_id=task.task_id,
+                        route=template.route,
+                        mode="fail",
+                        score=float("inf"),
+                        failed_reason="deadline",
+                    )
+                )
+                continue
+
             if route_respects_battery_projection(
                 route=template.route,
                 route_cost=route_cost,
