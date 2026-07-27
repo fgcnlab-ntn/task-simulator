@@ -32,7 +32,7 @@
     "random_seed": 42,
     "tasks_per_sat": 1,
     "tasks_per_step_choices": [
-      8000
+      6400
     ],
     "tasks_per_step_weights": [
       1.0
