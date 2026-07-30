@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import sys
 import tempfile
@@ -23,8 +24,11 @@ DEFAULT_METHODS = [
     "method7",
 ]
 MIN_GROUPS = 4
-MAX_GROUPS = 5
+MAX_GROUPS = 18
 METHOD_COUNT = 5
+FIXED_FONT_SIZE = 24
+LEGEND_FONT_SIZE = FIXED_FONT_SIZE
+DEFAULT_GROUP_LABEL_FONT_SIZE = FIXED_FONT_SIZE
 SEASON_LABELS = {
     "spring-equinox": "Spring\nequinox",
     "summer-solstice": "Summer\nsolstice",
@@ -55,7 +59,7 @@ def _pyplot():
             "axes.facecolor": "white",
             "axes.edgecolor": "#333333",
             "axes.labelcolor": "#222222",
-            "font.size": 24,
+            "font.size": FIXED_FONT_SIZE,
             "grid.color": "#d9d9d9",
             "grid.linewidth": 0.8,
             "savefig.bbox": "tight",
@@ -68,7 +72,7 @@ def _pyplot():
 def validate_groups(groups: list[str]) -> None:
     if not MIN_GROUPS <= len(groups) <= MAX_GROUPS:
         raise ValueError(
-            f"expected {MIN_GROUPS} or {MAX_GROUPS} groups, got {len(groups)}"
+            f"expected {MIN_GROUPS} to {MAX_GROUPS} groups, got {len(groups)}"
         )
     if len(set(groups)) != len(groups):
         raise ValueError("group names must be unique")
@@ -176,11 +180,13 @@ def write_figure(
     group_labels: list[str],
     methods: list[str],
     xlabel: str,
+    group_label_font_size: float = DEFAULT_GROUP_LABEL_FONT_SIZE,
 ) -> tuple[Path, Path]:
     plt = _pyplot()
     from matplotlib.ticker import MultipleLocator
 
-    fig, ax = plt.subplots(figsize=(8.8, 5.1))
+    figure_width = max(8.8, 1.25 * len(groups) + 2.0)
+    fig, ax = plt.subplots(figsize=(figure_width, 5.1))
 
     rows_by_key = {
         (str(row["group"]), str(row["method"])): row
@@ -222,22 +228,41 @@ def write_figure(
         )
 
     ax.set_xticks(x_positions)
-    ax.set_xticklabels(tick_labels)
-    ax.set_ylabel("%", rotation=0, va="center", labelpad=16)
-    ax.set_ylim(0.0, 80.0)
+    ax.set_xticklabels(tick_labels, fontsize=group_label_font_size)
+    edge_padding = group_width * 0.35
+    ax.set_xlim(
+        x_positions[0] - group_width / 2.0 - edge_padding,
+        x_positions[-1] + group_width / 2.0 + edge_padding,
+    )
+    ax.set_xlabel(xlabel, fontsize=FIXED_FONT_SIZE)
+    ax.set_ylabel(
+        "%",
+        fontsize=FIXED_FONT_SIZE,
+        rotation=0,
+        va="center",
+        labelpad=16,
+    )
+    max_rate = max(float(row["fail_rate"]) for row in rows)
+    y_max = max(80.0, min(100.0, math.ceil(max_rate / 10.0) * 10.0))
+    ax.set_ylim(0.0, y_max)
     ax.yaxis.set_minor_locator(MultipleLocator(10))
-    ax.tick_params(axis="y", which="major", left=True, length=7, width=1.0)
+    ax.tick_params(
+        axis="y",
+        which="major",
+        left=True,
+        length=7,
+        width=1.0,
+        labelsize=FIXED_FONT_SIZE,
+    )
     ax.tick_params(axis="y", which="minor", left=True, length=4, width=1.0)
     ax.grid(True, axis="y", alpha=0.7)
     ax.legend(
         ncol=len(methods),
         loc="upper center",
-        bbox_to_anchor=(0.51, 1.01),
+        bbox_to_anchor=(0.51, 0.99),
         bbox_transform=fig.transFigure,
         borderpad=0.15,
-        handlelength=0.7,
-        columnspacing=0.7,
-        handletextpad=0.3,
+        fontsize=LEGEND_FONT_SIZE,
         frameon=True,
     )
     fig.subplots_adjust(top=0.88)
@@ -250,7 +275,7 @@ def write_figure(
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Compare task failure rates for five methods across four or five "
+            "Compare task failure rates for five methods across four to eighteen "
             "run groups."
         )
     )
@@ -263,13 +288,13 @@ def main() -> int:
     group_source.add_argument(
         "--groups",
         nargs="+",
-        help="Four or five run-group directory names, in plot order.",
+        help="Four to eighteen run-group directory names, in plot order.",
     )
     group_source.add_argument(
         "--group-dirs",
         nargs="+",
         type=Path,
-        help="Four or five run-group paths, which may have different parents.",
+        help="Four to eighteen run-group paths, which may have different parents.",
     )
     parser.add_argument(
         "--group-labels",
@@ -288,12 +313,20 @@ def main() -> int:
         help="X-axis label.",
     )
     parser.add_argument(
+        "--group-label-font-size",
+        type=float,
+        default=DEFAULT_GROUP_LABEL_FONT_SIZE,
+        help="Font size for the run-group names along the x-axis.",
+    )
+    parser.add_argument(
         "--out",
         type=Path,
         required=True,
         help="Output figure path or prefix. Writes .png and .pdf.",
     )
     args = parser.parse_args()
+    if args.group_label_font_size <= 0:
+        parser.error("--group-label-font-size must be positive")
 
     if args.groups is not None:
         if args.base_dir is None:
@@ -322,6 +355,7 @@ def main() -> int:
         group_labels=group_labels,
         methods=args.methods,
         xlabel=args.xlabel,
+        group_label_font_size=args.group_label_font_size,
     )
     print(f"Wrote {format_written(written)}")
     return 0
