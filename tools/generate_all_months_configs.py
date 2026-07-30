@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate configs for the seven months missing from the seasonal runs."""
+"""Generate three-day configs measuring the middle day of every month."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "configs" / "final-seasons" / "spring-equinox"
+SOURCE = ROOT / "configs" / "final-loading-ratio" / "r80"
 DESTINATION = ROOT / "configs" / "all-months"
 METHODS = (
     "greedy-energy",
@@ -17,20 +17,25 @@ METHODS = (
     "nearest-sunlit",
     "phoenix2",
 )
-MISSING_MONTHS = {
+MONTHS = {
     1: "January",
     2: "February",
+    3: "March",
     4: "April",
+    5: "May",
+    6: "June",
     7: "July",
     8: "August",
+    9: "September",
     10: "October",
     11: "November",
+    12: "December",
 }
 
 
 def main() -> None:
-    for month, month_name in MISSING_MONTHS.items():
-        date = f"2026-{month:02d}-20"
+    for month, month_name in MONTHS.items():
+        start_date = f"2026-{month:02d}-14"
         group = f"m{month:02d}"
 
         for method in METHODS:
@@ -39,11 +44,17 @@ def main() -> None:
 
             description_prefix = config["run"]["description"].split(" (", 1)[0]
             config["run"]["description"] = (
-                f"{description_prefix} ({month_name} sample, {date})"
+                f"{description_prefix} ({month_name} 15 measurement, "
+                f"14-16 warm-up/run window)"
             )
-            config["time"]["start_utc"] = f"{date}T12:00:00Z"
-            config["output"]["path"] = f"output/all-months/{group}/{method}"
+            config["time"]["start_utc"] = f"{start_date}T00:00:00Z"
+            config["time"]["duration_s"] = 259200
+            config["output"]["path"] = (
+                f"output/all-months-3day/{group}/{method}"
+            )
             config["logging"]["state_steps"] = "off"
+            config["logging"]["summary_start_s"] = 86400
+            config["logging"]["summary_duration_s"] = 86400
 
             destination = DESTINATION / group / f"{method}.json"
             destination.parent.mkdir(parents=True, exist_ok=True)

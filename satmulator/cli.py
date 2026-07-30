@@ -61,6 +61,8 @@ DEFAULT_CONFIG = {
     "out": "output/minimal_orbit",
     "logging_task_events": "full",
     "logging_state_steps": "full",
+    "logging_summary_start_s": None,
+    "logging_summary_duration_s": None,
     "scheduler_cpu_utilization_limit": 1.0,
     "objective_alpha": 0.5,
 }
@@ -130,12 +132,14 @@ CONFIG_SECTIONS = {
     "logging": {
         "task_events": "logging_task_events",
         "state_steps": "logging_state_steps",
+        "summary_start_s": "logging_summary_start_s",
+        "summary_duration_s": "logging_summary_duration_s",
     },
 }
 
 OPTIONAL_CONFIG_KEYS = {
     "task": {"compute_time_s"},
-    "logging": {"state_steps"},
+    "logging": {"state_steps", "summary_start_s", "summary_duration_s"},
 }
 
 def parse_args() -> argparse.Namespace:
@@ -276,6 +280,10 @@ def parse_utc_datetime(value: str) -> dt.datetime:
 
 
 def validate_args(args: argparse.Namespace) -> None:
+    if args.duration_s < 0:
+        raise ValueError("time.duration_s must be non-negative")
+    if args.step_s <= 0:
+        raise ValueError("time.step_s must be positive")
     if not 0 <= args.battery_initial_pct <= 100:
         raise ValueError("battery.initial_pct must be within [0, 100]")
     if not 0 <= args.battery_min_safe_pct <= 100:
@@ -324,6 +332,32 @@ def validate_args(args: argparse.Namespace) -> None:
     logging_state_steps = getattr(args, "logging_state_steps", "full")
     if logging_state_steps not in {"full", "off"}:
         raise ValueError("logging.state_steps must be full or off")
+    summary_start_s = getattr(args, "logging_summary_start_s", None)
+    summary_duration_s = getattr(args, "logging_summary_duration_s", None)
+    if (summary_start_s is None) != (summary_duration_s is None):
+        raise ValueError(
+            "logging.summary_start_s and logging.summary_duration_s "
+            "must be specified together"
+        )
+    if summary_start_s is not None:
+        if (
+            not isinstance(summary_start_s, int)
+            or isinstance(summary_start_s, bool)
+        ):
+            raise ValueError("logging.summary_start_s must be an integer")
+        if (
+            not isinstance(summary_duration_s, int)
+            or isinstance(summary_duration_s, bool)
+        ):
+            raise ValueError("logging.summary_duration_s must be an integer")
+        if summary_start_s < 0:
+            raise ValueError("logging.summary_start_s must be non-negative")
+        if summary_duration_s <= 0:
+            raise ValueError("logging.summary_duration_s must be positive")
+        if summary_start_s % args.step_s or summary_duration_s % args.step_s:
+            raise ValueError("logging summary window must align with time.step_s")
+        if summary_start_s + summary_duration_s > args.duration_s:
+            raise ValueError("logging summary window exceeds time.duration_s")
 
 
 def walker_raan_spread_deg(args: argparse.Namespace) -> float:
@@ -464,6 +498,11 @@ def effective_run_config(args: argparse.Namespace) -> dict:
     }
     if getattr(args, "logging_state_steps", "full") != "full":
         config["logging"]["state_steps"] = args.logging_state_steps
+    summary_start_s = getattr(args, "logging_summary_start_s", None)
+    summary_duration_s = getattr(args, "logging_summary_duration_s", None)
+    if summary_start_s is not None and summary_duration_s is not None:
+        config["logging"]["summary_start_s"] = summary_start_s
+        config["logging"]["summary_duration_s"] = summary_duration_s
     return config
 
 

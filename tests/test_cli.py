@@ -164,6 +164,18 @@ class EffectiveRunConfigTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "logging.state_steps"):
             validate_args(args_for(logging_state_steps="summary"))
 
+    def test_logging_summary_window_is_validated(self) -> None:
+        with self.assertRaisesRegex(ValueError, "must be specified together"):
+            validate_args(args_for(logging_summary_start_s=30))
+        with self.assertRaisesRegex(ValueError, "exceeds time.duration_s"):
+            validate_args(
+                args_for(
+                    duration_s=60,
+                    logging_summary_start_s=30,
+                    logging_summary_duration_s=60,
+                )
+            )
+
     def test_oneweb_648_config_uses_walker_delta_layout(self) -> None:
         args = args_for(
             **load_standalone_json_config(Path("configs/base/oneweb_648.json"))

@@ -376,6 +376,93 @@ class RunLogTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "logging.state_steps"):
                 RunLog(output, start, {"logging": {"state_steps": "summary"}})
 
+    def test_summary_window_measures_steps_and_generated_task_cohort(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            start = dt.datetime(2026, 1, 14, tzinfo=dt.timezone.utc)
+            log = RunLog(
+                output,
+                start,
+                {
+                    "logging": {
+                        "task_events": "summary",
+                        "state_steps": "off",
+                        "summary_start_s": 30,
+                        "summary_duration_s": 30,
+                    }
+                },
+            )
+            unsafe_before = replace(
+                sample_state(0),
+                sunlit=False,
+                safe_battery=False,
+                consumed_j=100.0,
+                task_energy_j=100.0,
+            )
+            unsafe_measured = replace(
+                unsafe_before,
+                time_s=30,
+                consumed_j=2.0,
+                task_energy_j=3.0,
+            )
+            after = replace(sample_state(60), consumed_j=200.0)
+
+            log.write_task_event(
+                {"type": "task_generated", "time_s": 0, "task_id": 1}
+            )
+            log.write_step([unsafe_before])
+            log.write_task_event(
+                {"type": "task_generated", "time_s": 30, "task_id": 2}
+            )
+            log.write_task_event(
+                {"type": "task_deferred", "time_s": 30, "task_id": 2}
+            )
+            log.write_step([unsafe_measured])
+            log.write_task_event(
+                {"type": "task_completed", "time_s": 60, "task_id": 2}
+            )
+            log.write_task_event(
+                {"type": "task_generated", "time_s": 60, "task_id": 3}
+            )
+            log.write_task_event(
+                {"type": "task_failed", "time_s": 60, "task_id": 3}
+            )
+            log.write_step([after])
+            log.complete()
+
+            self.assertFalse((output / "states.jsonl").exists())
+            summary = json.loads((output / "summary.json").read_text())
+            self.assertEqual(summary["steps"], 1)
+            self.assertEqual(summary["final_time_s"], 30)
+            self.assertEqual(
+                summary["tasks"],
+                {
+                    "generated": 1,
+                    "completed": 1,
+                    "deferred": 1,
+                    "failed": 0,
+                    "pending": 0,
+                },
+            )
+            self.assertEqual(
+                summary["energy"]["eclipse"],
+                {"idle_j": 2.0, "task_j": 3.0, "total_j": 5.0},
+            )
+            self.assertEqual(
+                summary["battery_violations"]["unique_breached_satellites"],
+                1,
+            )
+            self.assertEqual(
+                summary["measurement_window"],
+                {
+                    "start_time_s": 30,
+                    "end_time_s_exclusive": 60,
+                    "start_utc": "2026-01-14T00:00:30+00:00",
+                    "end_utc_exclusive": "2026-01-14T00:01:00+00:00",
+                    "task_cohort": "generated_within_window",
+                },
+            )
+
     def test_lifecycle_task_event_mode_drops_assignment_chatter(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory)

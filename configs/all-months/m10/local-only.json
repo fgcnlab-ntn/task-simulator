@@ -1,7 +1,7 @@
 {
   "run": {
     "name": "local-only",
-    "description": "Local-only scheduler experiment (October sample, 2026-10-20)"
+    "description": "Local-only scheduler experiment (October 15 measurement, 14-16 warm-up/run window)"
   },
   "orbit": {
     "orbit_model": "circular",
@@ -14,8 +14,8 @@
     "walker_phase": 1
   },
   "time": {
-    "start_utc": "2026-10-20T12:00:00Z",
-    "duration_s": 86400,
+    "start_utc": "2026-10-14T00:00:00Z",
+    "duration_s": 259200,
     "step_s": 30
   },
   "battery": {
@@ -75,10 +75,12 @@
     "alpha": 0.0
   },
   "output": {
-    "path": "output/all-months/m10/local-only"
+    "path": "output/all-months-3day/m10/local-only"
   },
   "logging": {
     "task_events": "summary",
-    "state_steps": "off"
+    "state_steps": "off",
+    "summary_start_s": 86400,
+    "summary_duration_s": 86400
   }
 }

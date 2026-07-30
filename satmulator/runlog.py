@@ -231,14 +231,15 @@ class RunLog:
         self.summary_path = output_dir / "summary.json"
         self._task_event_mode = task_event_mode(config)
         self._state_step_mode = state_step_mode(config)
+        self._summary_window = summary_window(config)
         self._states = (
             (output_dir / "states.jsonl").open("w")
             if self._state_step_mode == "full"
             else None
         )
         self._tasks = (output_dir / "tasks.jsonl").open("w")
-        self._generated_ids: set[int] = set()
-        self._terminal_ids: set[int] = set()
+        self._cohort_first_task_id: int | None = None
+        self._cohort_end_task_id: int | None = None
         self._generated = 0
         self._terminal = 0
         self._completed = 0
@@ -251,6 +252,8 @@ class RunLog:
         self._final_states: list[SatelliteState] | None = None
         self._breached_sat_ids: set[int] = set()
         self._eclipse_breached_sat_ids: set[int] = set()
+        self._event_breached_sat_ids: set[int] = set()
+        self._event_eclipse_breached_sat_ids: set[int] = set()
         self._first_breach_time_s: int | None = None
         self._last_breach_time_s: int | None = None
         self._first_eclipse_breach_time_s: int | None = None
@@ -282,11 +285,45 @@ class RunLog:
             for state in states
             if not state.sunlit and not state.safe_battery
         }
+        new_event_breach_ids = below_min_safe - self._event_breached_sat_ids
+        new_event_eclipse_breach_ids = (
+            eclipse_below_min_safe - self._event_eclipse_breached_sat_ids
+        )
+
+        self._event_breached_sat_ids.update(new_event_breach_ids)
+        self._event_eclipse_breached_sat_ids.update(
+            new_event_eclipse_breach_ids
+        )
+
+        if self._states is not None:
+            append_json_line(
+                self._states,
+                state_record(
+                    self.start,
+                    states,
+                    context,
+                    new_event_breach_ids,
+                    new_event_eclipse_breach_ids,
+                ),
+                flush=True,
+            )
+        self._write_battery_breach_events(
+            states,
+            new_event_breach_ids,
+            eclipse=False,
+        )
+        self._write_battery_breach_events(
+            states,
+            new_event_eclipse_breach_ids,
+            eclipse=True,
+        )
+        if not self._time_in_summary_window(states[0].time_s):
+            return
+
         new_breach_ids = below_min_safe - self._breached_sat_ids
         new_eclipse_breach_ids = (
             eclipse_below_min_safe - self._eclipse_breached_sat_ids
         )
-
         if new_breach_ids:
             self._first_breach_time_s = (
                 states[0].time_s
@@ -301,32 +338,21 @@ class RunLog:
                 else self._first_eclipse_breach_time_s
             )
             self._last_eclipse_breach_time_s = states[0].time_s
+        self._breached_sat_ids.update(below_min_safe)
+        self._eclipse_breached_sat_ids.update(eclipse_below_min_safe)
 
-        self._breached_sat_ids.update(new_breach_ids)
-        self._eclipse_breached_sat_ids.update(new_eclipse_breach_ids)
-
-        if self._states is not None:
-            append_json_line(
-                self._states,
-                state_record(
-                    self.start,
-                    states,
-                    context,
-                    new_breach_ids,
-                    new_eclipse_breach_ids,
-                ),
-                flush=True,
-            )
-        self._write_battery_breach_events(states, new_breach_ids, eclipse=False)
-        self._write_battery_breach_events(
-            states, new_eclipse_breach_ids, eclipse=True
-        )
         eclipse_energy = eclipse_energy_summary(states)
         self._eclipse_idle_j += eclipse_energy["idle_j"]
         self._eclipse_task_j += eclipse_energy["task_j"]
         self._eclipse_unsafe_ratio_sum += eclipse_unsafe_ratio(states)
         self._steps += 1
         self._final_states = states
+
+    def _time_in_summary_window(self, time_s: int) -> bool:
+        if self._summary_window is None:
+            return True
+        start_s, end_s = self._summary_window
+        return start_s <= time_s < end_s
 
     def _write_battery_breach_events(
         self,
@@ -377,24 +403,49 @@ class RunLog:
         event_type = event.get("type")
         if isinstance(task_id, int):
             if event_type == "task_generated":
-                if self._task_event_mode in {"full", "lifecycle"}:
-                    self._generated_ids.add(task_id)
-                self._generated += 1
-            elif event_type == "task_completed":
-                if self._task_event_mode in {"full", "lifecycle"}:
-                    self._terminal_ids.add(task_id)
+                if self._generated_task_is_in_summary(event):
+                    if self._summary_window is not None:
+                        self._record_cohort_task(task_id)
+                    self._generated += 1
+            elif (
+                event_type == "task_completed"
+                and self._task_is_in_cohort(task_id)
+            ):
                 self._terminal += 1
                 self._completed += 1
-            elif event_type == "task_failed":
-                if self._task_event_mode in {"full", "lifecycle"}:
-                    self._terminal_ids.add(task_id)
+            elif event_type == "task_failed" and self._task_is_in_cohort(task_id):
                 self._terminal += 1
                 self._failed += 1
-            elif event_type == "task_deferred":
+            elif (
+                event_type == "task_deferred"
+                and self._task_is_in_cohort(task_id)
+            ):
                 self._deferred += 1
         if not self._should_write_task_event(event_type):
             return
         append_json_line(self._tasks, record)
+
+    def _generated_task_is_in_summary(self, event: dict[str, object]) -> bool:
+        if self._summary_window is None:
+            return True
+        time_s = event.get("time_s")
+        return isinstance(time_s, int) and self._time_in_summary_window(time_s)
+
+    def _record_cohort_task(self, task_id: int) -> None:
+        if self._cohort_first_task_id is None:
+            self._cohort_first_task_id = task_id
+            self._cohort_end_task_id = task_id + 1
+            return
+        if task_id != self._cohort_end_task_id:
+            raise ValueError("summary-window task ids must be contiguous")
+        self._cohort_end_task_id = task_id + 1
+
+    def _task_is_in_cohort(self, task_id: int) -> bool:
+        if self._summary_window is None:
+            return True
+        if self._cohort_first_task_id is None or self._cohort_end_task_id is None:
+            return False
+        return self._cohort_first_task_id <= task_id < self._cohort_end_task_id
 
     def _should_write_task_event(self, event_type: object) -> bool:
         if not isinstance(event_type, str):
@@ -413,7 +464,7 @@ class RunLog:
         return False
 
     def complete(self, all_steps: list[list[SatelliteState]] | None = None) -> None:
-        if all_steps is not None:
+        if all_steps is not None and self._summary_window is None:
             final_states = all_steps[-1]
             steps = len(all_steps)
             eclipse_idle_j = 0.0
@@ -495,6 +546,19 @@ class RunLog:
                 "last_eclipse_breach_time_s": self._last_eclipse_breach_time_s,
             },
         }
+        if self._summary_window is not None:
+            start_s, end_s = self._summary_window
+            summary["measurement_window"] = {
+                "start_time_s": start_s,
+                "end_time_s_exclusive": end_s,
+                "start_utc": (
+                    self.start + dt.timedelta(seconds=start_s)
+                ).isoformat(),
+                "end_utc_exclusive": (
+                    self.start + dt.timedelta(seconds=end_s)
+                ).isoformat(),
+                "task_cohort": "generated_within_window",
+            }
         write_json(self.summary_path, summary)
         self._manifest.update(
             {
@@ -546,3 +610,22 @@ def state_step_mode(config: dict[str, object]) -> str:
     if mode not in {"full", "off"}:
         raise ValueError("logging.state_steps must be full or off")
     return str(mode)
+
+
+def summary_window(config: dict[str, object]) -> tuple[int, int] | None:
+    logging = config.get("logging")
+    if not isinstance(logging, dict):
+        return None
+    start_s = logging.get("summary_start_s")
+    duration_s = logging.get("summary_duration_s")
+    if start_s is None and duration_s is None:
+        return None
+    if not isinstance(start_s, int) or isinstance(start_s, bool) or start_s < 0:
+        raise ValueError("logging.summary_start_s must be a non-negative integer")
+    if (
+        not isinstance(duration_s, int)
+        or isinstance(duration_s, bool)
+        or duration_s <= 0
+    ):
+        raise ValueError("logging.summary_duration_s must be a positive integer")
+    return start_s, start_s + duration_s
