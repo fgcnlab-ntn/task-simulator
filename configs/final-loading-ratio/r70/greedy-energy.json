@@ -80,6 +80,7 @@
     "path": "output/final-loading-ratio/r70/greedy-energy"
   },
   "logging": {
-    "task_events": "summary"
+    "task_events": "off",
+    "state_steps": "off"
   }
 }

@@ -80,6 +80,7 @@
     "path": "output/final-loading-ratio/r40/nearest-sunlit"
   },
   "logging": {
-    "task_events": "summary"
+    "task_events": "off",
+    "state_steps": "off"
   }
 }
