@@ -31,8 +31,8 @@ from .models import (
 )
 from .route_cost import compute_cycles, estimate_route_cost
 from .runtime import EnvironmentRuntime, RunningTask, SatelliteRuntime, TaskEventSink
-from .scheduler import Scheduler
-from .workload import generate_step_tasks, validate_task_config
+from .scheduler import Scheduler, enforce_edf_queue_feasibility
+from .workload import deadline_random_seed, generate_step_tasks, validate_task_config
 
 
 StepSink = Callable[[list[SatelliteState], SnapshotContext], None]
@@ -204,7 +204,7 @@ def assign_step_tasks(
     if any(task.source_sat is None for task in tasks):
         raise ValueError("cannot assign tasks without a visible source satellite")
 
-    return scheduler.assign_tasks(
+    assignments = scheduler.assign_tasks(
         tasks=tasks,
         satellite_views=satellite_views,
         time_s=time_s,
@@ -216,6 +216,16 @@ def assign_step_tasks(
         isl_graph=isl_graph,
         scheduler_config=scheduler_config,
     )
+    if scheduler.queue_discipline == "edf":
+        return enforce_edf_queue_feasibility(
+            tasks=tasks,
+            assignments=assignments,
+            satellite_views=satellite_views,
+            time_s=time_s,
+            compute_config=compute_config,
+            isl_config=isl_config,
+        )
+    return assignments
 
 
 def pop_deferred_tasks(env: EnvironmentRuntime) -> tuple[list[Task], list[Task]]:
@@ -232,6 +242,31 @@ def pop_deferred_tasks(env: EnvironmentRuntime) -> tuple[list[Task], list[Task]]
     return ready, expired
 
 
+def order_task_queue(sat: SatelliteRuntime, queue_discipline: str) -> None:
+    if queue_discipline == "fifo":
+        return
+    if queue_discipline != "edf":
+        raise ValueError(f"unknown queue discipline: {queue_discipline}")
+
+    active = [
+        running
+        for running in sat.task_queue
+        if running.executed_compute_time_s > 1.0e-12
+    ]
+    waiting = sorted(
+        (
+            running
+            for running in sat.task_queue
+            if running.executed_compute_time_s <= 1.0e-12
+        ),
+        key=lambda running: (
+            running.task.created_time_s + running.task.deadline_s,
+            running.task.task_id,
+        ),
+    )
+    sat.task_queue[:] = active + waiting
+
+
 def apply_step(
     *,
     env: EnvironmentRuntime,
@@ -244,6 +279,7 @@ def apply_step(
     assignments: list[Assignment],
     expired_tasks: list[Task] | None = None,
     scheduler_config: SchedulerConfig | None = None,
+    queue_discipline: str = "fifo",
 ) -> tuple[list[SatelliteState], list[TaskRecord]]:
     stats_by_sat = {sat.sat_id: SatelliteStepStats() for sat in env.satellites}
     records: list[TaskRecord] = []
@@ -530,6 +566,12 @@ def apply_step(
             )
         )
 
+    if queue_discipline not in {"fifo", "edf"}:
+        raise ValueError(f"unknown queue discipline: {queue_discipline}")
+    if queue_discipline == "edf":
+        for sat in env.satellites:
+            order_task_queue(sat, queue_discipline)
+
     for sat in env.satellites:
         cpu_time_capacity = max(0.0, cpu_time_left_s[sat.sat_id])
         cpu_time_left = cpu_time_capacity
@@ -754,6 +796,7 @@ def iter_circular_states(
 
     env = EnvironmentRuntime(
         rng=random.Random(task_config.random_seed),
+        deadline_rng=random.Random(deadline_random_seed(task_config.random_seed)),
         task_event_sink=task_event_sink,
         satellites=[
             SatelliteRuntime(
@@ -818,7 +861,9 @@ def iter_circular_states(
         tasks = deferred_tasks + new_tasks
         expired_tasks = expired_tasks + expired_deferred_tasks
 
-        satellite_views = env.views()
+        satellite_views = env.views(
+            include_queue_tasks=scheduler.queue_discipline == "edf"
+        )
         assignments = assign_step_tasks(
             scheduler=scheduler,
             tasks=tasks,
@@ -848,6 +893,7 @@ def iter_circular_states(
             assignments=assignments,
             expired_tasks=expired_tasks,
             scheduler_config=scheduler_config,
+            queue_discipline=scheduler.queue_discipline,
         )
 
         if step_sink is not None:
@@ -912,6 +958,7 @@ def iter_tle_states(
 
     env = EnvironmentRuntime(
         rng=random.Random(task_config.random_seed),
+        deadline_rng=random.Random(deadline_random_seed(task_config.random_seed)),
         task_event_sink=task_event_sink,
         satellites=[
             SatelliteRuntime(
@@ -958,7 +1005,9 @@ def iter_tle_states(
         tasks = deferred_tasks + new_tasks
         expired_tasks = expired_tasks + expired_deferred_tasks
 
-        satellite_views = env.views()
+        satellite_views = env.views(
+            include_queue_tasks=scheduler.queue_discipline == "edf"
+        )
         assignments = assign_step_tasks(
             scheduler=scheduler,
             tasks=tasks,
@@ -988,6 +1037,7 @@ def iter_tle_states(
             assignments=assignments,
             expired_tasks=expired_tasks,
             scheduler_config=scheduler_config,
+            queue_discipline=scheduler.queue_discipline,
         )
 
         if step_sink is not None:

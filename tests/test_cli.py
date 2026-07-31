@@ -160,6 +160,37 @@ class EffectiveRunConfigTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "logging.task_events"):
             validate_args(args_for(logging_task_events="chatty"))
 
+    def test_normal_deadline_config_is_validated(self) -> None:
+        validate_args(
+            args_for(
+                task_deadline_distribution="normal",
+                task_deadline_s=180.0,
+                task_deadline_min_s=30.0,
+            )
+        )
+        with self.assertRaisesRegex(ValueError, "deadline_distribution"):
+            validate_args(args_for(task_deadline_distribution="lognormal"))
+        with self.assertRaisesRegex(ValueError, "less than"):
+            validate_args(
+                args_for(
+                    task_deadline_distribution="normal",
+                    task_deadline_s=30.0,
+                    task_deadline_min_s=30.0,
+                )
+            )
+
+    def test_effective_config_records_normal_deadline_parameters(self) -> None:
+        config = effective_run_config(
+            args_for(
+                task_deadline_distribution="normal",
+                task_deadline_s=180.0,
+                task_deadline_min_s=30.0,
+            )
+        )
+
+        self.assertEqual(config["task"]["deadline_distribution"], "normal")
+        self.assertEqual(config["task"]["deadline_min_s"], 30.0)
+
     def test_logging_state_steps_is_validated(self) -> None:
         with self.assertRaisesRegex(ValueError, "logging.state_steps"):
             validate_args(args_for(logging_state_steps="summary"))

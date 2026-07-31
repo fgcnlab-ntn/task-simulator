@@ -56,6 +56,111 @@ class GreedyEnergyCandidate:
     battery_cost_j: float
 
 
+@dataclass(frozen=True)
+class ProjectedQueueTask:
+    task_id: int
+    absolute_deadline_s: float
+    remaining_compute_time_s: float
+    transmission_time_s: float
+    started: bool = False
+
+
+@dataclass(frozen=True)
+class EDFQueueProjection:
+    tasks: tuple[ProjectedQueueTask, ...]
+    finish_time_by_task: dict[int, float]
+
+
+def project_nonpreemptive_edf_queue(
+    tasks: list[ProjectedQueueTask],
+    *,
+    time_s: float,
+) -> EDFQueueProjection | None:
+    """Order waiting work by deadline and reject an infeasible projection."""
+
+    active = [task for task in tasks if task.started]
+    waiting = sorted(
+        (task for task in tasks if not task.started),
+        key=lambda task: (task.absolute_deadline_s, task.task_id),
+    )
+    ordered = active + waiting
+    finish_time_by_task: dict[int, float] = {}
+    cpu_available_time_s = time_s
+    for task in ordered:
+        cpu_available_time_s += task.remaining_compute_time_s
+        finish_time_s = cpu_available_time_s + task.transmission_time_s
+        finish_time_by_task[task.task_id] = finish_time_s
+        if finish_time_s > task.absolute_deadline_s:
+            return None
+    return EDFQueueProjection(tuple(ordered), finish_time_by_task)
+
+
+def enforce_edf_queue_feasibility(
+    *,
+    tasks: list[Task],
+    assignments: list[Assignment],
+    satellite_views: list[SatelliteView],
+    time_s: int,
+    compute_config: ComputeConfig,
+    isl_config: ISLConfig,
+) -> list[Assignment]:
+    """Admit assignments only when the target's full EDF queue stays feasible."""
+
+    task_by_id = {task.task_id: task for task in tasks}
+    projected_queues = {
+        sat.sat_id: [
+            ProjectedQueueTask(
+                task_id=queued.task_id,
+                absolute_deadline_s=queued.absolute_deadline_s,
+                remaining_compute_time_s=queued.remaining_compute_time_s,
+                transmission_time_s=queued.transmission_time_s,
+                started=queued.started,
+            )
+            for queued in sat.queued_tasks
+        ]
+        for sat in satellite_views
+    }
+    checked: list[Assignment] = []
+    for assignment in assignments:
+        if assignment.mode in {"defer", "fail"}:
+            checked.append(assignment)
+            continue
+
+        task = task_by_id[assignment.task_id]
+        timing = estimate_route_timing(
+            task=task,
+            route=assignment.route,
+            compute_config=compute_config,
+            isl_config=isl_config,
+        )
+        candidate = ProjectedQueueTask(
+            task_id=task.task_id,
+            absolute_deadline_s=task.created_time_s + task.deadline_s,
+            remaining_compute_time_s=timing.compute_time_s,
+            transmission_time_s=timing.transmission_time_s,
+        )
+        target_queue = projected_queues[assignment.target_sat]
+        projection = project_nonpreemptive_edf_queue(
+            target_queue + [candidate],
+            time_s=float(time_s),
+        )
+        if projection is None:
+            checked.append(
+                Assignment(
+                    task_id=task.task_id,
+                    route=assignment.route,
+                    mode="fail",
+                    score=float("inf"),
+                    failed_reason="edf_queue_infeasible",
+                )
+            )
+            continue
+
+        projected_queues[assignment.target_sat] = list(projection.tasks)
+        checked.append(assignment)
+    return checked
+
+
 def route_parents_from_source(
     graph: ISLGraph, source_sat: int
 ) -> dict[int, int | None]:
@@ -587,6 +692,7 @@ def routes_to_targets(
 
 class Scheduler:
     name = "base"
+    queue_discipline = "fifo"
 
     def assign_task(
         self,
@@ -3412,6 +3518,7 @@ class Method7Scheduler(Method6Scheduler):
     """Method6 with stable eclipse heaps and battery-constrained routing."""
 
     name = "method7"
+    queue_discipline = "edf"
 
     def _restore_eclipse_candidate_after_route_rejection(self) -> bool:
         return True
@@ -3875,6 +3982,7 @@ class Phoenix2Scheduler(_PhoenixSchedulerBase):
     """
 
     name = "phoenix2"
+    queue_discipline = "edf"
 
     def _defer_time_if_deadline_safe_with_reservation(
         self,

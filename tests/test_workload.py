@@ -3,7 +3,7 @@ import math
 import random
 import unittest
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, call, patch
 
 from satmulator.models import DemandPoint, Task
 from satmulator.runtime import EnvironmentRuntime, SatelliteRuntime
@@ -17,6 +17,7 @@ from satmulator.workload import (
     nearest_satellite_id,
     nearest_satellite_ids_vectorized,
     resolve_pending_tasks,
+    sample_deadline_s,
     satellite_altitude_distance,
     weighted_choice,
 )
@@ -74,6 +75,62 @@ class DemandPointCoordinateTests(unittest.TestCase):
         new_samples = [choose_demand_point(new_rng, distribution) for _ in range(20)]
 
         self.assertEqual(new_samples, old_samples)
+
+    def test_fixed_deadline_preserves_existing_behavior(self) -> None:
+        env = EnvironmentRuntime(satellites=[], deadline_rng=random.Random(7))
+        task_config = SimpleNamespace(
+            deadline_s=180.0,
+            deadline_distribution="fixed",
+            deadline_min_s=30.0,
+        )
+
+        self.assertEqual(sample_deadline_s(env, task_config), 180.0)
+
+    def test_normal_deadline_respects_minimum_and_configured_mean(self) -> None:
+        env = EnvironmentRuntime(satellites=[], deadline_rng=random.Random(7))
+        task_config = SimpleNamespace(
+            deadline_s=180.0,
+            deadline_distribution="normal",
+            deadline_min_s=30.0,
+        )
+
+        samples = [sample_deadline_s(env, task_config) for _ in range(50_000)]
+
+        self.assertGreaterEqual(min(samples), 30.0)
+        self.assertAlmostEqual(sum(samples) / len(samples), 180.0, delta=1.0)
+
+    def test_normal_deadline_uses_configured_mean_and_three_sigma_scale(self) -> None:
+        deadline_rng = Mock()
+        deadline_rng.normalvariate.side_effect = [20.0, 190.0]
+        env = EnvironmentRuntime(satellites=[], deadline_rng=deadline_rng)
+        task_config = SimpleNamespace(
+            deadline_s=180.0,
+            deadline_distribution="normal",
+            deadline_min_s=30.0,
+        )
+
+        self.assertEqual(sample_deadline_s(env, task_config), 190.0)
+        self.assertEqual(
+            deadline_rng.normalvariate.call_args_list,
+            [call(180.0, 50.0), call(180.0, 50.0)],
+        )
+
+    def test_deadline_sampling_does_not_advance_workload_rng(self) -> None:
+        env = EnvironmentRuntime(
+            satellites=[],
+            rng=random.Random(42),
+            deadline_rng=random.Random(7),
+        )
+        control_rng = random.Random(42)
+        task_config = SimpleNamespace(
+            deadline_s=180.0,
+            deadline_distribution="normal",
+            deadline_min_s=30.0,
+        )
+
+        sample_deadline_s(env, task_config)
+
+        self.assertEqual(env.rng.random(), control_rng.random())
 
     def test_ground_position_rotates_with_utc_time(self) -> None:
         point = DemandPoint(lat_deg=0.0, lon_deg=0.0, weight=1.0)

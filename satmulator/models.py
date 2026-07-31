@@ -48,6 +48,8 @@ class TaskConfig:
     demand_distribution: DemandDistribution
     min_elevation_deg: float
     compute_time_s: float | None = None
+    deadline_distribution: str = "fixed"
+    deadline_min_s: float = 30.0
 
 
 @dataclass(frozen=True)
@@ -182,6 +184,15 @@ class Assignment:
 
 
 @dataclass(frozen=True)
+class QueuedTaskView:
+    task_id: int
+    absolute_deadline_s: float
+    remaining_compute_time_s: float
+    started: bool
+    transmission_time_s: float = 0.0
+
+
+@dataclass(frozen=True)
 class SatelliteView:
     sat_id: int
     x_km: float
@@ -197,6 +208,7 @@ class SatelliteView:
     next_eclipse_time_s: float | None = None
     illumination_horizon_time_s: float | None = None
     pending_task_energy_j: float = 0.0
+    queued_tasks: tuple[QueuedTaskView, ...] = ()
 
 
 @dataclass(frozen=True)

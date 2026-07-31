@@ -6,7 +6,14 @@ from dataclasses import dataclass, field
 from typing import Callable
 
 from .battery import battery_is_safe
-from .models import BatteryConfig, Route, SatelliteState, SatelliteView, Task
+from .models import (
+    BatteryConfig,
+    QueuedTaskView,
+    Route,
+    SatelliteState,
+    SatelliteView,
+    Task,
+)
 
 
 Vector3 = tuple[float, float, float]
@@ -56,7 +63,12 @@ class SatelliteRuntime:
         self.lon_deg = lon_deg
         self.elevation_km = elevation_km
 
-    def view(self, *, pending_task_energy_j: float = 0.0) -> SatelliteView:
+    def view(
+        self,
+        *,
+        pending_task_energy_j: float = 0.0,
+        include_queue_tasks: bool = False,
+    ) -> SatelliteView:
         return SatelliteView(
             sat_id=self.sat_id,
             x_km=self.pos_km[0],
@@ -74,6 +86,22 @@ class SatelliteRuntime:
             next_eclipse_time_s=self.next_eclipse_time_s,
             illumination_horizon_time_s=self.illumination_horizon_time_s,
             pending_task_energy_j=pending_task_energy_j,
+            queued_tasks=(
+                tuple(
+                    QueuedTaskView(
+                        task_id=running.task.task_id,
+                        absolute_deadline_s=(
+                            running.task.created_time_s + running.task.deadline_s
+                        ),
+                        remaining_compute_time_s=running.remaining_compute_time_s,
+                        started=running.executed_compute_time_s > 1.0e-12,
+                        transmission_time_s=running.transmission_time_s,
+                    )
+                    for running in self.task_queue
+                )
+                if include_queue_tasks
+                else ()
+            ),
         )
 
     def snapshot(
@@ -160,6 +188,7 @@ class EnvironmentRuntime:
     deferred_tasks: list[Task] = field(default_factory=list)
     failed_tasks: list[int] = field(default_factory=list)
     task_event_sink: TaskEventSink | None = None
+    deadline_rng: random.Random = field(default_factory=random.Random)
 
     @property
     def running_tasks(self) -> list[RunningTask]:
@@ -167,7 +196,7 @@ class EnvironmentRuntime:
 
         return [task for sat in self.satellites for task in sat.task_queue]
 
-    def views(self) -> list[SatelliteView]:
+    def views(self, *, include_queue_tasks: bool = False) -> list[SatelliteView]:
         pending_energy_by_sat: dict[int, float] = {}
         for running in self.running_tasks:
             for sat_id, energy_j in running.transmission_energy_by_sat.items():
@@ -176,7 +205,8 @@ class EnvironmentRuntime:
                 )
         return [
             sat.view(
-                pending_task_energy_j=pending_energy_by_sat.get(sat.sat_id, 0.0)
+                pending_task_energy_j=pending_energy_by_sat.get(sat.sat_id, 0.0),
+                include_queue_tasks=include_queue_tasks,
             )
             for sat in self.satellites
         ]

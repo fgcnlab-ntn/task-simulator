@@ -29,7 +29,22 @@ fixed-size task for every demand point at every generation slot.
   expires.
 - `input_bits_choices`, `input_bits_weights`: discrete input data distribution.
 - `output_bits_choices`, `output_bits_weights`: discrete output data distribution.
-- `deadline_s`: task deadline.
+- `deadline_s`: fixed task deadline, or the source normal's mean when
+  `deadline_distribution` is `normal`.
+- `deadline_distribution`: optional `fixed` (the default) or `normal`. Normal
+  deadlines use a lower-truncated normal distribution.
+- `deadline_min_s`: lower bound for normal deadlines. The source normal's
+  standard deviation is derived as `(deadline_s - deadline_min_s) / 3`.
+  Samples below this bound are discarded and redrawn.
+
+For example, this uses a 180-second source mean, rejects deadlines below 30
+seconds, and derives a 50-second source standard deviation:
+
+```json
+"deadline_s": 180.0,
+"deadline_distribution": "normal",
+"deadline_min_s": 30.0
+```
 
 `demand-points-fixed-all` deliberately does not use the random choice fields.
 At each generation time after the initial state, every configured demand point
@@ -67,6 +82,13 @@ headroom for unmodeled platform work or thermal throttling.
 
 Task records include `waiting_time_s`. Waiting for coverage counts toward
 `total_time_s` and the task deadline.
+
+`method7` and `phoenix2` use non-preemptive EDF execution queues. Before an
+assignment is admitted, the simulator inserts it into a projection of the
+target satellite's complete queue, keeps any partially executed task at the
+front, sorts the remaining tasks by absolute deadline, and verifies every
+projected completion time. After admission, the runtime queue is ordered by
+the same rule before the time slot executes.
 
 ## Objective fields
 

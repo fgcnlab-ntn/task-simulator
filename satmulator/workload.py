@@ -14,6 +14,7 @@ from .route_cost import compute_cycles
 from .runtime import EnvironmentRuntime, SatelliteRuntime
 
 T = TypeVar("T")
+DEADLINE_SEED_SALT = 0x444541444C494E45
 
 
 def demand_distribution(points: Iterable[DemandPoint]) -> DemandDistribution:
@@ -97,6 +98,19 @@ def validate_task_config(task_config: TaskConfig) -> None:
         raise ValueError("task compute_time_s must be positive")
     if task_config.deadline_s <= 0:
         raise ValueError("task deadline must be positive")
+    deadline_distribution = getattr(task_config, "deadline_distribution", "fixed")
+    deadline_min_s = getattr(task_config, "deadline_min_s", 30.0)
+    if deadline_distribution not in {"fixed", "normal"}:
+        raise ValueError("task deadline distribution must be fixed or normal")
+    if deadline_min_s <= 0:
+        raise ValueError("task minimum deadline must be positive")
+    if (
+        deadline_distribution == "normal"
+        and deadline_min_s >= task_config.deadline_s
+    ):
+        raise ValueError(
+            "task minimum deadline must be less than the mean normal deadline"
+        )
     if not 0.0 <= task_config.min_elevation_deg <= 90.0:
         raise ValueError("minimum elevation must be within [0, 90]")
     if task_config.generation_mode not in {
@@ -121,6 +135,30 @@ def validate_task_config(task_config: TaskConfig) -> None:
 
 def weighted_choice(rng: random.Random, choices: Sequence[T], weights: Sequence[float]) -> T:
     return rng.choices(list(choices), weights=list(weights), k=1)[0]
+
+
+def deadline_random_seed(random_seed: int | None) -> int | None:
+    """Derive an independent seed without perturbing the workload RNG stream."""
+
+    return None if random_seed is None else random_seed ^ DEADLINE_SEED_SALT
+
+
+def sample_deadline_s(env: EnvironmentRuntime, task_config: TaskConfig) -> float:
+    distribution = getattr(task_config, "deadline_distribution", "fixed")
+    if distribution == "fixed":
+        return task_config.deadline_s
+    if distribution != "normal":
+        raise ValueError(f"unknown task deadline distribution: {distribution}")
+
+    minimum_s = getattr(task_config, "deadline_min_s", 30.0)
+    scale_s = (task_config.deadline_s - minimum_s) / 3.0
+    while True:
+        deadline_s = env.deadline_rng.normalvariate(
+            task_config.deadline_s,
+            scale_s,
+        )
+        if deadline_s >= minimum_s:
+            return deadline_s
 
 
 def choose_demand_point(
@@ -369,7 +407,7 @@ def generate_satellite_deterministic_tasks(
                 source_sat=sat.sat_id,
                 input_bits=task_config.input_bits,
                 output_bits=task_config.output_bits,
-                deadline_s=task_config.deadline_s,
+                deadline_s=sample_deadline_s(env, task_config),
                 compute_time_s=getattr(task_config, "compute_time_s", None),
             )
             tasks.append(task)
@@ -401,7 +439,7 @@ def generate_demand_point_tasks(
             output_bits=weighted_choice(
                 env.rng, task_config.output_bits_choices, task_config.output_bits_weights
             ),
-            deadline_s=task_config.deadline_s,
+            deadline_s=sample_deadline_s(env, task_config),
             lat_deg=point.lat_deg,
             lon_deg=point.lon_deg,
             compute_time_s=getattr(task_config, "compute_time_s", None),
@@ -447,7 +485,7 @@ def generate_fixed_all_demand_point_tasks(
             source_sat=source_sat,
             input_bits=input_bits,
             output_bits=task_config.output_bits,
-            deadline_s=task_config.deadline_s,
+            deadline_s=sample_deadline_s(env, task_config),
             lat_deg=point.lat_deg,
             lon_deg=point.lon_deg,
             compute_time_s=getattr(task_config, "compute_time_s", None),
