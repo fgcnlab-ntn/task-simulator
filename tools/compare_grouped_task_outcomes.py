@@ -26,9 +26,12 @@ DEFAULT_METHODS = [
 MIN_GROUPS = 4
 MAX_GROUPS = 18
 METHOD_COUNT = 5
-FIXED_FONT_SIZE = 24
-LEGEND_FONT_SIZE = FIXED_FONT_SIZE
-DEFAULT_GROUP_LABEL_FONT_SIZE = FIXED_FONT_SIZE
+BASE_FONT_SIZE = 25
+Y_AXIS_LABEL_FONT_SIZE = 25
+Y_AXIS_TICK_FONT_SIZE = 25
+DEFAULT_GROUP_LABEL_FONT_SIZE = 25
+LEGEND_FONT_SIZE = 26
+X_AXIS_LABEL_FONT_SIZE = 26
 SEASON_LABELS = {
     "spring-equinox": "Spring\nequinox",
     "summer-solstice": "Summer\nsolstice",
@@ -59,7 +62,7 @@ def _pyplot():
             "axes.facecolor": "white",
             "axes.edgecolor": "#333333",
             "axes.labelcolor": "#222222",
-            "font.size": FIXED_FONT_SIZE,
+            "font.size": BASE_FONT_SIZE,
             "grid.color": "#d9d9d9",
             "grid.linewidth": 0.8,
             "savefig.bbox": "tight",
@@ -186,7 +189,7 @@ def write_figure(
     from matplotlib.ticker import MultipleLocator
 
     figure_width = max(8.8, 1.25 * len(groups) + 2.0)
-    fig, ax = plt.subplots(figsize=(figure_width, 5.1))
+    fig, ax = plt.subplots(figsize=(17.0, 5.1))
 
     rows_by_key = {
         (str(row["group"]), str(row["method"])): row
@@ -234,10 +237,10 @@ def write_figure(
         x_positions[0] - group_width / 2.0 - edge_padding,
         x_positions[-1] + group_width / 2.0 + edge_padding,
     )
-    ax.set_xlabel(xlabel, fontsize=FIXED_FONT_SIZE)
+    ax.set_xlabel(xlabel, fontsize=X_AXIS_LABEL_FONT_SIZE)
     ax.set_ylabel(
         "%",
-        fontsize=FIXED_FONT_SIZE,
+        fontsize=Y_AXIS_LABEL_FONT_SIZE,
         rotation=0,
         va="center",
         labelpad=16,
@@ -252,16 +255,19 @@ def write_figure(
         left=True,
         length=7,
         width=1.0,
-        labelsize=FIXED_FONT_SIZE,
+        labelsize=Y_AXIS_TICK_FONT_SIZE,
     )
     ax.tick_params(axis="y", which="minor", left=True, length=4, width=1.0)
     ax.grid(True, axis="y", alpha=0.7)
     ax.legend(
         ncol=len(methods),
         loc="upper center",
-        bbox_to_anchor=(0.51, 0.99),
+        bbox_to_anchor=(0.51, 1.02),
         bbox_transform=fig.transFigure,
         borderpad=0.15,
+        # handlelength=0.7,
+        columnspacing=0.7,
+        # handletextpad=1,
         fontsize=LEGEND_FONT_SIZE,
         frameon=True,
     )

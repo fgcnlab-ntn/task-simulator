@@ -183,7 +183,7 @@ def plot_metric(
             xs,
             ys,
             linewidth=2,
-            markersize=5,
+            markersize=10,
             label=label,
             color=style.color,
             alpha=style.alpha,

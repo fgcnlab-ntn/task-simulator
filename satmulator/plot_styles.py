@@ -75,6 +75,7 @@ _METHOD_ALIASES = {
     "nearest-sunlit": "nearest-sunlit",
     "greedy-energy": "greedy-energy",
     "phoenix2": "phoenix",
+    "phoenix": "phoenix",
     "method7": "method7",
 }
 
