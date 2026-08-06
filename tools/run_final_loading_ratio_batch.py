@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the final-loading-ratio configs with a bounded worker pool.
+"""Run the loading-ratio configs with a bounded worker pool.
 
 This launcher keeps the simulator itself unchanged and only parallelizes the
 outer orchestration layer. Each config writes to its own output directory, so
@@ -19,7 +19,8 @@ import sys
 from pathlib import Path
 
 
-DEFAULT_CONFIG_DIR = Path("configs/final-loading-ratio")
+# Keep the legacy output directory so existing completed runs are detected.
+DEFAULT_CONFIG_DIR = Path("configs/loading-ratio")
 DEFAULT_OUTPUT_DIR = Path("output/final-loading-ratio")
 DEFAULT_WORKERS = 9
 HEARTBEAT_INTERVAL_S = 30
@@ -178,7 +179,7 @@ def run_one_with_progress(
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Run final-loading-ratio configs with a bounded worker pool."
+        description="Run loading-ratio configs with a bounded worker pool."
     )
     parser.add_argument("--config-dir", type=Path, default=DEFAULT_CONFIG_DIR)
     parser.add_argument("--out", type=Path, default=DEFAULT_OUTPUT_DIR)
