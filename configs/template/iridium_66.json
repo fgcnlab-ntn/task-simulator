@@ -83,9 +83,6 @@
   "scheduler": {
     "name": "local"
   },
-  "objective": {
-    "alpha": 0.5
-  },
   "output": {
     "path": "output/iridium_66"
   },

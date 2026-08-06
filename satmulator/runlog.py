@@ -110,20 +110,6 @@ def eclipse_unsafe_ratio(states: list[SatelliteState]) -> float:
     return unsafe / len(eclipse_states)
 
 
-def objective_alpha(config: dict[str, object]) -> float:
-    objective = config.get("objective")
-    if isinstance(objective, dict):
-        value = objective.get("alpha")
-        if isinstance(value, (int, float)):
-            return float(value)
-    scheduler = config.get("scheduler")
-    if isinstance(scheduler, dict):
-        value = scheduler.get("objective_alpha")
-        if isinstance(value, (int, float)):
-            return float(value)
-    return 0.5
-
-
 def state_record(
     start: dt.datetime,
     states: list[SatelliteState],
@@ -491,12 +477,6 @@ class RunLog:
         avg_eclipse_unsafe_ratio = (
             0.0 if steps == 0 else eclipse_unsafe_ratio_sum / steps
         )
-        config = self._manifest.get("config")
-        alpha = objective_alpha(config if isinstance(config, dict) else {})
-        objective_value = (
-            alpha * avg_eclipse_unsafe_ratio
-            + (1.0 - alpha) * task_failure_ratio
-        )
         summary = {
             "schema_version": SCHEMA_VERSION,
             "elapsed_wall_s": self._elapsed_wall_s(),
@@ -509,13 +489,8 @@ class RunLog:
                 "deferred": self._deferred,
                 "failed": failed_tasks,
                 "pending": generated_tasks - self._terminal,
-            },
-            "objective": {
-                "alpha": alpha,
-                "avg_eclipse_unsafe_ratio": avg_eclipse_unsafe_ratio,
-                "task_failure_ratio": task_failure_ratio,
+                "failure_ratio": task_failure_ratio,
                 "pending_policy": "count_as_success",
-                "value": objective_value,
             },
             "final_battery_j": {
                 "minimum": min(state.battery_j for state in final_states),
@@ -530,6 +505,7 @@ class RunLog:
                 },
             },
             "battery_violations": {
+                "avg_eclipse_unsafe_ratio": avg_eclipse_unsafe_ratio,
                 "unique_breached_satellites": len(self._breached_sat_ids),
                 "unique_breached_ratio": len(self._breached_sat_ids)
                 / len(final_states),

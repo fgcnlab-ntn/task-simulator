@@ -65,7 +65,6 @@ DEFAULT_CONFIG = {
     "logging_state_steps": "full",
     "logging_summary_start_s": None,
     "logging_summary_duration_s": None,
-    "objective_alpha": 0.5,
 }
 
 
@@ -126,9 +125,6 @@ CONFIG_SECTIONS = {
     },
     "scheduler": {
         "name": "scheduler",
-    },
-    "objective": {
-        "alpha": "objective_alpha",
     },
     "output": {"path": "out"},
     "logging": {
@@ -338,8 +334,6 @@ def validate_args(args: argparse.Namespace) -> None:
             "grid ISL topology requires plane/slot metadata unavailable in TLE mode; "
             'use isl.topology: "fully-connected"'
         )
-    if not 0.0 <= args.objective_alpha <= 1.0:
-        raise ValueError("objective.alpha must be within [0, 1]")
     logging_task_events = getattr(args, "logging_task_events", "full")
     if logging_task_events not in {"full", "lifecycle", "summary", "off"}:
         raise ValueError(
@@ -501,9 +495,6 @@ def effective_run_config(args: argparse.Namespace) -> dict:
         },
         "scheduler": {
             "name": args.scheduler,
-        },
-        "objective": {
-            "alpha": args.objective_alpha,
         },
         "output": {
             "path": str(args.out),

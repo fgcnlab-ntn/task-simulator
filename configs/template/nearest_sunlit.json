@@ -70,9 +70,6 @@
   "scheduler": {
     "name": "nearest-sunlit"
   },
-  "objective": {
-    "alpha": 0.5
-  },
   "output": {
     "path": "output/test"
   },

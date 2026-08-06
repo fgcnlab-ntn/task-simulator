@@ -72,9 +72,6 @@
   "scheduler": {
     "name": "greedy-energy"
   },
-  "objective": {
-    "alpha": 0.0
-  },
   "output": {
     "path": "output/all-planes/p16/greedy-energy"
   },

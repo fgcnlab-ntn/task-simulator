@@ -70,9 +70,6 @@
   "scheduler": {
     "name": "greedy-energy"
   },
-  "objective": {
-    "alpha": 0.5
-  },
   "output": {
     "path": "output/final-1day-5000x18M-dead180/greedy-energy"
   },

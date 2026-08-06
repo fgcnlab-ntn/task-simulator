@@ -72,9 +72,6 @@
   "scheduler": {
     "name": "greedy-energy"
   },
-  "objective": {
-    "alpha": 0.0
-  },
   "output": {
     "path": "output/final-loading-ratio/r70/greedy-energy"
   },

@@ -77,31 +77,14 @@ front, sorts the remaining tasks by absolute deadline, and verifies every
 projected completion time. After admission, the runtime queue is ordered by
 the same rule before the time slot executes.
 
-## Objective fields
+## Summary metrics
 
-Standalone configs include an `objective` section:
-
-```json
-"objective": {
-  "alpha": 0.5
-}
-```
-
-`alpha` is the reporting weight for the simulator objective summary and must be
-within `[0, 1]`. It does not alter task generation, assignment, or scheduler
-behavior. `summary.json` reports:
-
-```text
-objective.value =
-  alpha * avg_eclipse_unsafe_ratio
-  + (1 - alpha) * task_failure_ratio
-```
-
-`avg_eclipse_unsafe_ratio` averages the per-step ratio of unsafe eclipse-side
-satellites over all eclipse-side satellites. `task_failure_ratio` uses the
-existing task lifecycle counters: `failed / generated`. Tasks still pending at
-the end of the simulation are treated as non-failed in this objective summary;
-the summary records this policy as `pending_policy: "count_as_success"`.
+`summary.json` reports `battery_violations.avg_eclipse_unsafe_ratio`, the
+average per-step ratio of unsafe eclipse-side satellites over all eclipse-side
+satellites, and `tasks.failure_ratio`, calculated from the task lifecycle
+counters as `failed / generated`. Tasks still pending at the end of the
+simulation are treated as non-failed; `tasks.pending_policy` records this as
+`"count_as_success"`.
 
 ## Population data source
 

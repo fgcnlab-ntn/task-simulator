@@ -105,8 +105,8 @@ def collect_rows(
             if summary_file is None:
                 continue
             summary = json.loads(summary_file.read_text())
-            objective = summary.get("objective", {})
             battery = summary.get("battery_violations", {})
+            legacy_objective = summary.get("objective", {})
             rows.append(
                 {
                     "run": group_dir.name,
@@ -114,7 +114,10 @@ def collect_rows(
                     "label": method_style(method).label,
                     "loading_pct": loading,
                     "below_e_safe_ratio": float(
-                        objective.get("avg_eclipse_unsafe_ratio", 0.0)
+                        battery.get(
+                            "avg_eclipse_unsafe_ratio",
+                            legacy_objective.get("avg_eclipse_unsafe_ratio", 0.0),
+                        )
                     ),
                     "unique_below_e_safe_ratio": float(
                         battery.get("unique_breached_ratio", 0.0)

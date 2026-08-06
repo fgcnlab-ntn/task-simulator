@@ -70,9 +70,6 @@
   "scheduler": {
     "name": "phoenix2"
   },
-  "objective": {
-    "alpha": 0.0
-  },
   "output": {
     "path": "output/all-months-3day/m10/phoenix2"
   },
