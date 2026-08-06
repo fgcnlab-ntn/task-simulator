@@ -278,21 +278,12 @@ def apply_step(
     tasks: list[Task],
     assignments: list[Assignment],
     expired_tasks: list[Task] | None = None,
-    scheduler_config: SchedulerConfig | None = None,
     queue_discipline: str = "fifo",
 ) -> tuple[list[SatelliteState], list[TaskRecord]]:
     stats_by_sat = {sat.sat_id: SatelliteStepStats() for sat in env.satellites}
     records: list[TaskRecord] = []
     task_by_id = {task.task_id: task for task in tasks}
-    cpu_time_left_s = {
-        sat.sat_id: step_s
-        * (
-            1.0
-            if scheduler_config is None
-            else scheduler_config.cpu_utilization_limit
-        )
-        for sat in env.satellites
-    }
+    cpu_time_left_s = {sat.sat_id: step_s for sat in env.satellites}
     satellite_by_id = {sat.sat_id: sat for sat in env.satellites}
 
     def remaining_deadline_s(task: Task) -> float:
@@ -892,7 +883,6 @@ def iter_circular_states(
             tasks=tasks,
             assignments=assignments,
             expired_tasks=expired_tasks,
-            scheduler_config=scheduler_config,
             queue_discipline=scheduler.queue_discipline,
         )
 
@@ -1036,7 +1026,6 @@ def iter_tle_states(
             tasks=tasks,
             assignments=assignments,
             expired_tasks=expired_tasks,
-            scheduler_config=scheduler_config,
             queue_discipline=scheduler.queue_discipline,
         )
 

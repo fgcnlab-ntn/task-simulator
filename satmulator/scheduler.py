@@ -1021,13 +1021,8 @@ class GreedyEnergyScheduler(Scheduler):
         *,
         step_s: int,
         compute_config: ComputeConfig,
-        scheduler_config: SchedulerConfig,
     ) -> float:
-        return (
-            step_s
-            * compute_config.cpu_frequency_hz
-            * scheduler_config.cpu_utilization_limit
-        )
+        return step_s * compute_config.cpu_frequency_hz
 
     def _local_quota_cycles(
         self,
@@ -1037,12 +1032,10 @@ class GreedyEnergyScheduler(Scheduler):
         time_s: int,
         battery: BatteryConfig,
         compute_config: ComputeConfig,
-        scheduler_config: SchedulerConfig,
     ) -> float:
         cpu_quota_cycles = self._step_capacity_cycles(
             step_s=step_s,
             compute_config=compute_config,
-            scheduler_config=scheduler_config,
         )
         if sat.sunlit:
             return cpu_quota_cycles
@@ -1068,7 +1061,6 @@ class GreedyEnergyScheduler(Scheduler):
         time_s: int,
         battery: BatteryConfig,
         compute_config: ComputeConfig,
-        scheduler_config: SchedulerConfig,
     ) -> dict[int, float]:
         return {
             sat.sat_id: self._local_quota_cycles(
@@ -1077,7 +1069,6 @@ class GreedyEnergyScheduler(Scheduler):
                 time_s=time_s,
                 battery=battery,
                 compute_config=compute_config,
-                scheduler_config=scheduler_config,
             )
             for sat in satellite_views
         }
@@ -1256,7 +1247,6 @@ class GreedyEnergyScheduler(Scheduler):
             time_s=time_s,
             battery=battery,
             compute_config=compute_config,
-            scheduler_config=scheduler_config,
         )
         reserved_available_time = {
             sat.sat_id: float(time_s) + sat.queue_backlog_s for sat in satellite_views

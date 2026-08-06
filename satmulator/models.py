@@ -70,7 +70,6 @@ class ISLConfig:
 @dataclass(frozen=True)
 class SchedulerConfig:
     name: str
-    cpu_utilization_limit: float = 1.0
 
 
 @dataclass(frozen=True)

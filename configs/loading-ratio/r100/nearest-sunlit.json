@@ -70,8 +70,7 @@
     "max_range_km": 5000.0
   },
   "scheduler": {
-    "name": "nearest-sunlit",
-    "cpu_utilization_limit": 1.0
+    "name": "nearest-sunlit"
   },
   "objective": {
     "alpha": 0.0

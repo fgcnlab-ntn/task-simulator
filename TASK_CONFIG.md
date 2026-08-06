@@ -67,19 +67,6 @@ compute_time_s = compute_cycles / cpu_frequency_hz
 compute_energy_j = compute_time_s * cpu_power_w
 ```
 
-## Scheduler compute capacity
-
-- `cpu_utilization_limit`: fraction of one CPU slot that the scheduler may
-  reserve for tasks. The slot capacity is derived from the compute model:
-
-```text
-max_cycles_per_slot = cpu_frequency_hz * step_s * cpu_utilization_limit
-```
-
-The default is `1.0`, meaning the modeled CPU may be fully reserved for compute
-work during a step. Use a lower value such as `0.8` only when you want explicit
-headroom for unmodeled platform work or thermal throttling.
-
 Task records include `waiting_time_s`. Waiting for coverage counts toward
 `total_time_s` and the task deadline.
 

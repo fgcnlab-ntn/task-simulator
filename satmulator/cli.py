@@ -65,7 +65,6 @@ DEFAULT_CONFIG = {
     "logging_state_steps": "full",
     "logging_summary_start_s": None,
     "logging_summary_duration_s": None,
-    "scheduler_cpu_utilization_limit": 1.0,
     "objective_alpha": 0.5,
 }
 
@@ -127,7 +126,6 @@ CONFIG_SECTIONS = {
     },
     "scheduler": {
         "name": "scheduler",
-        "cpu_utilization_limit": "scheduler_cpu_utilization_limit",
     },
     "objective": {
         "alpha": "objective_alpha",
@@ -340,8 +338,6 @@ def validate_args(args: argparse.Namespace) -> None:
             "grid ISL topology requires plane/slot metadata unavailable in TLE mode; "
             'use isl.topology: "fully-connected"'
         )
-    if not 0.0 < args.scheduler_cpu_utilization_limit <= 1.0:
-        raise ValueError("scheduler.cpu_utilization_limit must be within (0, 1]")
     if not 0.0 <= args.objective_alpha <= 1.0:
         raise ValueError("objective.alpha must be within [0, 1]")
     logging_task_events = getattr(args, "logging_task_events", "full")
@@ -430,10 +426,7 @@ def build_configs(
         topology=args.isl_topology,
         max_range_km=args.isl_max_range_km,
     )
-    scheduler_config = SchedulerConfig(
-        name=args.scheduler,
-        cpu_utilization_limit=args.scheduler_cpu_utilization_limit,
-    )
+    scheduler_config = SchedulerConfig(name=args.scheduler)
     return battery, compute_config, task_config, isl_config, scheduler_config
 
 
@@ -508,7 +501,6 @@ def effective_run_config(args: argparse.Namespace) -> dict:
         },
         "scheduler": {
             "name": args.scheduler,
-            "cpu_utilization_limit": args.scheduler_cpu_utilization_limit,
         },
         "objective": {
             "alpha": args.objective_alpha,
