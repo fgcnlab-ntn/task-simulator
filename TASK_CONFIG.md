@@ -29,11 +29,10 @@ fixed-size task for every demand point at every generation slot.
   expires.
 - `input_bits_choices`, `input_bits_weights`: discrete input data distribution.
 - `output_bits_choices`, `output_bits_weights`: discrete output data distribution.
-- `deadline_s`: fixed task deadline, or the source normal's mean when
-  `deadline_distribution` is `normal`.
-- `deadline_distribution`: optional `fixed` (the default) or `normal`. Normal
-  deadlines use a lower-truncated normal distribution.
-- `deadline_min_s`: lower bound for normal deadlines. The source normal's
+Task deadlines always use a lower-truncated normal distribution.
+
+- `deadline_s`: mean of the source normal deadline distribution.
+- `deadline_min_s`: lower bound for deadlines. The source normal's
   standard deviation is derived as `(deadline_s - deadline_min_s) / 3`.
   Samples below this bound are discarded and redrawn.
 
@@ -42,7 +41,6 @@ seconds, and derives a 50-second source standard deviation:
 
 ```json
 "deadline_s": 180.0,
-"deadline_distribution": "normal",
 "deadline_min_s": 30.0
 ```
 

@@ -15,8 +15,6 @@ from .workload import demand_points_provenance, load_demand_points
 
 OPTIONAL_CONFIG_DEFAULTS = {
     "task_compute_time_s": None,
-    "task_deadline_distribution": "fixed",
-    "task_deadline_min_s": 30.0,
     "logging_state_steps": "full",
     "logging_summary_start_s": None,
     "logging_summary_duration_s": None,
@@ -62,7 +60,6 @@ CONFIG_SECTIONS = {
         "demand_points_file": "task_demand_points_file",
         "min_elevation_deg": "task_min_elevation_deg",
         "deadline_s": "task_deadline_s",
-        "deadline_distribution": "task_deadline_distribution",
         "deadline_min_s": "task_deadline_min_s",
     },
     "compute": {
@@ -88,7 +85,7 @@ CONFIG_SECTIONS = {
 }
 
 OPTIONAL_CONFIG_KEYS = {
-    "task": {"compute_time_s", "deadline_distribution", "deadline_min_s"},
+    "task": {"compute_time_s"},
     "logging": {"state_steps", "summary_start_s", "summary_duration_s"},
 }
 
@@ -207,21 +204,11 @@ def validate_args(args: argparse.Namespace) -> None:
         raise ValueError("task.tasks_per_sat must be non-negative")
     if args.task_deadline_s <= 0:
         raise ValueError("task.deadline_s must be positive")
-    task_deadline_distribution = getattr(
-        args, "task_deadline_distribution", "fixed"
-    )
-    task_deadline_min_s = getattr(args, "task_deadline_min_s", 30.0)
-    if task_deadline_distribution not in {"fixed", "normal"}:
-        raise ValueError("task.deadline_distribution must be fixed or normal")
-    if task_deadline_min_s <= 0:
+    if args.task_deadline_min_s <= 0:
         raise ValueError("task.deadline_min_s must be positive")
-    if (
-        task_deadline_distribution == "normal"
-        and task_deadline_min_s >= args.task_deadline_s
-    ):
+    if args.task_deadline_min_s >= args.task_deadline_s:
         raise ValueError(
-            "task.deadline_min_s must be less than task.deadline_s "
-            "for normal deadlines"
+            "task.deadline_min_s must be less than task.deadline_s"
         )
     task_compute_time_s = getattr(args, "task_compute_time_s", None)
     if task_compute_time_s is not None and task_compute_time_s <= 0:
@@ -308,10 +295,7 @@ def build_configs(
         output_bits_weights=tuple(args.task_output_bits_weights),
         compute_time_s=getattr(args, "task_compute_time_s", None),
         deadline_s=args.task_deadline_s,
-        deadline_distribution=getattr(
-            args, "task_deadline_distribution", "fixed"
-        ),
-        deadline_min_s=getattr(args, "task_deadline_min_s", 30.0),
+        deadline_min_s=args.task_deadline_min_s,
         demand_distribution=load_demand_points(args.task_demand_points_file),
         min_elevation_deg=args.task_min_elevation_deg,
     )
@@ -379,6 +363,7 @@ def effective_run_config(args: argparse.Namespace) -> dict:
             ),
             "min_elevation_deg": args.task_min_elevation_deg,
             "deadline_s": args.task_deadline_s,
+            "deadline_min_s": args.task_deadline_min_s,
         },
         "compute": {
             "cycles_per_input_bit": args.compute_cycles_per_input_bit,
@@ -400,14 +385,6 @@ def effective_run_config(args: argparse.Namespace) -> dict:
             "task_events": getattr(args, "logging_task_events", "full"),
         },
     }
-    task_deadline_distribution = getattr(
-        args, "task_deadline_distribution", "fixed"
-    )
-    if task_deadline_distribution != "fixed":
-        config["task"]["deadline_distribution"] = task_deadline_distribution
-        config["task"]["deadline_min_s"] = getattr(
-            args, "task_deadline_min_s", 30.0
-        )
     if getattr(args, "logging_state_steps", "full") != "full":
         config["logging"]["state_steps"] = args.logging_state_steps
     summary_start_s = getattr(args, "logging_summary_start_s", None)

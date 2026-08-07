@@ -98,16 +98,9 @@ def validate_task_config(task_config: TaskConfig) -> None:
         raise ValueError("task compute_time_s must be positive")
     if task_config.deadline_s <= 0:
         raise ValueError("task deadline must be positive")
-    deadline_distribution = getattr(task_config, "deadline_distribution", "fixed")
-    deadline_min_s = getattr(task_config, "deadline_min_s", 30.0)
-    if deadline_distribution not in {"fixed", "normal"}:
-        raise ValueError("task deadline distribution must be fixed or normal")
-    if deadline_min_s <= 0:
+    if task_config.deadline_min_s <= 0:
         raise ValueError("task minimum deadline must be positive")
-    if (
-        deadline_distribution == "normal"
-        and deadline_min_s >= task_config.deadline_s
-    ):
+    if task_config.deadline_min_s >= task_config.deadline_s:
         raise ValueError(
             "task minimum deadline must be less than the mean normal deadline"
         )
@@ -144,13 +137,7 @@ def deadline_random_seed(random_seed: int | None) -> int | None:
 
 
 def sample_deadline_s(env: EnvironmentRuntime, task_config: TaskConfig) -> float:
-    distribution = getattr(task_config, "deadline_distribution", "fixed")
-    if distribution == "fixed":
-        return task_config.deadline_s
-    if distribution != "normal":
-        raise ValueError(f"unknown task deadline distribution: {distribution}")
-
-    minimum_s = getattr(task_config, "deadline_min_s", 30.0)
+    minimum_s = task_config.deadline_min_s
     scale_s = (task_config.deadline_s - minimum_s) / 3.0
     while True:
         deadline_s = env.deadline_rng.normalvariate(

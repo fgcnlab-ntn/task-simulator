@@ -20,6 +20,7 @@ def task_config() -> TaskConfig:
         output_bits_choices=(10.0,),
         output_bits_weights=(1.0,),
         deadline_s=30.0,
+        deadline_min_s=1.0,
         demand_distribution=DemandDistribution((), (), 0.0),
         min_elevation_deg=30.0,
     )

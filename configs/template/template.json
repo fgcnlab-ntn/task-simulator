@@ -65,7 +65,8 @@
     ],
     "demand_points_file": null,
     "min_elevation_deg": 30.0,
-    "deadline_s": 120.0
+    "deadline_s": 120.0,
+    "deadline_min_s": 30.0
   },
   "compute": {
     "cycles_per_input_bit": 737.5,

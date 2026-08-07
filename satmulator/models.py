@@ -45,11 +45,10 @@ class TaskConfig:
     output_bits_choices: tuple[float, ...]
     output_bits_weights: tuple[float, ...]
     deadline_s: float
+    deadline_min_s: float
     demand_distribution: DemandDistribution
     min_elevation_deg: float
     compute_time_s: float | None = None
-    deadline_distribution: str = "fixed"
-    deadline_min_s: float = 30.0
 
 
 @dataclass(frozen=True)
