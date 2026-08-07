@@ -449,7 +449,9 @@ class RunLog:
             }
         return False
 
-    def complete(self, all_steps: list[list[SatelliteState]] | None = None) -> None:
+    def complete(
+        self, all_steps: list[list[SatelliteState]] | None = None
+    ) -> JsonObject:
         if all_steps is not None and self._summary_window is None:
             final_states = all_steps[-1]
             steps = len(all_steps)
@@ -546,6 +548,7 @@ class RunLog:
         )
         write_json(self.run_path, self._manifest)
         self.close()
+        return summary
 
     def fail(self, exc: BaseException) -> None:
         self._manifest.update(

@@ -127,7 +127,9 @@ See `TASK_CONFIG.md` for the task-oriented config fields.
 
 - `minimal_orbit.py` — CLI wrapper
 - `configs/` — complete standalone experiment configs
-- `satmulator/cli.py` — config parsing and run orchestration
+- `satmulator/cli.py` — CLI argument parsing and entry point
+- `satmulator/config.py` — config loading, validation, and domain construction
+- `satmulator/runner.py` — simulation orchestration and terminal reporting
 - `satmulator/runtime.py` — mutable satellite/environment state
 - `satmulator/models.py` — configs, tasks, assignments, snapshots
 - `satmulator/orbit.py` — circular orbit model and timestep flow
