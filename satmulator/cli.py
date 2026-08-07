@@ -14,7 +14,6 @@ from .workload import demand_points_provenance, load_demand_points
 
 
 OPTIONAL_CONFIG_DEFAULTS = {
-    "task_compute_time_s": None,
     "logging_state_steps": "full",
     "logging_summary_start_s": None,
     "logging_summary_duration_s": None,
@@ -51,7 +50,6 @@ CONFIG_SECTIONS = {
         "tasks_per_step": "tasks_per_step",
         "input_bits": "task_input_bits",
         "output_bits": "task_output_bits",
-        "compute_time_s": "task_compute_time_s",
         "demand_points_file": "task_demand_points_file",
         "min_elevation_deg": "task_min_elevation_deg",
         "deadline_s": "task_deadline_s",
@@ -80,7 +78,6 @@ CONFIG_SECTIONS = {
 }
 
 OPTIONAL_CONFIG_KEYS = {
-    "task": {"compute_time_s"},
     "logging": {"state_steps", "summary_start_s", "summary_duration_s"},
 }
 
@@ -207,9 +204,6 @@ def validate_args(args: argparse.Namespace) -> None:
         raise ValueError(
             "task.deadline_min_s must be less than task.deadline_s"
         )
-    task_compute_time_s = getattr(args, "task_compute_time_s", None)
-    if task_compute_time_s is not None and task_compute_time_s <= 0:
-        raise ValueError("task.compute_time_s must be positive")
     if not 0.0 <= args.task_min_elevation_deg <= 90.0:
         raise ValueError("task.min_elevation_deg must be within [0, 90]")
     if args.compute_cycles_per_input_bit <= 0:
@@ -285,7 +279,6 @@ def build_configs(
         tasks_per_step=args.tasks_per_step,
         input_bits=args.task_input_bits,
         output_bits=args.task_output_bits,
-        compute_time_s=getattr(args, "task_compute_time_s", None),
         deadline_s=args.task_deadline_s,
         deadline_min_s=args.task_deadline_min_s,
         demand_distribution=load_demand_points(args.task_demand_points_file),
@@ -341,7 +334,6 @@ def effective_run_config(args: argparse.Namespace) -> dict:
             "tasks_per_step": args.tasks_per_step,
             "input_bits": args.task_input_bits,
             "output_bits": args.task_output_bits,
-            "compute_time_s": getattr(args, "task_compute_time_s", None),
             "demand_points_file": None
             if args.task_demand_points_file is None
             else str(args.task_demand_points_file),

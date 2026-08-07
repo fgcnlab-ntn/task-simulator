@@ -43,7 +43,6 @@ class TaskConfig:
     deadline_min_s: float
     demand_distribution: DemandDistribution
     min_elevation_deg: float
-    compute_time_s: float | None = None
 
 
 @dataclass(frozen=True)

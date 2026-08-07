@@ -83,9 +83,6 @@ def validate_task_config(task_config: TaskConfig) -> None:
         raise ValueError("tasks per step must be non-negative")
     if task_config.input_bits < 0 or task_config.output_bits < 0:
         raise ValueError("task input/output bits must be non-negative")
-    compute_time_s = getattr(task_config, "compute_time_s", None)
-    if compute_time_s is not None and compute_time_s <= 0:
-        raise ValueError("task compute_time_s must be positive")
     if task_config.deadline_s <= 0:
         raise ValueError("task deadline must be positive")
     if task_config.deadline_min_s <= 0:
@@ -376,7 +373,6 @@ def generate_satellite_deterministic_tasks(
                 input_bits=task_config.input_bits,
                 output_bits=task_config.output_bits,
                 deadline_s=sample_deadline_s(env, task_config),
-                compute_time_s=getattr(task_config, "compute_time_s", None),
             )
             tasks.append(task)
             emit_generated_task(env, task, compute_config)
@@ -403,7 +399,6 @@ def generate_demand_point_tasks(
             deadline_s=sample_deadline_s(env, task_config),
             lat_deg=point.lat_deg,
             lon_deg=point.lon_deg,
-            compute_time_s=getattr(task_config, "compute_time_s", None),
         )
         tasks.append(task)
         emit_generated_task(env, task, compute_config)
@@ -449,7 +444,6 @@ def generate_fixed_all_demand_point_tasks(
             deadline_s=sample_deadline_s(env, task_config),
             lat_deg=point.lat_deg,
             lon_deg=point.lon_deg,
-            compute_time_s=getattr(task_config, "compute_time_s", None),
         )
         emit_generated_task(env, task, compute_config)
         env.next_task_id += 1
