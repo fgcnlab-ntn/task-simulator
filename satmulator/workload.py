@@ -28,9 +28,7 @@ def demand_distribution(points: Iterable[DemandPoint]) -> DemandDistribution:
     return DemandDistribution(loaded, tuple(cumulative), total)
 
 
-def load_demand_points(path: Path | None) -> DemandDistribution:
-    if path is None:
-        return demand_distribution(())
+def load_demand_points(path: Path) -> DemandDistribution:
     points: list[DemandPoint] = []
     with path.open(newline="") as f:
         reader = csv.DictReader(f)
@@ -54,9 +52,7 @@ def load_demand_points(path: Path | None) -> DemandDistribution:
     return demand_distribution(points)
 
 
-def demand_points_provenance(path: Path | None) -> dict[str, object] | None:
-    if path is None:
-        return None
+def demand_points_provenance(path: Path) -> dict[str, object]:
     distribution = load_demand_points(path)
     metadata_path = path.with_suffix(path.suffix + ".metadata.json")
     conversion: dict[str, object] | None = None
@@ -77,8 +73,6 @@ def demand_points_provenance(path: Path | None) -> dict[str, object] | None:
 def validate_task_config(task_config: TaskConfig) -> None:
     if task_config.interval_s <= 0:
         raise ValueError("task interval must be positive")
-    if task_config.tasks_per_sat < 0:
-        raise ValueError("tasks per satellite must be non-negative")
     if task_config.tasks_per_step < 0:
         raise ValueError("tasks per step must be non-negative")
     if task_config.input_bits < 0 or task_config.output_bits < 0:
@@ -93,18 +87,7 @@ def validate_task_config(task_config: TaskConfig) -> None:
         )
     if not 0.0 <= task_config.min_elevation_deg <= 90.0:
         raise ValueError("minimum elevation must be within [0, 90]")
-    if task_config.generation_mode not in {
-        "satellite-deterministic",
-        "demand-points",
-        "demand-points-fixed-all",
-        "demand-points-fixed-weighted-all",
-    }:
-        raise ValueError(f"unknown task generation mode: {task_config.generation_mode}")
-    if (
-        task_config.generation_mode
-        in {"demand-points", "demand-points-fixed-all", "demand-points-fixed-weighted-all"}
-        and not task_config.demand_distribution
-    ):
+    if not task_config.demand_distribution:
         raise ValueError("demand-points task generation requires a demand_points_file")
 
 
@@ -340,44 +323,11 @@ def generate_step_tasks(
 ) -> tuple[list[Task], list[Task]]:
     if not task_config.enabled:
         return [], []
-    if task_config.generation_mode == "satellite-deterministic":
-        if env.time_s <= 0 or env.time_s % task_config.interval_s != 0:
-            return [], []
-        return generate_satellite_deterministic_tasks(env, task_config, compute_config), []
-    if task_config.generation_mode == "demand-points":
-        if env.time_s > 0 and env.time_s % task_config.interval_s == 0:
-            env.pending_tasks.extend(generate_demand_point_tasks(env, task_config, compute_config))
-        return resolve_pending_tasks(env, task_config)
-    if task_config.generation_mode in {
-        "demand-points-fixed-all",
-        "demand-points-fixed-weighted-all",
-    }:
-        if env.time_s <= 0 or env.time_s % task_config.interval_s != 0:
-            return [], []
-        return generate_fixed_all_demand_point_tasks(env, task_config, compute_config)
-    raise ValueError(f"unknown task generation mode: {task_config.generation_mode}")
-
-
-def generate_satellite_deterministic_tasks(
-    env: EnvironmentRuntime,
-    task_config: TaskConfig,
-    compute_config: ComputeConfig,
-) -> list[Task]:
-    tasks: list[Task] = []
-    for sat in env.satellites:
-        for _ in range(task_config.tasks_per_sat):
-            task = Task(
-                task_id=env.next_task_id,
-                created_time_s=env.time_s,
-                source_sat=sat.sat_id,
-                input_bits=task_config.input_bits,
-                output_bits=task_config.output_bits,
-                deadline_s=sample_deadline_s(env, task_config),
-            )
-            tasks.append(task)
-            emit_generated_task(env, task, compute_config)
-            env.next_task_id += 1
-    return tasks
+    if env.time_s > 0 and env.time_s % task_config.interval_s == 0:
+        env.pending_tasks.extend(
+            generate_demand_point_tasks(env, task_config, compute_config)
+        )
+    return resolve_pending_tasks(env, task_config)
 
 
 def generate_demand_point_tasks(
@@ -404,69 +354,6 @@ def generate_demand_point_tasks(
         emit_generated_task(env, task, compute_config)
         env.next_task_id += 1
     return tasks
-
-
-def generate_fixed_all_demand_point_tasks(
-    env: EnvironmentRuntime,
-    task_config: TaskConfig,
-    compute_config: ComputeConfig,
-) -> tuple[list[Task], list[Task]]:
-    """Generate one fixed-size task for every configured demand point.
-
-    This mode is for controlled load sweeps.  It deliberately avoids the
-    random sampling and coverage queue used by ``demand-points``: every demand
-    point emits exactly one task at every generation slot, and the task is
-    immediately assigned to the nearest visible satellite.  If no satellite
-    satisfies the minimum elevation constraint, the task is returned as an
-    immediate no-coverage failure rather than being deferred.
-    """
-
-    if env.time_utc is None:
-        raise ValueError("demand-point task generation requires an absolute UTC simulation time")
-
-    ready: list[Task] = []
-    expired: list[Task] = []
-    points = task_config.demand_distribution.points
-    source_sats = nearest_satellite_ids_vectorized(
-        env.satellites,
-        points,
-        env.time_utc,
-        task_config.min_elevation_deg,
-    )
-    for point, source_sat in zip(points, source_sats):
-        input_bits = fixed_all_demand_point_input_bits(task_config, point)
-        task = Task(
-            task_id=env.next_task_id,
-            created_time_s=env.time_s,
-            source_sat=source_sat,
-            input_bits=input_bits,
-            output_bits=task_config.output_bits,
-            deadline_s=sample_deadline_s(env, task_config),
-            lat_deg=point.lat_deg,
-            lon_deg=point.lon_deg,
-        )
-        emit_generated_task(env, task, compute_config)
-        env.next_task_id += 1
-        if source_sat is None:
-            expired.append(task)
-            continue
-        env.emit_task_event(
-            "task_coverage_acquired",
-            task.task_id,
-            source_sat=source_sat,
-            waiting_time_s=0,
-        )
-        ready.append(task)
-    return ready, expired
-
-
-def fixed_all_demand_point_input_bits(
-    task_config: TaskConfig,
-    point: DemandPoint,
-) -> float:
-    if task_config.generation_mode != "demand-points-fixed-weighted-all":
-        return task_config.input_bits
-    return task_config.input_bits * point.weight / task_config.demand_distribution.total_weight
 
 
 def emit_generated_task(

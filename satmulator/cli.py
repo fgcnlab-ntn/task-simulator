@@ -44,9 +44,7 @@ CONFIG_SECTIONS = {
     "task": {
         "enabled": "task_enable",
         "interval_s": "task_interval_s",
-        "generation_mode": "task_generation_mode",
         "random_seed": "task_random_seed",
-        "tasks_per_sat": "tasks_per_sat",
         "tasks_per_step": "tasks_per_step",
         "input_bits": "task_input_bits",
         "output_bits": "task_output_bits",
@@ -163,11 +161,7 @@ def resolve_config(cli_args: argparse.Namespace) -> argparse.Namespace:
     config_path = cli_args.config
     values = OPTIONAL_CONFIG_DEFAULTS.copy()
     values.update(load_standalone_json_config(config_path))
-    values["task_demand_points_file"] = (
-        None
-        if values["task_demand_points_file"] is None
-        else Path(values["task_demand_points_file"])
-    )
+    values["task_demand_points_file"] = Path(values["task_demand_points_file"])
     values["out"] = Path(values["out"])
     return argparse.Namespace(**values)
 
@@ -192,8 +186,6 @@ def validate_args(args: argparse.Namespace) -> None:
         raise ValueError("battery.min_safe_pct must be within [0, 100]")
     if args.task_interval_s <= 0:
         raise ValueError("task.interval_s must be positive")
-    if args.tasks_per_sat < 0:
-        raise ValueError("task.tasks_per_sat must be non-negative")
     if args.tasks_per_step < 0:
         raise ValueError("task.tasks_per_step must be non-negative")
     if args.task_deadline_s <= 0:
@@ -273,9 +265,7 @@ def build_configs(
     task_config = TaskConfig(
         enabled=args.task_enable,
         interval_s=args.task_interval_s,
-        generation_mode=args.task_generation_mode,
         random_seed=args.task_random_seed,
-        tasks_per_sat=args.tasks_per_sat,
         tasks_per_step=args.tasks_per_step,
         input_bits=args.task_input_bits,
         output_bits=args.task_output_bits,
@@ -328,15 +318,11 @@ def effective_run_config(args: argparse.Namespace) -> dict:
         "task": {
             "enabled": args.task_enable,
             "interval_s": args.task_interval_s,
-            "generation_mode": args.task_generation_mode,
             "random_seed": args.task_random_seed,
-            "tasks_per_sat": args.tasks_per_sat,
             "tasks_per_step": args.tasks_per_step,
             "input_bits": args.task_input_bits,
             "output_bits": args.task_output_bits,
-            "demand_points_file": None
-            if args.task_demand_points_file is None
-            else str(args.task_demand_points_file),
+            "demand_points_file": str(args.task_demand_points_file),
             "demand_points_provenance": demand_points_provenance(
                 args.task_demand_points_file
             ),

@@ -8,9 +8,7 @@ def task_config() -> TaskConfig:
     return TaskConfig(
         enabled=True,
         interval_s=30,
-        generation_mode="satellite-deterministic",
         random_seed=1,
-        tasks_per_sat=1,
         tasks_per_step=1,
         input_bits=100.0,
         output_bits=10.0,

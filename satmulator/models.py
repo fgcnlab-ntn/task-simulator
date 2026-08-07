@@ -33,9 +33,7 @@ class DemandDistribution:
 class TaskConfig:
     enabled: bool
     interval_s: int
-    generation_mode: str
     random_seed: int | None
-    tasks_per_sat: int
     tasks_per_step: int
     input_bits: float
     output_bits: float

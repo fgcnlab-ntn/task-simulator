@@ -26,13 +26,11 @@
   "task": {
     "enabled": true,
     "interval_s": 300,
-    "generation_mode": "satellite-deterministic",
     "random_seed": 42,
-    "tasks_per_sat": 1,
     "tasks_per_step": 8,
     "input_bits": 10000000.0,
     "output_bits": 1000000.0,
-    "demand_points_file": null,
+    "demand_points_file": "data/demand/global_population_2025_5deg.csv",
     "min_elevation_deg": 30.0,
     "deadline_s": 120.0,
     "deadline_min_s": 30.0

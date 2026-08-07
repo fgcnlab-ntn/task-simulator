@@ -169,15 +169,6 @@ The `P_cut` experiment writes outputs under `experiments/P_cut`, including
 `p_cut_results.csv`, `p_cut_results.jsonl`, safe-battery energy plots,
 combined energy plots, and constellation P_cut tables.
 
-The demand energy sweep writes outputs under `experiments/breach_ratio` by
-default: `demand_energy_sweep.csv`, `demand_energy_sweep.jsonl`,
-`demand_energy_sweep_summary.json`, and `battery_breach_ratio_line.csv/json/svg`.
-If `compute.cpu_power_w` is a list in the config, the sweep uses each listed CPU
-power and draws one line per power; with multiple slot intervals it writes one
-SVG per constellation/slot pair. Each scenario runs `demand-points-fixed-all`:
-every ground point creates one fixed-size task at each selected time slot, and
-the nearest visible satellite executes it locally.
-
 `states.jsonl` stores one JSON object per simulation step, including the ECI Sun
 direction without requiring consumers to reopen the BSP ephemeris. `tasks.jsonl`
 stores task lifecycle events such as generation,
