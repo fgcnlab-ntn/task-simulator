@@ -116,8 +116,6 @@ def validate_task_config(task_config: TaskConfig) -> None:
     validate_distribution(
         "tasks_per_step", task_config.tasks_per_step_choices, task_config.tasks_per_step_weights
     )
-    validate_distribution("input_bits", task_config.input_bits_choices, task_config.input_bits_weights)
-    validate_distribution("output_bits", task_config.output_bits_choices, task_config.output_bits_weights)
     if (
         task_config.generation_mode
         in {"demand-points", "demand-points-fixed-all", "demand-points-fixed-weighted-all"}
@@ -420,12 +418,8 @@ def generate_demand_point_tasks(
             task_id=env.next_task_id,
             created_time_s=env.time_s,
             source_sat=None,
-            input_bits=weighted_choice(
-                env.rng, task_config.input_bits_choices, task_config.input_bits_weights
-            ),
-            output_bits=weighted_choice(
-                env.rng, task_config.output_bits_choices, task_config.output_bits_weights
-            ),
+            input_bits=task_config.input_bits,
+            output_bits=task_config.output_bits,
             deadline_s=sample_deadline_s(env, task_config),
             lat_deg=point.lat_deg,
             lon_deg=point.lon_deg,

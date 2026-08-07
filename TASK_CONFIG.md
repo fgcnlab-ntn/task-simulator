@@ -27,8 +27,8 @@ fixed-size task for every demand point at every generation slot.
   selecting a serving satellite. Defaults to 30 degrees. Tasks wait while no
   satellite meets the threshold and fail with `no_coverage` when their deadline
   expires.
-- `input_bits_choices`, `input_bits_weights`: discrete input data distribution.
-- `output_bits_choices`, `output_bits_weights`: discrete output data distribution.
+- `input_bits`, `output_bits`: fixed input and output sizes for every generated
+  task.
 Task deadlines always use a lower-truncated normal distribution.
 
 - `deadline_s`: mean of the source normal deadline distribution.
@@ -44,9 +44,9 @@ seconds, and derives a 50-second source standard deviation:
 "deadline_min_s": 30.0
 ```
 
-`demand-points-fixed-all` deliberately does not use the random choice fields.
-At each generation time after the initial state, every configured demand point
-creates exactly one task using `input_bits` and `output_bits`. The nearest
+At each generation time after the initial state, `demand-points-fixed-all`
+creates exactly one task for every configured demand point using `input_bits`
+and `output_bits`. The nearest
 satellite satisfying `min_elevation_deg` is selected immediately. If no
 satellite is visible, the task fails immediately with `no_coverage`; it is not
 queued or deferred.

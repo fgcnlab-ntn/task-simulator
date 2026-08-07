@@ -42,27 +42,7 @@
       0.1
     ],
     "input_bits": 10000000.0,
-    "input_bits_choices": [
-      1000000.0,
-      10000000.0,
-      100000000.0
-    ],
-    "input_bits_weights": [
-      0.6,
-      0.3,
-      0.1
-    ],
     "output_bits": 1000000.0,
-    "output_bits_choices": [
-      100000.0,
-      1000000.0,
-      10000000.0
-    ],
-    "output_bits_weights": [
-      0.6,
-      0.3,
-      0.1
-    ],
     "demand_points_file": "data/demand/global_population_2025_5deg.csv",
     "min_elevation_deg": 30.0,
     "deadline_s": 120.0,

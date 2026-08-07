@@ -39,11 +39,7 @@ class TaskConfig:
     tasks_per_step_choices: tuple[int, ...]
     tasks_per_step_weights: tuple[float, ...]
     input_bits: float
-    input_bits_choices: tuple[float, ...]
-    input_bits_weights: tuple[float, ...]
     output_bits: float
-    output_bits_choices: tuple[float, ...]
-    output_bits_weights: tuple[float, ...]
     deadline_s: float
     deadline_min_s: float
     demand_distribution: DemandDistribution
