@@ -199,7 +199,7 @@ def main() -> int:
     parser.add_argument(
         "--methods",
         nargs="+",
-        help="only run these config stems, e.g. phoenix2 method6",
+        help="only run these config stems, e.g. phoenix starlit",
     )
     parser.add_argument(
         "--force",

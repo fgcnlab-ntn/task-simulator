@@ -1239,412 +1239,15 @@ class GreedyEnergyScheduler(Scheduler):
         return assignments
 
 
-class Method3Scheduler(Scheduler):
-    name = "method3"
+class StarlitScheduler(Scheduler):
+    """Schedule battery-safe work across local, sunlit, and eclipse peers."""
 
-    def _local_cost(
-        self,
-        *,
-        sat: SatelliteView,
-        available_time_s: float,
-        time_s: int,
-        step_s: int,
-        deadline_time: float,
-        compute_time_s: float,
-        compute_energy_j: float,
-        battery: BatteryConfig,
-        warning_ratio: float,
-        sunlit_local_load_weight: float,
-        sunlit_local_battery_weight: float,
-        eclipse_local_battery_weight: float,
-        eclipse_local_warning_penalty: float,
-    ) -> tuple[float, float] | None:
-        t_fin = max(float(time_s), available_time_s) + compute_time_s
-        if t_fin > deadline_time:
-            return None
-
-        projected, _, _ = battery_step(
-            battery_now=sat.battery_j,
-            sunlit=sat.sunlit,
-            step_s=step_s,
-            battery=battery,
-            task_energy_j=compute_energy_j,
-            update=time_s > 0,
-        )
-
-        eps = 1e-6
-        slack_term = 1.0 / max((deadline_time - t_fin) / step_s, eps)
-        current_load = max(0.0, available_time_s - float(time_s))
-        load_term = current_load / step_s
-
-        margin_j = projected - battery.min_safe_j
-        margin_ratio = max(margin_j / battery.capacity_j, eps)
-        battery_term = 1.0 / margin_ratio
-
-        warn_j = battery.min_safe_j + warning_ratio * battery.capacity_j
-
-        if sat.sunlit:
-            cost = (
-                sunlit_local_load_weight * load_term
-                + sunlit_local_battery_weight * battery_term
-                + slack_term
-            )
-        else:
-            warning_term = eclipse_local_warning_penalty if projected < warn_j else 0.0
-            cost = (
-                eclipse_local_battery_weight * battery_term + warning_term + slack_term
-            )
-
-        return cost, t_fin
-
-    def _sunlit_cost(
-        self,
-        *,
-        available_time_s: float,
-        time_s: int,
-        step_s: int,
-        deadline_time: float,
-        compute_time_s: float,
-        load_weight: float,
-    ) -> tuple[float, float] | None:
-        t_fin = max(float(time_s), available_time_s) + compute_time_s
-        if t_fin > deadline_time:
-            return None
-
-        eps = 1e-6
-        current_load = max(0.0, available_time_s - float(time_s))
-        load_term = current_load / step_s
-        slack_term = 1.0 / max((deadline_time - t_fin) / step_s, eps)
-
-        cost = load_weight * load_term + slack_term
-        return cost, t_fin
-
-    def _defer_cost(
-        self,
-        *,
-        time_s: int,
-        step_s: int,
-        deadline_time: float,
-        compute_time_s: float,
-    ) -> float:
-        eps = 1e-6
-        t_fin_defer = float(time_s) + step_s + compute_time_s
-        if t_fin_defer > deadline_time:
-            return float("inf")
-        return 1.0 / max((deadline_time - t_fin_defer) / step_s, eps)
-
-    def _peek_least_loaded_sunlit(
-        self,
-        *,
-        sunlit_heap,
-        reserved_available_time: dict[int, float],
-        satellite_by_id: dict[int, SatelliteView],
-        time_s: int,
-        exclude_sat_id: int,
-    ) -> tuple[int, float] | None:
-        import heapq
-
-        skipped = []
-
-        while sunlit_heap:
-            recorded_load, sat_id = heapq.heappop(sunlit_heap)
-            sat = satellite_by_id[sat_id]
-
-            if sat_id == exclude_sat_id:
-                skipped.append((recorded_load, sat_id))
-                continue
-
-            current_load = max(0.0, reserved_available_time[sat_id] - float(time_s))
-
-            # lazy heap update
-            if abs(recorded_load - current_load) > 1e-9:
-                heapq.heappush(sunlit_heap, (current_load, sat_id))
-                continue
-
-            for item in skipped:
-                heapq.heappush(sunlit_heap, item)
-            return sat_id, reserved_available_time[sat_id]
-
-        for item in skipped:
-            heapq.heappush(sunlit_heap, item)
-        return None
-
-    def assign_tasks(
-        self,
-        *,
-        tasks: list[Task],
-        satellite_views: list[SatelliteView],
-        time_s: int,
-        step_s: int,
-        battery: BatteryConfig,
-        compute_config: ComputeConfig,
-        isl_config: ISLConfig,
-        isl_graph: ISLGraph,
-    ) -> list[Assignment]:
-        import heapq
-
-        by_id = {sat.sat_id: sat for sat in satellite_views}
-
-        reserved_available_time = {
-            sat.sat_id: float(time_s) + sat.queue_backlog_s for sat in satellite_views
-        }
-        reserved_energy = hard_limit_reserved_energy_by_sat(
-            satellite_views=satellite_views,
-            time_s=time_s,
-            step_s=step_s,
-            battery=battery,
-            compute_config=compute_config,
-        )
-
-        ordered_tasks = sorted(
-            tasks,
-            key=lambda task: (task.created_time_s + task.deadline_s, task.task_id),
-        )
-
-        unique_sources = {
-            task.source_sat for task in ordered_tasks if task.source_sat is not None
-        }
-        route_parents_by_source: dict[int, dict[int, int | None]] = {
-            source_sat: build_route_tree(isl_graph, source_sat)
-            for source_sat in unique_sources
-        }
-
-        warning_ratio = 0.10
-        sunlit_local_load_weight = 1.0
-        sunlit_local_battery_weight = 0.25
-        eclipse_local_battery_weight = 3.0
-        eclipse_local_warning_penalty = 2.0
-        sunlit_offload_load_weight = 1.0
-
-        # min-heap of current sunlit loads
-        sunlit_heap = []
-        for sat in satellite_views:
-            if sat.sunlit:
-                heapq.heappush(
-                    sunlit_heap,
-                    (
-                        max(0.0, reserved_available_time[sat.sat_id] - float(time_s)),
-                        sat.sat_id,
-                    ),
-                )
-
-        assignments: list[Assignment] = []
-
-        for task in ordered_tasks:
-            assert task.source_sat is not None
-            source = by_id[task.source_sat]
-            deadline_time = task.created_time_s + task.deadline_s
-            compute_time_s = task_compute_time_s(task, compute_config)
-            compute_energy_j = compute_time_s * compute_config.cpu_power_w
-
-            # Action 1: local
-            local_result = self._local_cost(
-                sat=source,
-                available_time_s=reserved_available_time[source.sat_id],
-                time_s=time_s,
-                step_s=step_s,
-                deadline_time=deadline_time,
-                compute_time_s=compute_time_s,
-                compute_energy_j=compute_energy_j,
-                battery=battery,
-                warning_ratio=warning_ratio,
-                sunlit_local_load_weight=sunlit_local_load_weight,
-                sunlit_local_battery_weight=sunlit_local_battery_weight,
-                eclipse_local_battery_weight=eclipse_local_battery_weight,
-                eclipse_local_warning_penalty=eclipse_local_warning_penalty,
-            )
-            local_cost = float("inf")
-            local_finish = None
-            if local_result is not None:
-                local_route = Route((source.sat_id,))
-                local_route_cost = estimate_route_cost(
-                    task=task,
-                    route=local_route,
-                    compute_config=compute_config,
-                    isl_config=isl_config,
-                )
-                if route_respects_battery_projection(
-                    route=local_route,
-                    route_cost=local_route_cost,
-                    satellite_by_id=by_id,
-                    reserved_available_time=reserved_available_time,
-                    reserved_energy=reserved_energy,
-                    time_s=time_s,
-                    step_s=step_s,
-                    battery=battery,
-                    compute_config=compute_config,
-                ):
-                    local_cost, local_finish = local_result
-
-            # Action 2: least-loaded sunlit
-            sun_cost = float("inf")
-            sun_finish = None
-            sun_sat_id = None
-            sun_route = None
-            sun_route_cost = None
-
-            best_sunlit = self._peek_least_loaded_sunlit(
-                sunlit_heap=sunlit_heap,
-                reserved_available_time=reserved_available_time,
-                satellite_by_id=by_id,
-                time_s=time_s,
-                exclude_sat_id=source.sat_id,
-            )
-            if best_sunlit is not None:
-                candidate_sat_id, candidate_available_time = best_sunlit
-                route_parents = route_parents_by_source[source.sat_id]
-                reversed_route_nodes = route_nodes_reversed(
-                    route_parents,
-                    candidate_sat_id,
-                )
-                if reversed_route_nodes is not None:
-                    sun_result = self._sunlit_cost(
-                        available_time_s=candidate_available_time,
-                        time_s=time_s,
-                        step_s=step_s,
-                        deadline_time=deadline_time,
-                        compute_time_s=compute_time_s,
-                        load_weight=sunlit_offload_load_weight,
-                    )
-                    if sun_result is not None:
-                        route = Route(tuple(reversed(reversed_route_nodes)))
-                        route_cost = estimate_route_cost(
-                            task=task,
-                            route=route,
-                            compute_config=compute_config,
-                            isl_config=isl_config,
-                        )
-                        if route_respects_battery_projection(
-                            route=route,
-                            route_cost=route_cost,
-                            satellite_by_id=by_id,
-                            reserved_available_time=reserved_available_time,
-                            reserved_energy=reserved_energy,
-                            time_s=time_s,
-                            step_s=step_s,
-                            battery=battery,
-                            compute_config=compute_config,
-                        ):
-                            sun_cost, sun_finish = sun_result
-                            sun_sat_id = candidate_sat_id
-                            sun_route = route
-                            sun_route_cost = route_cost
-
-            # Action 3: defer
-            defer_cost = self._defer_cost(
-                time_s=time_s,
-                step_s=step_s,
-                deadline_time=deadline_time,
-                compute_time_s=compute_time_s,
-            )
-
-            action, best_cost = min(
-                [
-                    ("local", local_cost),
-                    ("sunlit", sun_cost),
-                    ("defer", defer_cost),
-                ],
-                key=lambda x: x[1],
-            )
-
-            if action == "local" and local_finish is not None:
-                assignments.append(
-                    Assignment(
-                        task_id=task.task_id,
-                        route=Route((source.sat_id,)),
-                        mode="local",
-                        score=local_cost,
-                    )
-                )
-                reserved_available_time[source.sat_id] = local_finish
-                reserve_route_transmission_energy(
-                    route=Route((source.sat_id,)),
-                    route_cost=local_route_cost,
-                    compute_config=compute_config,
-                    reserved_energy=reserved_energy,
-                )
-                if source.sunlit:
-                    heapq.heappush(
-                        sunlit_heap,
-                        (
-                            max(0.0, local_finish - float(time_s)),
-                            source.sat_id,
-                        ),
-                    )
-
-            elif (
-                action == "sunlit"
-                and sun_sat_id is not None
-                and sun_finish is not None
-                and sun_route is not None
-            ):
-                assignments.append(
-                    Assignment(
-                        task_id=task.task_id,
-                        route=sun_route,
-                        mode="offload",
-                        score=sun_cost,
-                    )
-                )
-                reserved_available_time[sun_sat_id] = sun_finish
-                assert sun_route_cost is not None
-                reserve_route_transmission_energy(
-                    route=sun_route,
-                    route_cost=sun_route_cost,
-                    compute_config=compute_config,
-                    reserved_energy=reserved_energy,
-                )
-                heapq.heappush(
-                    sunlit_heap,
-                    (
-                        max(0.0, sun_finish - float(time_s)),
-                        sun_sat_id,
-                    ),
-                )
-
-            elif defer_cost < float("inf"):
-                assignments.append(
-                    Assignment(
-                        task_id=task.task_id,
-                        route=Route((source.sat_id,)),
-                        mode="defer",
-                        score=defer_cost,
-                    )
-                )
-
-            else:
-                assignments.append(
-                    Assignment(
-                        task_id=task.task_id,
-                        route=Route((source.sat_id,)),
-                        mode="fail",
-                        score=float("inf"),
-                        failed_reason="no_feasible_action",
-                    )
-                )
-
-        return assignments
-
-
-class Method3ModScheduler(Method3Scheduler):
-    """Method 3 with lossless sunlit candidates and normalized action risks.
-
-    Execution cost is the fraction of remaining deadline slots occupied after
-    accepting the task.  Eclipse-local execution additionally considers the
-    projected battery risk.  Deferral is expensive while usable sunlit
-    capacity remains and reserves one task's compute time on the source for
-    the rest of the current scheduling batch.
-    """
-
-    name = "method3_mod"
+    name = "starlit"
+    queue_discipline = "edf"
 
     @staticmethod
     def _clip_unit(value: float) -> float:
         return max(0.0, min(1.0, value))
-
-    def _allow_unsafe_local_emergency(self) -> bool:
-        """Whether deadline pressure may override eclipse battery safety."""
-        return False
 
     def _execution_load_cost(
         self,
@@ -1774,7 +1377,6 @@ class Method3ModScheduler(Method3Scheduler):
         *,
         sunlit_heap,
         reserved_available_time: dict[int, float],
-        satellite_by_id: dict[int, SatelliteView],
         time_s: int,
         exclude_sat_id: int,
     ) -> tuple[int, float] | None:
@@ -1809,830 +1411,11 @@ class Method3ModScheduler(Method3Scheduler):
 
         return candidate
 
-    def assign_tasks(
-        self,
-        *,
-        tasks: list[Task],
-        satellite_views: list[SatelliteView],
-        time_s: int,
-        step_s: int,
-        battery: BatteryConfig,
-        compute_config: ComputeConfig,
-        isl_config: ISLConfig,
-        isl_graph: ISLGraph,
-    ) -> list[Assignment]:
-        import heapq
-
-        by_id = {sat.sat_id: sat for sat in satellite_views}
-
-        reserved_available_time = {
-            sat.sat_id: float(time_s) + sat.queue_backlog_s for sat in satellite_views
-        }
-        reserved_transmission_energy = hard_limit_reserved_energy_by_sat(
-            satellite_views=satellite_views,
-            time_s=time_s,
-            step_s=step_s,
-            battery=battery,
-            compute_config=compute_config,
-        )
-
-        ordered_tasks = sorted(
-            tasks,
-            key=lambda task: (task.created_time_s + task.deadline_s, task.task_id),
-        )
-
-        unique_sources = {
-            task.source_sat for task in ordered_tasks if task.source_sat is not None
-        }
-        route_parents_by_source: dict[int, dict[int, int | None]] = {
-            source_sat: build_route_tree(isl_graph, source_sat)
-            for source_sat in unique_sources
-        }
-
-        # Min-heap of current sunlit loads.  Entries are only discarded when
-        # stale, so merely evaluating local execution or deferral cannot lose
-        # a usable candidate.
-        sunlit_heap = []
-        for sat in satellite_views:
-            if sat.sunlit:
-                heapq.heappush(
-                    sunlit_heap,
-                    (
-                        max(0.0, reserved_available_time[sat.sat_id] - float(time_s)),
-                        sat.sat_id,
-                    ),
-                )
-
-        assignments: list[Assignment] = []
-        deferred_workload_s = {sat.sat_id: 0.0 for sat in satellite_views}
-
-        for task in ordered_tasks:
-            assert task.source_sat is not None
-
-            source = by_id[task.source_sat]
-            deadline_time = task.created_time_s + task.deadline_s
-            compute_time_s = task_compute_time_s(task, compute_config)
-
-            # Action 1: local
-            local_result = self._normalized_local_cost(
-                sat=source,
-                available_time_s=reserved_available_time[source.sat_id],
-                time_s=time_s,
-                step_s=step_s,
-                deadline_time=deadline_time,
-                compute_time_s=compute_time_s,
-                compute_power_w=compute_config.cpu_power_w,
-                battery=battery,
-            )
-
-            local_cost = float("inf")
-            local_finish = None
-            local_battery_safe = source.sunlit
-            local_route = Route((source.sat_id,))
-            local_route_cost = None
-            if local_result is not None:
-                candidate_cost, candidate_finish, candidate_battery_safe = local_result
-                local_route_cost = estimate_route_cost(
-                    task=task,
-                    route=local_route,
-                    compute_config=compute_config,
-                    isl_config=isl_config,
-                )
-                if candidate_battery_safe and route_respects_battery_projection(
-                    route=local_route,
-                    route_cost=local_route_cost,
-                    satellite_by_id=by_id,
-                    reserved_available_time=reserved_available_time,
-                    reserved_energy=reserved_transmission_energy,
-                    time_s=time_s,
-                    step_s=step_s,
-                    battery=battery,
-                    compute_config=compute_config,
-                ):
-                    local_cost = candidate_cost
-                    local_finish = candidate_finish
-                    local_battery_safe = True
-                else:
-                    local_battery_safe = False
-
-            # Action 2: least-loaded sunlit
-            sun_cost = float("inf")
-            sun_finish = None
-            sun_sat_id = None
-            sun_route = None
-            sun_route_cost = None
-
-            best_sunlit = self._peek_least_loaded_sunlit_mod(
-                sunlit_heap=sunlit_heap,
-                reserved_available_time=reserved_available_time,
-                satellite_by_id=by_id,
-                time_s=time_s,
-                exclude_sat_id=source.sat_id,
-            )
-
-            if best_sunlit is not None:
-                candidate_sat_id, candidate_available_time = best_sunlit
-
-                route_parents = route_parents_by_source[source.sat_id]
-                reversed_route_nodes = route_nodes_reversed(
-                    route_parents,
-                    candidate_sat_id,
-                )
-
-                if reversed_route_nodes is not None:
-                    sun_result = self._normalized_local_cost(
-                        sat=by_id[candidate_sat_id],
-                        available_time_s=candidate_available_time,
-                        time_s=time_s,
-                        step_s=step_s,
-                        deadline_time=deadline_time,
-                        compute_time_s=compute_time_s,
-                        compute_power_w=compute_config.cpu_power_w,
-                        battery=battery,
-                    )
-
-                    if sun_result is not None:
-                        (
-                            candidate_cost,
-                            candidate_finish,
-                            candidate_battery_safe,
-                        ) = sun_result
-                        if candidate_battery_safe:
-                            route = Route(tuple(reversed(reversed_route_nodes)))
-                            route_cost = estimate_route_cost(
-                                task=task,
-                                route=route,
-                                compute_config=compute_config,
-                                isl_config=isl_config,
-                            )
-                            if route_respects_battery_projection(
-                                route=route,
-                                route_cost=route_cost,
-                                satellite_by_id=by_id,
-                                reserved_available_time=reserved_available_time,
-                                reserved_energy=reserved_transmission_energy,
-                                time_s=time_s,
-                                step_s=step_s,
-                                battery=battery,
-                                compute_config=compute_config,
-                            ):
-                                sun_cost = candidate_cost
-                                sun_finish = candidate_finish
-                                sun_sat_id = candidate_sat_id
-                                sun_route = route
-                                sun_route_cost = route_cost
-
-            # Action 3: defer.  Any immediately feasible sunlit execution has
-            # full opportunity cost.  Only when no sunlit execution exists do
-            # we compare waiting with the complementary eclipse-local risk.
-            has_feasible_sunlit_execution = (
-                source.sunlit
-                and local_battery_safe
-                and local_cost < float("inf")
-            ) or sun_cost < float("inf")
-            local_eclipse_cost = (
-                local_cost
-                if not source.sunlit and local_cost < float("inf")
-                else None
-            )
-            defer_cost = self._normalized_defer_cost(
-                time_s=time_s,
-                step_s=step_s,
-                deadline_time=deadline_time,
-                compute_time_s=compute_time_s,
-                deferred_workload_s=deferred_workload_s[source.sat_id],
-                has_feasible_sunlit_execution=has_feasible_sunlit_execution,
-                local_eclipse_cost=local_eclipse_cost,
-            )
-
-            # Stable ordering supplies policy without a tunable bonus.  An
-            # eclipse-local action whose committed queue would cross E_safe is
-            # retained only as an emergency fallback after deferral.
-            if source.sunlit and local_battery_safe:
-                action_costs = [
-                    ("local", local_cost),
-                    ("sunlit", sun_cost),
-                    ("defer", defer_cost),
-                ]
-            elif local_battery_safe:
-                action_costs = [
-                    ("sunlit", sun_cost),
-                    ("local", local_cost),
-                    ("defer", defer_cost),
-                ]
-            else:
-                action_costs = [
-                    ("sunlit", sun_cost),
-                    ("defer", defer_cost),
-                ]
-                if self._allow_unsafe_local_emergency():
-                    action_costs.append(("local", local_cost))
-            action, _ = min(
-                action_costs,
-                key=lambda x: x[1],
-            )
-
-            if action == "local" and local_finish is not None:
-                assignments.append(
-                    Assignment(
-                        task_id=task.task_id,
-                        route=local_route,
-                        mode="local",
-                        score=local_cost,
-                    )
-                )
-
-                reserved_available_time[source.sat_id] = local_finish
-                assert local_route_cost is not None
-                reserve_route_transmission_energy(
-                    route=local_route,
-                    route_cost=local_route_cost,
-                    compute_config=compute_config,
-                    reserved_energy=reserved_transmission_energy,
-                )
-
-                if source.sunlit:
-                    heapq.heappush(
-                        sunlit_heap,
-                        (
-                            max(0.0, local_finish - float(time_s)),
-                            source.sat_id,
-                        ),
-                    )
-
-            elif (
-                action == "sunlit"
-                and sun_sat_id is not None
-                and sun_finish is not None
-                and sun_route is not None
-            ):
-                assignments.append(
-                    Assignment(
-                        task_id=task.task_id,
-                        route=sun_route,
-                        mode="offload",
-                        score=sun_cost,
-                    )
-                )
-
-                reserved_available_time[sun_sat_id] = sun_finish
-                assert sun_route_cost is not None
-                reserve_route_transmission_energy(
-                    route=sun_route,
-                    route_cost=sun_route_cost,
-                    compute_config=compute_config,
-                    reserved_energy=reserved_transmission_energy,
-                )
-
-                heapq.heappush(
-                    sunlit_heap,
-                    (
-                        max(0.0, sun_finish - float(time_s)),
-                        sun_sat_id,
-                    ),
-                )
-
-            elif defer_cost < float("inf"):
-                assignments.append(
-                    Assignment(
-                        task_id=task.task_id,
-                        route=Route((source.sat_id,)),
-                        mode="defer",
-                        score=defer_cost,
-                    )
-                )
-                deferred_workload_s[source.sat_id] += compute_time_s
-
-            else:
-                assignments.append(
-                    Assignment(
-                        task_id=task.task_id,
-                        route=Route((source.sat_id,)),
-                        mode="fail",
-                        score=float("inf"),
-                        failed_reason="no_feasible_action",
-                    )
-                )
-
-        return assignments
-
-
-class Method5Scheduler(Method3ModScheduler):
-    """Method3-mod optimized for task completion under a hard DoD limit.
-
-    Every immediately feasible, energy-safe execution is preferred over
-    deferral.  Future illumination is used only for hard feasibility, not as
-    a ranking signal, and no execution may project battery below the safe
-    threshold before the next recharge opportunity.
-    """
-
-    name = "method5"
-
-    def _allow_unsafe_local_emergency(self) -> bool:
-        return False
-
-    def _minimum_battery_until_next_sun(
-        self,
-        *,
-        sat: SatelliteView,
-        available_time_s: float,
-        time_s: int,
-        step_s: int,
-        compute_time_s: float,
-        compute_power_w: float,
-        battery: BatteryConfig,
-    ) -> float | None:
-        """Project the minimum battery before the next recharge interval."""
-        return minimum_projected_battery_until_recharge(
-            sat=sat,
-            available_time_s=available_time_s,
-            time_s=time_s,
-            step_s=step_s,
-            battery=battery,
-            compute_power_w=compute_power_w,
-            extra_compute_time_s=compute_time_s,
-        )
-
-    def _normalized_local_cost(
-        self,
-        *,
-        sat: SatelliteView,
-        available_time_s: float,
-        time_s: int,
-        step_s: int,
-        deadline_time: float,
-        compute_time_s: float,
-        compute_power_w: float,
-        battery: BatteryConfig,
-    ) -> tuple[float, float, bool] | None:
-        base_result = super()._normalized_local_cost(
-            sat=sat,
-            available_time_s=available_time_s,
-            time_s=time_s,
-            step_s=step_s,
-            deadline_time=deadline_time,
-            compute_time_s=compute_time_s,
-            compute_power_w=compute_power_w,
-            battery=battery,
-        )
-        if base_result is None:
-            return None
-
-        cost, finish_time, _ = base_result
-        minimum_battery_j = self._minimum_battery_until_next_sun(
-            sat=sat,
-            available_time_s=available_time_s,
-            time_s=time_s,
-            step_s=step_s,
-            compute_time_s=compute_time_s,
-            compute_power_w=compute_power_w,
-            battery=battery,
-        )
-        if minimum_battery_j is None:
-            return cost, finish_time, False
-
-        return (
-            cost,
-            finish_time,
-            minimum_battery_j >= battery.min_safe_j,
-        )
-
-    def _normalized_defer_cost(
-        self,
-        *,
-        time_s: int,
-        step_s: int,
-        deadline_time: float,
-        compute_time_s: float,
-        deferred_workload_s: float,
-        has_feasible_sunlit_execution: bool,
-        local_eclipse_cost: float | None,
-    ) -> float:
-        cost = super()._normalized_defer_cost(
-            time_s=time_s,
-            step_s=step_s,
-            deadline_time=deadline_time,
-            compute_time_s=compute_time_s,
-            deferred_workload_s=deferred_workload_s,
-            has_feasible_sunlit_execution=has_feasible_sunlit_execution,
-            local_eclipse_cost=local_eclipse_cost,
-        )
-        if cost == float("inf"):
-            return cost
-
-        # Under the new objective, waiting must never beat an execution that
-        # is feasible now.  Execution costs are normalized to [0, 1], and the
-        # stable action order resolves a cost-1 tie in favor of execution.
-        if has_feasible_sunlit_execution or local_eclipse_cost is not None:
-            return 1.0
-        return cost
-
-    def assign_tasks(
-        self,
-        *,
-        tasks: list[Task],
-        satellite_views: list[SatelliteView],
-        time_s: int,
-        step_s: int,
-        battery: BatteryConfig,
-        compute_config: ComputeConfig,
-        isl_config: ISLConfig,
-        isl_graph: ISLGraph,
-    ) -> list[Assignment]:
-        """Fill immediate safe capacity before allowing a one-slot wait.
-
-        Sunlit and eclipse capacity are kept in separate lazy heaps.  Eclipse
-        peers are a fallback pool: they are used only after local execution
-        and sunlit offload cannot meet the deadline, and only while their
-        queue remains safe until the next sunlit interval.
-        """
-        import heapq
-
-        now = float(time_s)
-        by_id = {sat.sat_id: sat for sat in satellite_views}
-        reserved_available_time = {
-            sat.sat_id: now + sat.queue_backlog_s for sat in satellite_views
-        }
-        ordered_tasks = sorted(
-            tasks,
-            key=lambda task: (task.created_time_s + task.deadline_s, task.task_id),
-        )
-        if not ordered_tasks:
-            return []
-
-        route_parents_by_source = {
-            source_sat: build_route_tree(isl_graph, source_sat)
-            for source_sat in {
-                task.source_sat
-                for task in ordered_tasks
-                if task.source_sat is not None
-            }
-        }
-        minimum_compute_time_s = min(
-            task_compute_time_s(task, compute_config) for task in ordered_tasks
-        )
-
-        sunlit_heap: list[tuple[float, int]] = []
-        eclipse_heap: list[tuple[float, int]] = []
-        for sat in satellite_views:
-            heap = sunlit_heap if sat.sunlit else eclipse_heap
-            heapq.heappush(
-                heap,
-                (reserved_available_time[sat.sat_id], sat.sat_id),
-            )
-        reserved_transmission_energy_j = {
-            sat.sat_id: 0.0 for sat in satellite_views
-        }
-
-        def execution_result(
-            *,
-            sat: SatelliteView,
-            available_time_s: float,
-            deadline_time: float,
-            compute_time_s: float,
-        ) -> tuple[float, float, bool] | None:
-            if not sat.sunlit:
-                result = self._normalized_local_cost(
-                    sat=sat,
-                    available_time_s=available_time_s,
-                    time_s=time_s,
-                    step_s=step_s,
-                    deadline_time=deadline_time,
-                    compute_time_s=compute_time_s,
-                    compute_power_w=compute_config.cpu_power_w,
-                    battery=battery,
-                )
-                if result is None:
-                    return None
-                cost, finish_time, battery_safe = result
-                if battery_safe:
-                    minimum_battery_j = self._minimum_battery_until_next_sun(
-                        sat=sat,
-                        available_time_s=available_time_s,
-                        time_s=time_s,
-                        step_s=step_s,
-                        compute_time_s=compute_time_s,
-                        compute_power_w=compute_config.cpu_power_w,
-                        battery=battery,
-                    )
-                    battery_safe = (
-                        minimum_battery_j is not None
-                        and minimum_battery_j
-                        - reserved_transmission_energy_j[sat.sat_id]
-                        >= battery.min_safe_j
-                    )
-                return cost, finish_time, battery_safe
-
-            result = self._execution_load_cost(
-                available_time_s=available_time_s,
-                time_s=time_s,
-                step_s=step_s,
-                deadline_time=deadline_time,
-                compute_time_s=compute_time_s,
-            )
-            if result is None:
-                return None
-            cost, finish_time = result
-
-            projected = self._normalized_local_cost(
-                sat=sat,
-                available_time_s=available_time_s,
-                time_s=time_s,
-                step_s=step_s,
-                deadline_time=deadline_time,
-                compute_time_s=compute_time_s,
-                compute_power_w=compute_config.cpu_power_w,
-                battery=battery,
-            )
-            return projected
-
-        def route_transmission_energy(
-            *, task: Task, route: Route, compute_time_s: float
-        ) -> dict[int, float]:
-            route_cost = estimate_route_cost(
-                task=task,
-                route=route,
-                compute_config=compute_config,
-                isl_config=isl_config,
-            )
-            transmission_by_sat = dict(route_cost.energy_by_sat)
-            target_compute_energy_j = (
-                compute_config.cpu_power_w * compute_time_s
-            )
-            target_energy_j = transmission_by_sat.get(route.target_sat, 0.0)
-            target_transmission_j = max(
-                0.0,
-                target_energy_j - target_compute_energy_j,
-            )
-            if target_transmission_j > 0.0:
-                transmission_by_sat[route.target_sat] = target_transmission_j
-            else:
-                transmission_by_sat.pop(route.target_sat, None)
-            return transmission_by_sat
-
-        def route_is_energy_safe(
-            transmission_by_sat: dict[int, float],
-        ) -> bool:
-            for sat_id, additional_energy_j in transmission_by_sat.items():
-                sat = by_id[sat_id]
-                total_reserved_j = (
-                    reserved_transmission_energy_j[sat_id]
-                    + additional_energy_j
-                )
-                if sat.sunlit:
-                    # Transmission is tiny and is paid while the route's task
-                    # executes.  Reserving it against the current battery is
-                    # conservative because this omits concurrent harvesting.
-                    if sat.battery_j - total_reserved_j < battery.min_safe_j:
-                        return False
-                    continue
-
-                minimum_battery_j = self._minimum_battery_until_next_sun(
-                    sat=sat,
-                    available_time_s=reserved_available_time[sat_id],
-                    time_s=time_s,
-                    step_s=step_s,
-                    compute_time_s=0.0,
-                    compute_power_w=compute_config.cpu_power_w,
-                    battery=battery,
-                )
-                if (
-                    minimum_battery_j is None
-                    or minimum_battery_j - total_reserved_j
-                    < battery.min_safe_j
-                ):
-                    return False
-            return True
-
-        def peer_candidate(
-            *,
-            heap: list[tuple[float, int]],
-            task: Task,
-            source: SatelliteView,
-            deadline_time: float,
-            compute_time_s: float,
-        ) -> tuple[float, float, int, Route, dict[int, float]] | None:
-            temporarily_skipped: list[tuple[float, int]] = []
-            chosen = None
-
-            while heap:
-                recorded_available_time, candidate_sat_id = heapq.heappop(heap)
-                current_available_time = reserved_available_time[candidate_sat_id]
-                if abs(recorded_available_time - current_available_time) > 1e-9:
-                    continue
-                if candidate_sat_id == source.sat_id:
-                    temporarily_skipped.append(
-                        (recorded_available_time, candidate_sat_id)
-                    )
-                    continue
-
-                reversed_route_nodes = route_nodes_reversed(
-                    route_parents_by_source[source.sat_id],
-                    candidate_sat_id,
-                )
-                if reversed_route_nodes is None:
-                    temporarily_skipped.append(
-                        (recorded_available_time, candidate_sat_id)
-                    )
-                    continue
-
-                candidate = by_id[candidate_sat_id]
-                result = execution_result(
-                    sat=candidate,
-                    available_time_s=current_available_time,
-                    deadline_time=deadline_time,
-                    compute_time_s=compute_time_s,
-                )
-                if result is None:
-                    # Later heap entries have no earlier CPU availability.
-                    temporarily_skipped.append(
-                        (recorded_available_time, candidate_sat_id)
-                    )
-                    break
-
-                cost, finish_time, battery_safe = result
-                if not battery_safe:
-                    # With identical task sizes (the paper workload), this
-                    # candidate cannot become safe again during this batch.
-                    # Preserve it only when a smaller task later in the EDF
-                    # sequence could still use its remaining energy margin.
-                    if compute_time_s > minimum_compute_time_s:
-                        temporarily_skipped.append(
-                            (recorded_available_time, candidate_sat_id)
-                        )
-                    continue
-
-                route = Route(tuple(reversed(reversed_route_nodes)))
-                transmission_by_sat = route_transmission_energy(
-                    task=task,
-                    route=route,
-                    compute_time_s=compute_time_s,
-                )
-                if not route_is_energy_safe(transmission_by_sat):
-                    temporarily_skipped.append(
-                        (recorded_available_time, candidate_sat_id)
-                    )
-                    continue
-                chosen = (
-                    cost,
-                    finish_time,
-                    candidate_sat_id,
-                    route,
-                    transmission_by_sat,
-                )
-                temporarily_skipped.append(
-                    (recorded_available_time, candidate_sat_id)
-                )
-                break
-
-            for entry in temporarily_skipped:
-                heapq.heappush(heap, entry)
-            return chosen
-
-        assignments: list[Assignment] = []
-        deferred_workload_s = {sat.sat_id: 0.0 for sat in satellite_views}
-
-        for task in ordered_tasks:
-            assert task.source_sat is not None
-            source = by_id[task.source_sat]
-            deadline_time = task.created_time_s + task.deadline_s
-            compute_time_s = task_compute_time_s(task, compute_config)
-
-            local = execution_result(
-                sat=source,
-                available_time_s=reserved_available_time[source.sat_id],
-                deadline_time=deadline_time,
-                compute_time_s=compute_time_s,
-            )
-            local_choice = None
-            if local is not None and local[2]:
-                local_choice = (
-                    local[0],
-                    local[1],
-                    source.sat_id,
-                    Route((source.sat_id,)),
-                    {},
-                )
-
-            sunlit_choice = peer_candidate(
-                heap=sunlit_heap,
-                task=task,
-                source=source,
-                deadline_time=deadline_time,
-                compute_time_s=compute_time_s,
-            )
-
-            immediate_choices = []
-            if source.sunlit:
-                if local_choice is not None:
-                    immediate_choices.append((0, local_choice))
-                if sunlit_choice is not None:
-                    immediate_choices.append((1, sunlit_choice))
-            else:
-                if sunlit_choice is not None:
-                    immediate_choices.append((0, sunlit_choice))
-                if local_choice is not None:
-                    immediate_choices.append((1, local_choice))
-
-            chosen = None
-            if immediate_choices:
-                _, chosen = min(
-                    immediate_choices,
-                    key=lambda item: (item[1][1], item[0]),
-                )
-            else:
-                chosen = peer_candidate(
-                    heap=eclipse_heap,
-                    task=task,
-                    source=source,
-                    deadline_time=deadline_time,
-                    compute_time_s=compute_time_s,
-                )
-
-            if chosen is not None:
-                (
-                    cost,
-                    finish_time,
-                    target_sat_id,
-                    route,
-                    transmission_by_sat,
-                ) = chosen
-                mode = "local" if target_sat_id == source.sat_id else "offload"
-                assignments.append(
-                    Assignment(
-                        task_id=task.task_id,
-                        route=route,
-                        mode=mode,
-                        score=cost,
-                    )
-                )
-                reserved_available_time[target_sat_id] = finish_time
-                for sat_id, energy_j in transmission_by_sat.items():
-                    reserved_transmission_energy_j[sat_id] += energy_j
-                target_heap = (
-                    sunlit_heap if by_id[target_sat_id].sunlit else eclipse_heap
-                )
-                heapq.heappush(target_heap, (finish_time, target_sat_id))
-                continue
-
-            defer_cost = super()._normalized_defer_cost(
-                time_s=time_s,
-                step_s=step_s,
-                deadline_time=deadline_time,
-                compute_time_s=compute_time_s,
-                deferred_workload_s=deferred_workload_s[source.sat_id],
-                has_feasible_sunlit_execution=False,
-                local_eclipse_cost=None,
-            )
-            if defer_cost < float("inf"):
-                assignments.append(
-                    Assignment(
-                        task_id=task.task_id,
-                        route=Route((source.sat_id,)),
-                        mode="defer",
-                        score=defer_cost,
-                    )
-                )
-                deferred_workload_s[source.sat_id] += compute_time_s
-            else:
-                assignments.append(
-                    Assignment(
-                        task_id=task.task_id,
-                        route=Route((source.sat_id,)),
-                        mode="fail",
-                        score=float("inf"),
-                        failed_reason="no_safe_capacity_before_deadline",
-                    )
-                )
-
-        return assignments
-
-
-class Method6Scheduler(Method3ModScheduler):
-    """Method3-mod with a conservative eclipse offload fallback.
-
-    The primary policy remains the Method3-mod preference for local/sunlit
-    execution.  Eclipse peers are admitted only when their projected queue
-    stays above the battery threshold, and their cost is kept high while
-    low-load sunlit capacity is still available.
-    """
-
-    name = "method6"
-
     def __init__(self) -> None:
         super().__init__()
         self._route_cache_key = None
         self._route_parents_cache: dict[int, dict[int, int | None]] = {}
         self._route_cost_cache: dict[tuple, RouteCost] = {}
-
-    def _allow_unsafe_local_emergency(self) -> bool:
-        return False
-
-    def _restore_eclipse_candidate_after_route_rejection(self) -> bool:
-        return False
-
-    def _short_circuit_non_eclipse_actions(self) -> bool:
-        return False
 
     def _short_circuit_local_action(
         self,
@@ -2652,37 +1435,11 @@ class Method6Scheduler(Method3ModScheduler):
         """
 
         return (
-            self._short_circuit_non_eclipse_actions()
-            and source.sunlit
+            source.sunlit
             and local_hard_safe
             and local_finish is not None
             and local_finish <= float(time_s) + step_s
         )
-
-    def _source_can_offload(
-        self,
-        *,
-        source: SatelliteView,
-        task: Task,
-        reserved_energy: dict[int, float],
-        battery: BatteryConfig,
-        isl_config: ISLConfig,
-    ) -> bool:
-        return True
-
-    def _retry_route_after_energy_rejection(
-        self,
-        *,
-        isl_graph: ISLGraph,
-        source_sat: int,
-        target_sat: int,
-        task: Task,
-        satellite_by_id: dict[int, SatelliteView],
-        reserved_energy: dict[int, float],
-        battery: BatteryConfig,
-        isl_config: ISLConfig,
-    ) -> Route | None:
-        return None
 
     def _blocked_route_relays(
         self,
@@ -2693,7 +1450,23 @@ class Method6Scheduler(Method3ModScheduler):
         battery: BatteryConfig,
         isl_config: ISLConfig,
     ) -> set[int]:
-        return set()
+        max_relay_energy_j = max(
+            (
+                transmission_energy_j(task.input_bits, isl_config)
+                + transmission_energy_j(task.output_bits, isl_config)
+                for task in ordered_tasks
+            ),
+            default=0.0,
+        )
+        return {
+            sat_id
+            for sat_id, sat in satellite_by_id.items()
+            if not sat.sunlit
+            and sat.battery_j
+            - reserved_energy_for_sat(reserved_energy, sat_id)
+            - max_relay_energy_j
+            < battery.min_safe_j
+        }
 
     def _peek_least_loaded_safe_eclipse_mod(
         self,
@@ -2713,8 +1486,6 @@ class Method6Scheduler(Method3ModScheduler):
         compute_power_w: float,
         battery: BatteryConfig,
         compute_config: ComputeConfig,
-        isl_config: ISLConfig,
-        isl_graph: ISLGraph,
         exclude_sat_id: int,
         protected_cost: float | None,
     ) -> tuple[float, float, int, Route, RouteCost] | None:
@@ -2808,36 +1579,7 @@ class Method6Scheduler(Method3ModScheduler):
                 compute_config=compute_config,
             )
             if not route_is_safe:
-                retry_route = self._retry_route_after_energy_rejection(
-                    isl_graph=isl_graph,
-                    source_sat=exclude_sat_id,
-                    target_sat=sat_id,
-                    task=task,
-                    satellite_by_id=satellite_by_id,
-                    reserved_energy=reserved_energy,
-                    battery=battery,
-                    isl_config=isl_config,
-                )
-                if retry_route is not None:
-                    retry_cost = route_cost_for(task, retry_route)
-                    if route_respects_battery_projection(
-                        route=retry_route,
-                        route_cost=retry_cost,
-                        satellite_by_id=satellite_by_id,
-                        reserved_available_time=reserved_available_time,
-                        reserved_energy=reserved_energy,
-                        time_s=time_s,
-                        step_s=step_s,
-                        battery=battery,
-                        compute_config=compute_config,
-                    ):
-                        route = retry_route
-                        route_cost = retry_cost
-                        route_is_safe = True
-
-            if not route_is_safe:
-                if self._restore_eclipse_candidate_after_route_rejection():
-                    skipped_entries.append((recorded_load, sat_id))
+                skipped_entries.append((recorded_load, sat_id))
                 continue
 
             chosen = (
@@ -3044,23 +1786,14 @@ class Method6Scheduler(Method3ModScheduler):
             sun_sat_id = None
             sun_route = None
 
-            source_can_offload = self._source_can_offload(
-                source=source,
-                task=task,
-                reserved_energy=reserved_energy,
-                battery=battery,
-                isl_config=isl_config,
-            )
-
             best_sunlit = (
                 self._peek_least_loaded_sunlit_mod(
                     sunlit_heap=sunlit_heap,
                     reserved_available_time=reserved_available_time,
-                    satellite_by_id=by_id,
                     time_s=time_s,
                     exclude_sat_id=source.sat_id,
                 )
-                if source_can_offload and not prefer_local
+                if not prefer_local
                 else None
             )
 
@@ -3098,34 +1831,6 @@ class Method6Scheduler(Method3ModScheduler):
                             battery=battery,
                             compute_config=compute_config,
                         )
-                        if not route_is_safe:
-                            retry_route = self._retry_route_after_energy_rejection(
-                                isl_graph=isl_graph,
-                                source_sat=source.sat_id,
-                                target_sat=candidate_sat_id,
-                                task=task,
-                                satellite_by_id=by_id,
-                                reserved_energy=reserved_energy,
-                                battery=battery,
-                                isl_config=isl_config,
-                            )
-                            if retry_route is not None:
-                                retry_cost = route_cost_for(task, retry_route)
-                                if route_respects_battery_projection(
-                                    route=retry_route,
-                                    route_cost=retry_cost,
-                                    satellite_by_id=by_id,
-                                    reserved_available_time=reserved_available_time,
-                                    reserved_energy=reserved_energy,
-                                    time_s=time_s,
-                                    step_s=step_s,
-                                    battery=battery,
-                                    compute_config=compute_config,
-                                ):
-                                    route = retry_route
-                                    route_cost = retry_cost
-                                    route_is_safe = True
-
                         if route_is_safe:
                             sun_cost = candidate_cost
                             sun_finish = candidate_finish
@@ -3133,10 +1838,7 @@ class Method6Scheduler(Method3ModScheduler):
                             sun_route = route
                             sun_route_cost = route_cost
 
-            prefer_sunlit = (
-                self._short_circuit_non_eclipse_actions()
-                and sun_cost < float("inf")
-            )
+            prefer_sunlit = sun_cost < float("inf")
 
             protected_costs = []
             if source.sunlit and local_hard_safe and local_cost < float("inf"):
@@ -3168,12 +1870,10 @@ class Method6Scheduler(Method3ModScheduler):
                     compute_power_w=compute_config.cpu_power_w,
                     battery=battery,
                     compute_config=compute_config,
-                    isl_config=isl_config,
-                    isl_graph=isl_graph,
                     exclude_sat_id=source.sat_id,
                     protected_cost=protected_cost,
                 )
-                if source_can_offload and not prefer_local and not prefer_sunlit
+                if not prefer_local and not prefer_sunlit
                 else None
             )
             eclipse_cost = float("inf")
@@ -3343,115 +2043,15 @@ class Method6Scheduler(Method3ModScheduler):
         return assignments
 
 
-class Method7Scheduler(Method6Scheduler):
-    """Method6 with stable eclipse heaps and battery-constrained routing."""
 
-    name = "method7"
+class PhoenixScheduler(Scheduler):
+    """Schedule tasks using bounded PHOENIX energy-aware peer selection."""
+
+    name = "phoenix"
     queue_discipline = "edf"
-
-    def _restore_eclipse_candidate_after_route_rejection(self) -> bool:
-        return True
-
-    def _short_circuit_non_eclipse_actions(self) -> bool:
-        return True
-
-    def _blocked_route_relays(
-        self,
-        *,
-        ordered_tasks: list[Task],
-        satellite_by_id: dict[int, SatelliteView],
-        reserved_energy: dict[int, float],
-        battery: BatteryConfig,
-        isl_config: ISLConfig,
-    ) -> set[int]:
-        max_relay_energy_j = max(
-            (
-                transmission_energy_j(task.input_bits, isl_config)
-                + transmission_energy_j(task.output_bits, isl_config)
-                for task in ordered_tasks
-            ),
-            default=0.0,
-        )
-        return {
-            sat_id
-            for sat_id, sat in satellite_by_id.items()
-            if not sat.sunlit
-            and sat.battery_j
-            - reserved_energy_for_sat(reserved_energy, sat_id)
-            - max_relay_energy_j
-            < battery.min_safe_j
-        }
-
-
-class Method8Scheduler(Method7Scheduler):
-    """Method7 with one dynamic reroute and impossible-source pruning."""
-
-    name = "method8"
-
-    def _source_can_offload(
-        self,
-        *,
-        source: SatelliteView,
-        task: Task,
-        reserved_energy: dict[int, float],
-        battery: BatteryConfig,
-        isl_config: ISLConfig,
-    ) -> bool:
-        if source.sunlit:
-            return True
-        source_tx_energy_j = transmission_energy_j(task.input_bits, isl_config)
-        projected_battery_j = source.battery_j - reserved_energy_for_sat(
-            reserved_energy,
-            source.sat_id,
-        )
-        return projected_battery_j - source_tx_energy_j >= battery.min_safe_j
-
-    def _retry_route_after_energy_rejection(
-        self,
-        *,
-        isl_graph: ISLGraph,
-        source_sat: int,
-        target_sat: int,
-        task: Task,
-        satellite_by_id: dict[int, SatelliteView],
-        reserved_energy: dict[int, float],
-        battery: BatteryConfig,
-        isl_config: ISLConfig,
-    ) -> Route | None:
-        relay_energy_j = (
-            transmission_energy_j(task.input_bits, isl_config)
-            + transmission_energy_j(task.output_bits, isl_config)
-        )
-        blocked_relays = {
-            sat_id
-            for sat_id, sat in satellite_by_id.items()
-            if not sat.sunlit
-            and sat.battery_j
-            - reserved_energy_for_sat(reserved_energy, sat_id)
-            - relay_energy_j
-            < battery.min_safe_j
-        }
-        parents = build_route_tree(
-            isl_graph,
-            source_sat,
-            blocked_relays - {source_sat, target_sat},
-        )
-        return route_from_parents(parents, target_sat)
-
-
-class _PhoenixSchedulerBase(Scheduler):
-    """Shared PHOENIX helper logic without a public scheduler registration.
-
-    The simulator has no ground-station model and no per-task scheduled start
-    time, so Phoenix2 uses these bounded peer-selection helpers with its own
-    batch-local scheduling state.
-    """
 
     def __init__(self) -> None:
         self.plane_load_by_plane: dict[int, float] = {}
-        # Backward-compatible alias for older tests/scripts.  The value is no
-        # longer a task count; it is the compute/energy load assigned to a plane.
-        self.task_count_by_plane = self.plane_load_by_plane
 
     def _candidate_finish_time(
         self,
@@ -3800,19 +2400,6 @@ class _PhoenixSchedulerBase(Scheduler):
             )
 
 
-class Phoenix2Scheduler(_PhoenixSchedulerBase):
-    """PHOENIX variant with bounded scheduling state.
-
-    This keeps the current PHOENIX energy-aware peer scoring, but restores the
-    f2fd36e state handling:
-
-    * orbit-plane load is bounded to one assign_tasks() batch;
-    * deferred local work reserves future source capacity in that batch.
-    """
-
-    name = "phoenix2"
-    queue_discipline = "edf"
-
     def _defer_time_if_deadline_safe_with_reservation(
         self,
         *,
@@ -3878,7 +2465,6 @@ class Phoenix2Scheduler(_PhoenixSchedulerBase):
         # lifetime counter.  Use one assign_tasks() batch as the horizon and
         # expose the last batch for diagnostics.
         self.plane_load_by_plane = {}
-        self.task_count_by_plane = self.plane_load_by_plane
 
         assignments = []
         routes_by_source: dict[int, dict[int, Route]] = {}
@@ -4022,25 +2608,20 @@ class Phoenix2Scheduler(_PhoenixSchedulerBase):
         return assignments
 
 
+SCHEDULER_TYPES: dict[str, type[Scheduler]] = {
+    scheduler_type.name: scheduler_type
+    for scheduler_type in (
+        LocalOnlyScheduler,
+        NearestSunlitScheduler,
+        GreedyEnergyScheduler,
+        StarlitScheduler,
+        PhoenixScheduler,
+    )
+}
+
+
 def create_scheduler(name: str) -> Scheduler:
-    if name == LocalOnlyScheduler.name:
-        return LocalOnlyScheduler()
-    if name == NearestSunlitScheduler.name:
-        return NearestSunlitScheduler()
-    if name == GreedyEnergyScheduler.name:
-        return GreedyEnergyScheduler()
-    if name == Method3Scheduler.name:
-        return Method3Scheduler()
-    if name == Method3ModScheduler.name:
-        return Method3ModScheduler()
-    if name == Method5Scheduler.name:
-        return Method5Scheduler()
-    if name == Method6Scheduler.name:
-        return Method6Scheduler()
-    if name == Method7Scheduler.name:
-        return Method7Scheduler()
-    if name == Method8Scheduler.name:
-        return Method8Scheduler()
-    if name in {Phoenix2Scheduler.name, "phoenix"}:
-        return Phoenix2Scheduler()
-    raise ValueError(f"unknown scheduler: {name}")
+    try:
+        return SCHEDULER_TYPES[name]()
+    except KeyError as exc:
+        raise ValueError(f"unknown scheduler: {name}") from exc

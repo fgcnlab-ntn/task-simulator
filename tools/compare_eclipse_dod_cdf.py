@@ -11,7 +11,12 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from satmulator.plot_styles import METHOD_ORDER, line_kwargs, method_style
+from satmulator.plot_styles import (
+    METHOD_ORDER,
+    canonical_method,
+    line_kwargs,
+    method_style,
+)
 from tools.plot_output import format_written, save_png_pdf
 
 FIXED_X_MAX = 50.0
@@ -20,15 +25,9 @@ Y_TICKS = [i / 5.0 for i in range(6)]
 CDF_POINT_LEVELS = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
 
 
-def _canonical_method_name(run_name: str) -> str:
-    if run_name == "method3":
-        return "Method3"
-    return run_name
-
-
 def _sort_key(run_name: str) -> int:
     try:
-        return METHOD_ORDER.index(_canonical_method_name(run_name))
+        return METHOD_ORDER.index(canonical_method(run_name))
     except ValueError:
         return len(METHOD_ORDER)
 
@@ -66,7 +65,7 @@ def load_capacity_j(run_dir: Path) -> float:
 
 
 def default_label(run_dir: Path) -> str:
-    return method_style(_canonical_method_name(run_dir.name.replace("_", "-"))).label
+    return method_style(run_dir.name.replace("_", "-")).label
 
 
 def load_eclipse_dod_values(run_dir: Path) -> list[float]:

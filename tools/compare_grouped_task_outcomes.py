@@ -12,7 +12,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from satmulator.plot_styles import method_style
+from satmulator.plot_styles import find_method_run_dir, method_style
 from tools.plot_output import format_written, save_png_pdf
 
 
@@ -20,8 +20,8 @@ DEFAULT_METHODS = [
     "local-only",
     "nearest-sunlit",
     "greedy-energy",
-    "phoenix2",
-    "method7",
+    "phoenix",
+    "starlit",
 ]
 MIN_GROUPS = 4
 MAX_GROUPS = 18
@@ -159,7 +159,12 @@ def collect_rows_from_dirs(
         group_labels,
     ):
         for method in methods:
-            summary_path = group_dir / method / "summary.json"
+            run_dir = find_method_run_dir(group_dir, method)
+            if run_dir is None:
+                raise FileNotFoundError(
+                    f"missing output directory for {method} under {group_dir}"
+                )
+            summary_path = run_dir / "summary.json"
             if not summary_path.is_file():
                 raise FileNotFoundError(f"missing summary file: {summary_path}")
             failed, fail_rate = load_fail_rate(summary_path)

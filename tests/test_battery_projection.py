@@ -168,7 +168,7 @@ def test_battery_reservation_keeps_headroom_and_spending_separate() -> None:
     assert reservation.spent_transmission_j[0] == 0.0
 
 
-def test_phoenix2_tries_safe_peer_after_local_battery_rejection() -> None:
+def test_phoenix_tries_safe_peer_after_local_battery_rejection() -> None:
     source = _sunlit_satellite()
     peer = SatelliteView(
         sat_id=1,
@@ -184,7 +184,7 @@ def test_phoenix2_tries_safe_peer_after_local_battery_rejection() -> None:
         next_sunlit_time_s=140.0,
     )
 
-    assignments = create_scheduler("phoenix2").assign_tasks(
+    assignments = create_scheduler("phoenix").assign_tasks(
         tasks=[_task()],
         satellite_views=[source, peer],
         time_s=0,
@@ -200,7 +200,7 @@ def test_phoenix2_tries_safe_peer_after_local_battery_rejection() -> None:
     assert assignments[0].target_sat == 1
 
 
-def test_method7_projects_once_per_satellite_not_once_per_task(monkeypatch) -> None:
+def test_starlit_projects_once_per_satellite_not_once_per_task(monkeypatch) -> None:
     import satmulator.scheduler as scheduler_module
 
     calls = 0
@@ -216,7 +216,7 @@ def test_method7_projects_once_per_satellite_not_once_per_task(monkeypatch) -> N
         "minimum_projected_battery_until_recharge",
         counted_projection,
     )
-    scheduler = create_scheduler("method7")
+    scheduler = create_scheduler("starlit")
     tasks = [
         Task(
             task_id=task_id,
@@ -259,11 +259,11 @@ def test_method7_projects_once_per_satellite_not_once_per_task(monkeypatch) -> N
     assert calls == len(satellite_views)
 
 
-def test_method7_stops_after_safe_sunlit_local_action(monkeypatch) -> None:
+def test_starlit_stops_after_safe_sunlit_local_action(monkeypatch) -> None:
     import satmulator.scheduler as scheduler_module
-    from satmulator.scheduler import Method7Scheduler
+    from satmulator.scheduler import StarlitScheduler
 
-    class NoEclipseSearchMethod7(Method7Scheduler):
+    class NoEclipseSearchStarlit(StarlitScheduler):
         def _peek_least_loaded_safe_eclipse_mod(self, **kwargs):
             raise AssertionError("eclipse action must not be evaluated")
 
@@ -297,7 +297,7 @@ def test_method7_stops_after_safe_sunlit_local_action(monkeypatch) -> None:
         deadline_s=100.0,
     )
 
-    assignments = NoEclipseSearchMethod7().assign_tasks(
+    assignments = NoEclipseSearchStarlit().assign_tasks(
         tasks=[task],
         satellite_views=[sat],
         time_s=0,
@@ -311,8 +311,8 @@ def test_method7_stops_after_safe_sunlit_local_action(monkeypatch) -> None:
     assert assignments[0].mode == "local"
 
 
-def test_method7_does_not_short_circuit_congested_sunlit_local() -> None:
-    from satmulator.scheduler import Method7Scheduler
+def test_starlit_does_not_short_circuit_congested_sunlit_local() -> None:
+    from satmulator.scheduler import StarlitScheduler
 
     source = SatelliteView(
         sat_id=0,
@@ -349,7 +349,7 @@ def test_method7_does_not_short_circuit_congested_sunlit_local() -> None:
         deadline_s=100.0,
     )
 
-    assignments = Method7Scheduler().assign_tasks(
+    assignments = StarlitScheduler().assign_tasks(
         tasks=[task],
         satellite_views=[source, target],
         time_s=0,
@@ -364,12 +364,12 @@ def test_method7_does_not_short_circuit_congested_sunlit_local() -> None:
     assert assignments[0].target_sat == 1
 
 
-def test_method7_does_not_rescan_compute_rejected_eclipse_targets(
+def test_starlit_does_not_rescan_compute_rejected_eclipse_targets(
     monkeypatch,
 ) -> None:
-    from satmulator.scheduler import Method7Scheduler
+    from satmulator.scheduler import StarlitScheduler
 
-    class UnblockedMethod7(Method7Scheduler):
+    class UnblockedStarlit(StarlitScheduler):
         def _blocked_route_relays(self, **kwargs):
             return set()
 
@@ -398,7 +398,7 @@ def test_method7_does_not_rescan_compute_rejected_eclipse_targets(
     ]
     tasks = [replace(_task(), task_id=task_id) for task_id in (1, 2)]
 
-    UnblockedMethod7().assign_tasks(
+    UnblockedStarlit().assign_tasks(
         tasks=tasks,
         satellite_views=satellites,
         time_s=0,
@@ -418,13 +418,8 @@ def test_method7_does_not_rescan_compute_rejected_eclipse_targets(
         "local",
         "nearest-sunlit",
         "greedy-energy",
-        "method3",
-        "method3_mod",
-        "method5",
-        "method6",
-        "method7",
-        "method8",
-        "phoenix2",
+        "starlit",
+        "phoenix",
     ],
 )
 def test_schedulers_do_not_accept_work_that_spends_eclipse_reserve(
@@ -444,3 +439,13 @@ def test_schedulers_do_not_accept_work_that_spends_eclipse_reserve(
 
     assert len(assignments) == 1
     assert assignments[0].mode in {"defer", "fail"}
+
+
+def test_method7_is_not_a_scheduler_alias() -> None:
+    with pytest.raises(ValueError, match="unknown scheduler"):
+        create_scheduler("method7")
+
+
+def test_phoenix2_is_not_a_scheduler_alias() -> None:
+    with pytest.raises(ValueError, match="unknown scheduler"):
+        create_scheduler("phoenix2")

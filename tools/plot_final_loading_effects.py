@@ -12,7 +12,12 @@ from matplotlib.ticker import MultipleLocator
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from satmulator.plot_styles import canonical_method, method_style, ordered_methods
+from satmulator.plot_styles import (
+    canonical_method,
+    find_method_run_dir,
+    method_style,
+    ordered_methods,
+)
 from tools.plot_output import save_png_pdf
 
 DEFAULT_RUN_METHODS = [
@@ -20,8 +25,7 @@ DEFAULT_RUN_METHODS = [
     "nearest-sunlit",
     "greedy-energy",
     "phoenix",
-    "method3",
-    "method3mod",
+    "starlit",
 ]
 LOADING_RE = re.compile(r"^r(?P<pct>\d+(?:\.\d+)?)$")
 
@@ -75,14 +79,11 @@ def method_order_map(methods: list[str]) -> dict[str, int]:
 
 
 def method_summary_file(group_dir: Path, method: str) -> Path | None:
-    summary_file = group_dir / method / "summary.json"
-    if summary_file.exists():
-        return summary_file
-    if method == "phoenix2" and group_dir.name == "r70":
-        fallback_file = group_dir / "phoenix" / "summary.json"
-        if fallback_file.exists():
-            return fallback_file
-    return None
+    run_dir = find_method_run_dir(group_dir, method)
+    if run_dir is None:
+        return None
+    summary_file = run_dir / "summary.json"
+    return summary_file if summary_file.exists() else None
 
 
 def collect_rows(

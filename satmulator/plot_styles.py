@@ -24,7 +24,7 @@ METHOD_ORDER: tuple[str, ...] = (
     "nearest-sunlit",
     "greedy-energy",
     "phoenix",
-    "method7",
+    "starlit",
 )
 
 _METHOD_STYLES: dict[str, MethodPlotStyle] = {
@@ -60,8 +60,8 @@ _METHOD_STYLES: dict[str, MethodPlotStyle] = {
         hatch="//",
         marker="D",
     ),
-    "method7": MethodPlotStyle(
-        method="method7",
+    "starlit": MethodPlotStyle(
+        method="starlit",
         label="Starlit",
         color="#D62728",
         alpha=METHOD_ALPHA,
@@ -76,7 +76,16 @@ _METHOD_ALIASES = {
     "greedy-energy": "greedy-energy",
     "phoenix2": "phoenix",
     "phoenix": "phoenix",
-    "method7": "method7",
+    "starlit": "starlit",
+    "method7": "starlit",
+}
+
+_RUN_DIRECTORY_NAMES = {
+    "local-only": ("local-only",),
+    "nearest-sunlit": ("nearest-sunlit",),
+    "greedy-energy": ("greedy-energy",),
+    "phoenix": ("phoenix", "phoenix2"),
+    "starlit": ("starlit", "method7"),
 }
 
 
@@ -92,6 +101,17 @@ def run_display_label(run_dir: str | Path) -> str:
     if name == "phoenix2":
         return "phoenix"
     return name
+
+
+def find_method_run_dir(parent: Path, method: str) -> Path | None:
+    """Find a current or historical output directory for a method."""
+
+    canonical = canonical_method(method)
+    for directory_name in _RUN_DIRECTORY_NAMES[canonical]:
+        run_dir = parent / directory_name
+        if run_dir.is_dir():
+            return run_dir
+    return None
 
 
 def method_style(method: str) -> MethodPlotStyle:

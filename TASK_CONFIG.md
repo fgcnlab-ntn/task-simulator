@@ -53,7 +53,7 @@ compute_energy_j = compute_time_s * cpu_power_w
 Task records include `waiting_time_s`. Waiting for coverage counts toward
 `total_time_s` and the task deadline.
 
-`method7` and `phoenix2` use non-preemptive EDF execution queues. Before an
+`starlit` and `phoenix` use non-preemptive EDF execution queues. Before an
 assignment is admitted, the simulator inserts it into a projection of the
 target satellite's complete queue, keeps any partially executed task at the
 front, sorts the remaining tasks by absolute deadline, and verifies every

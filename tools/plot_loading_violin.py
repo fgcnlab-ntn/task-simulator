@@ -28,7 +28,7 @@ from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 from matplotlib.ticker import FuncFormatter, MultipleLocator
 
-from satmulator.plot_styles import EDGE_COLOR, method_style
+from satmulator.plot_styles import EDGE_COLOR, find_method_run_dir, method_style
 from tools.plot_output import format_written, save_png_pdf
 
 
@@ -36,8 +36,8 @@ RUN_METHODS = (
     "local-only",
     "nearest-sunlit",
     "greedy-energy",
-    "phoenix2",
-    "method7",
+    "phoenix",
+    "starlit",
 )
 COMPLETED_CACHE_NAME = "loading-completed-tasks.csv"
 ILLUMINATION_CACHE_NAME = "loading-illumination-compute-ratio.csv"
@@ -66,9 +66,9 @@ sns.set_theme(
 
 def discover_run_dirs(base_dir: Path) -> list[Path]:
     return [
-        base_dir / method
+        run_dir
         for method in RUN_METHODS
-        if (base_dir / method).is_dir()
+        if (run_dir := find_method_run_dir(base_dir, method)) is not None
     ]
 
 
