@@ -8,60 +8,15 @@ import time
 from pathlib import Path
 from .models import BatteryConfig, ComputeConfig, ISLConfig, SchedulerConfig, TaskConfig
 from .orbit import iter_circular_states, iter_tle_states
-from .plotting import render_run_plots
 from .runlog import RunLog
 from .scheduler import create_scheduler
 from .workload import demand_points_provenance, load_demand_points
 
 
-DEFAULT_CONFIG = {
-    "run_name": "satmulator",
-    "run_description": "",
-    "orbit_model": "circular",
-    "tle_file": None,
-    "sun_position_file": "de440s.bsp",
-    "start_utc": "2026-05-22T12:00:00Z",
-    "satellites": 1584,
-    "planes": 72,
-    "altitude_km": 550.0,
-    "inclination_deg": 53.05,
-    "duration_s": 1800,
-    "step_s": 30,
-    "walker_phase": 1,
-    "battery_capacity_j": 100000.0,
-    "battery_initial_pct": 80.0,
-    "battery_min_safe_pct": 70.0,
-    "harvest_w": 80.0,
-    "idle_w": 40.0,
-    "task_enable": True,
-    "scheduler": "local",
-    "task_interval_s": 300,
-    "task_generation_mode": "satellite-deterministic",
-    "task_random_seed": 42,
-    "tasks_per_sat": 1,
-    "tasks_per_step_choices": [0, 5, 10, 20],
-    "tasks_per_step_weights": [0.2, 0.4, 0.2, 0.2],
-    "task_input_bits": 1.0e7,
-    "task_input_bits_choices": [1.0e6, 1.0e7, 1.0e8],
-    "task_input_bits_weights": [0.6, 0.3, 0.1],
-    "task_output_bits": 1.0e6,
-    "task_output_bits_choices": [1.0e5, 1.0e6, 1.0e7],
-    "task_output_bits_weights": [0.6, 0.3, 0.1],
+OPTIONAL_CONFIG_DEFAULTS = {
     "task_compute_time_s": None,
-    "task_demand_points_file": None,
-    "task_min_elevation_deg": 30.0,
-    "task_deadline_s": 120.0,
     "task_deadline_distribution": "fixed",
     "task_deadline_min_s": 30.0,
-    "compute_cycles_per_input_bit": 737.5,
-    "satellite_cpu_frequency_hz": 1.0e9,
-    "satellite_cpu_power_w": 10.0,
-    "isl_rate_bps": 1.0e9,
-    "isl_tx_power_w": 10.0,
-    "isl_topology": "grid",
-    "isl_max_range_km": 5000.0,
-    "out": "output/minimal_orbit",
-    "logging_task_events": "full",
     "logging_state_steps": "full",
     "logging_summary_start_s": None,
     "logging_summary_duration_s": None,
@@ -148,22 +103,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument(
         "--config",
         type=Path,
+        required=True,
         help="complete standalone JSON config file",
-    )
-    p.add_argument("--duration-s", type=int)
-    p.add_argument("--step-s", type=int)
-    p.add_argument(
-        "--no-task",
-        dest="task_enable",
-        action="store_false",
-        default=None,
-        help="debug override to disable task generation and execution",
-    )
-    p.add_argument("--out", type=Path)
-    p.add_argument(
-        "--plot-run",
-        type=Path,
-        help="regenerate SVG plots from an existing JSON/JSONL run log",
     )
     return resolve_config(p.parse_args())
 
@@ -180,19 +121,9 @@ def flatten_config(config: dict) -> dict:
                 if target is None:
                     raise ValueError(f"unknown config key: {key}.{section_key}")
                 flat[target] = section_value
-        elif key in DEFAULT_CONFIG:
-            flat[key] = value
         else:
             raise ValueError(f"unknown config key: {key}")
     return flat
-
-
-def load_json_config(path: Path) -> dict:
-    with path.open() as f:
-        data = json.load(f)
-    if not isinstance(data, dict):
-        raise ValueError("top-level JSON config must be an object")
-    return flatten_config(data)
 
 
 def load_standalone_json_config(path: Path) -> dict:
@@ -243,19 +174,9 @@ def load_standalone_json_config(path: Path) -> dict:
 
 
 def resolve_config(cli_args: argparse.Namespace) -> argparse.Namespace:
-    cli_values = vars(cli_args).copy()
-    config_path = cli_values.pop("config", None)
-    plot_run = cli_values.pop("plot_run", None)
-    if config_path is not None:
-        values = DEFAULT_CONFIG.copy()
-        values.update(load_standalone_json_config(config_path))
-    else:
-        values = DEFAULT_CONFIG.copy()
-    values.update(
-        {key: value for key, value in cli_values.items() if value is not None}
-    )
-    values["config"] = config_path
-    values["plot_run"] = plot_run
+    config_path = cli_args.config
+    values = OPTIONAL_CONFIG_DEFAULTS.copy()
+    values.update(load_standalone_json_config(config_path))
     values["tle_file"] = (
         None if values["tle_file"] is None else Path(values["tle_file"])
     )
@@ -657,14 +578,9 @@ def run(args: argparse.Namespace) -> int:
         f"{battery_violations.get('unique_eclipse_breached_satellites', 0)}"
     )
     print(f"  output: {args.out.resolve()}")
-    print("  run --plot-run on this output directory to generate SVG plots")
     return 0
 
 
 def main() -> int:
     args = parse_args()
-    if args.plot_run is not None:
-        render_run_plots(args.plot_run)
-        print(f"Plots regenerated from {args.plot_run.resolve()}")
-        return 0
     return run(args)

@@ -73,7 +73,7 @@
     "name": "local"
   },
   "output": {
-    "path": "output/final-loading-ratio/r80/local-only"
+    "path": "output/all-planes/p72/local-only"
   },
   "logging": {
     "task_events": "off",

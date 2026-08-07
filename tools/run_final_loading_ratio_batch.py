@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import concurrent.futures as cf
+import json
 import os
 import shutil
 import threading
@@ -19,9 +20,7 @@ import sys
 from pathlib import Path
 
 
-# Keep the legacy output directory so existing completed runs are detected.
 DEFAULT_CONFIG_DIR = Path("configs/loading-ratio")
-DEFAULT_OUTPUT_DIR = Path("output/final-loading-ratio")
 DEFAULT_WORKERS = 9
 HEARTBEAT_INTERVAL_S = 30
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -71,9 +70,19 @@ def discover_configs(config_dir: Path) -> list[Path]:
     return configs
 
 
-def output_path_for(config_dir: Path, output_dir: Path, config_path: Path) -> Path:
-    relative = config_path.relative_to(config_dir)
-    return output_dir / relative.with_suffix("")
+def output_path_for(config_path: Path) -> Path:
+    with config_path.open() as stream:
+        config = json.load(stream)
+    if not isinstance(config, dict):
+        raise ValueError(f"{config_path}: top-level config must be an object")
+    output = config.get("output")
+    if not isinstance(output, dict):
+        raise ValueError(f"{config_path}: output section must be an object")
+    value = output.get("path")
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"{config_path}: output.path must be a non-empty string")
+    path = Path(value)
+    return path if path.is_absolute() else (REPO_ROOT / path).resolve()
 
 
 def should_skip(output_path: Path) -> bool:
@@ -113,8 +122,6 @@ def run_one(config_path: Path, output_path: Path) -> tuple[Path, int]:
         str(REPO_ROOT / "minimal_orbit.py"),
         "--config",
         str(config_path),
-        "--out",
-        str(output_path),
     ]
     with log_path.open("w") as log_file:
         process = subprocess.run(
@@ -122,6 +129,7 @@ def run_one(config_path: Path, output_path: Path) -> tuple[Path, int]:
             stdout=log_file,
             stderr=subprocess.STDOUT,
             check=False,
+            cwd=REPO_ROOT,
         )
     return config_path, process.returncode
 
@@ -182,7 +190,6 @@ def main() -> int:
         description="Run loading-ratio configs with a bounded worker pool."
     )
     parser.add_argument("--config-dir", type=Path, default=DEFAULT_CONFIG_DIR)
-    parser.add_argument("--out", type=Path, default=DEFAULT_OUTPUT_DIR)
     parser.add_argument("--workers", type=int, default=DEFAULT_WORKERS)
     parser.add_argument(
         "--ratios",
@@ -217,7 +224,6 @@ def main() -> int:
         raise ValueError("--archive-existing requires --force")
 
     config_dir = (REPO_ROOT / args.config_dir).resolve()
-    output_dir = (REPO_ROOT / args.out).resolve()
     configs = discover_configs(config_dir)
     if args.ratios:
         allowed_ratios = set(args.ratios)
@@ -237,8 +243,16 @@ def main() -> int:
         raise FileNotFoundError("no configs match the requested filters")
 
     jobs: list[tuple[Path, Path]] = []
+    claimed_outputs: dict[Path, Path] = {}
     for config_path in configs:
-        output_path = output_path_for(config_dir, output_dir, config_path)
+        output_path = output_path_for(config_path)
+        previous_config = claimed_outputs.get(output_path)
+        if previous_config is not None:
+            raise ValueError(
+                f"configs share output.path {output_path}: "
+                f"{previous_config} and {config_path}"
+            )
+        claimed_outputs[output_path] = config_path
         if not args.force and should_skip(output_path):
             print(f"skip {config_path} -> {output_path} (summary.json exists)")
             continue
@@ -265,7 +279,7 @@ def main() -> int:
     tracker = ProgressTracker(total)
     print_line(
         f"running {total} configs from {config_dir} "
-        f"with {args.workers} workers -> {output_dir}"
+        f"with {args.workers} workers"
     )
 
     failures: list[tuple[Path, int]] = []

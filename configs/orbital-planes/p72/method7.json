@@ -73,7 +73,7 @@
     "name": "method7"
   },
   "output": {
-    "path": "output/final-loading-ratio/r80/method7"
+    "path": "output/all-planes/p72/method7"
   },
   "logging": {
     "task_events": "off",

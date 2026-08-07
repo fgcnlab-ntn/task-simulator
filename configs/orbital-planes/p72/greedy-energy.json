@@ -73,7 +73,7 @@
     "name": "greedy-energy"
   },
   "output": {
-    "path": "output/final-loading-ratio/r80/greedy-energy"
+    "path": "output/all-planes/p72/greedy-energy"
   },
   "logging": {
     "task_events": "off",

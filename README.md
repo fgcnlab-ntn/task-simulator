@@ -14,7 +14,7 @@ The current model supports:
 - four-neighbor grid or fully-connected ISL routing with per-hop accounting
 - target load limits in CPU cycles per slot
 - summary metrics for eclipse unsafe ratio and task failure ratio
-- structured JSON/JSONL logs and SVG outputs for quick inspection
+- structured JSON/JSONL experiment logs
 
 It does not yet model queueing, link contention, or thermal throttling dynamics.
 
@@ -51,19 +51,19 @@ For offline TLE runs, copy `configs/template.json`, set the `orbit` section to `
 Use JSON config files for reproducible runs:
 
 ```bash
-python3 minimal_orbit.py --config configs/template.json
+python3 minimal_orbit.py --config configs/template/template.json
 ```
 
 Nearest-sunlit offloading:
 
 ```bash
-python3 minimal_orbit.py --config configs/nearest_sunlit.json
+python3 minimal_orbit.py --config configs/template/nearest_sunlit.json
 ```
 
 Task-oriented demand-point workload:
 
 ```bash
-python3 minimal_orbit.py --config configs/demand_points.json
+python3 minimal_orbit.py --config configs/template/demand_points.json
 ```
 
 CPU-power sweep for one satellite keeping its CPU fully active through a
@@ -89,32 +89,12 @@ which aggregates the global raster into 5° latitude/longitude cells. This keeps
 the controlled demand-energy sweep small enough for repeated runs while
 preserving essentially all source population.
 
-Regenerate plots from an existing run without rerunning the simulation:
+`--config` is required. Every simulation and output setting comes from the
+complete standalone config; the CLI does not override individual fields.
 
-```bash
-python3 minimal_orbit.py --plot-run output/minimal_orbit
-```
+TLE runs should be described by a complete standalone TLE config file.
 
-CLI only keeps run-control and debug overrides:
-
-```bash
-python3 minimal_orbit.py \
-  --config configs/template.json \
-  --duration-s 600 \
-  --no-task \
-  --out output/debug
-```
-
-TLE runs should be described by a complete standalone TLE config file; the CLI no longer carries orbit or topology fields.
-
-Config behavior:
-
-```text
-no --config: built-in defaults
---config: complete standalone JSON config < run-control/debug CLI overrides
-```
-
-The effective merged config is written to:
+The effective config is written to:
 
 ```text
 <output>/run.json
@@ -184,12 +164,8 @@ Each run writes:
 - `tasks.jsonl` — append-safe task lifecycle events
 - `summary.json` — final structured result summary
 
-JSON/JSONL files are the structured experiment log. SVG plots are derived
-artifacts and are generated separately from an existing run:
-
-```bash
-python3 minimal_orbit.py --plot-run output/minimal_orbit
-```
+JSON/JSONL files are the structured experiment log. Paper figures are generated
+separately by the scripts under `tools/`.
 
 `battery_violations.avg_eclipse_unsafe_ratio` is the mean over simulation
 steps of `unsafe eclipse satellites / eclipse satellites`.
@@ -222,7 +198,7 @@ See `TASK_CONFIG.md` for the task-oriented config fields.
 ## Code structure
 
 - `minimal_orbit.py` — CLI wrapper
-- `configs/` — complete standalone JSON configs; `template.json` is the copyable baseline
+- `configs/` — complete standalone JSON configs; `configs/template/template.json` is the copyable baseline
 - `satmulator/cli.py` — config parsing and run orchestration
 - `satmulator/runtime.py` — mutable satellite/environment state
 - `satmulator/models.py` — configs, tasks, assignments, snapshots
@@ -230,8 +206,6 @@ See `TASK_CONFIG.md` for the task-oriented config fields.
 - `satmulator/scheduler.py` — task assignment schedulers
 - `satmulator/battery.py` — battery update logic
 - `satmulator/runlog.py` — streaming JSON/JSONL experiment logs
-- `satmulator/plotting.py` — rebuilds SVG plots from experiment logs
-- `satmulator/output.py` — SVG writers
 - `satmulator/geometry.py` — geometry helpers
 
 ## Next work

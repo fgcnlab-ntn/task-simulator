@@ -73,7 +73,7 @@
     "name": "phoenix2"
   },
   "output": {
-    "path": "output/final-loading-ratio/r80/phoenix2"
+    "path": "output/all-planes/p72/phoenix2"
   },
   "logging": {
     "task_events": "off",
