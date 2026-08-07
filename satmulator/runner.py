@@ -105,7 +105,7 @@ def _print_summary(
 
 def run(config: SimulationConfig) -> int:
     config.output_path.mkdir(parents=True, exist_ok=True)
-    scheduler = create_scheduler(config.scheduler.name)
+    scheduler = create_scheduler(config.scheduler_name)
     run_log = RunLog(config.output_path, config.start, config.effective)
     progress = _ProgressBar(config.duration_s // config.step_s + 1)
 
@@ -127,12 +127,11 @@ def run(config: SimulationConfig) -> int:
             task_config=config.task,
             isl_config=config.isl,
             scheduler=scheduler,
-            scheduler_config=config.scheduler,
             walker_phase=config.walker_phase,
             task_event_sink=run_log.write_task_event,
             step_sink=run_log.write_step,
         )
-        for steps, (states, _) in enumerate(step_iterator, start=1):
+        for steps, states in enumerate(step_iterator, start=1):
             if first is None:
                 first = states
             last = states

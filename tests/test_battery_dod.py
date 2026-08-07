@@ -5,28 +5,13 @@ from satmulator.models import (
     Assignment,
     BatteryConfig,
     ComputeConfig,
-    DemandDistribution,
     ISLConfig,
     Route,
     Task,
-    TaskConfig,
 )
 from satmulator.orbit import apply_step
 from satmulator.runtime import EnvironmentRuntime, SatelliteRuntime
 
-
-def task_config() -> TaskConfig:
-    return TaskConfig(
-        interval_s=30,
-        random_seed=1,
-        tasks_per_step=1,
-        input_bits=0.0,
-        output_bits=0.0,
-        deadline_s=30.0,
-        deadline_min_s=1.0,
-        demand_distribution=DemandDistribution((), (), 0.0),
-        min_elevation_deg=30.0,
-)
 
 
 def compute_config() -> ComputeConfig:
@@ -109,12 +94,11 @@ class BatteryDoDTests(unittest.TestCase):
             time_s=30,
         )
 
-        states, records = apply_step(
+        states = apply_step(
             env=env,
             step_s=30,
             battery=battery,
             compute_config=compute_config(),
-            task_config=task_config(),
             isl_config=ISLConfig(1.0, 0.0),
             tasks=[task],
             assignments=[
@@ -122,8 +106,7 @@ class BatteryDoDTests(unittest.TestCase):
             ],
         )
 
-        self.assertEqual(records[0].status, "completed")
-        self.assertEqual(records[0].failed_reason, "")
+        self.assertEqual(env.completed_tasks, [1])
         self.assertEqual(states[0].battery_j, 15.0)
         self.assertFalse(states[0].safe_battery)
 
@@ -157,18 +140,17 @@ class BatteryDoDTests(unittest.TestCase):
             time_s=30,
         )
 
-        states, records = apply_step(
+        states = apply_step(
             env=env,
             step_s=30,
             battery=battery,
             compute_config=compute_config(),
-            task_config=task_config(),
             isl_config=ISLConfig(1.0, 0.0),
             tasks=[task],
             assignments=[Assignment(task_id=1, route=Route((0,)), mode="local")],
         )
 
-        self.assertEqual(records, [])
+        self.assertEqual(env.completed_tasks, [])
         self.assertEqual(len(env.running_tasks), 1)
         self.assertEqual(states[0].task_energy_j, 30.0)
         self.assertEqual(states[0].battery_j, 970.0)
@@ -202,33 +184,33 @@ class BatteryDoDTests(unittest.TestCase):
             ],
             time_s=30,
         )
+        events = []
+        env.task_event_sink = events.append
 
         apply_step(
             env=env,
             step_s=30,
             battery=battery,
             compute_config=compute_config(),
-            task_config=task_config(),
             isl_config=ISLConfig(1.0, 0.0),
             tasks=[task],
             assignments=[Assignment(task_id=1, route=Route((0,)), mode="local")],
         )
         env.time_s = 60
-        states, records = apply_step(
+        states = apply_step(
             env=env,
             step_s=30,
             battery=battery,
             compute_config=compute_config(),
-            task_config=task_config(),
             isl_config=ISLConfig(1.0, 0.0),
             tasks=[],
             assignments=[],
         )
 
         self.assertEqual(len(env.running_tasks), 0)
-        self.assertEqual(records[0].status, "completed")
-        self.assertEqual(records[0].compute_time_s, 40.0)
-        self.assertEqual(records[0].total_time_s, 40.0)
+        completed = [event for event in events if event["type"] == "task_completed"]
+        self.assertEqual(completed[0]["executed_compute_time_s"], 40.0)
+        self.assertEqual(completed[0]["total_time_s"], 40.0)
         self.assertEqual(states[0].task_energy_j, 10.0)
         self.assertEqual(states[0].battery_j, 960.0)
 
@@ -271,13 +253,14 @@ class BatteryDoDTests(unittest.TestCase):
             ],
             time_s=30,
         )
+        events = []
+        env.task_event_sink = events.append
 
-        states, records = apply_step(
+        states = apply_step(
             env=env,
             step_s=30,
             battery=battery,
             compute_config=compute_config(),
-            task_config=task_config(),
             isl_config=ISLConfig(1.0, 0.0),
             tasks=tasks,
             assignments=[
@@ -286,25 +269,24 @@ class BatteryDoDTests(unittest.TestCase):
             ],
         )
 
-        self.assertEqual(records, [])
+        self.assertEqual(env.completed_tasks, [])
         self.assertEqual([task.task.task_id for task in env.satellites[0].task_queue], [1, 2])
         self.assertEqual(states[0].task_energy_j, 30.0)
 
         env.time_s = 60
-        states, records = apply_step(
+        states = apply_step(
             env=env,
             step_s=30,
             battery=battery,
             compute_config=compute_config(),
-            task_config=task_config(),
             isl_config=ISLConfig(1.0, 0.0),
             tasks=[],
             assignments=[],
         )
 
-        self.assertEqual([record.task_id for record in records], [1, 2])
-        self.assertEqual([record.status for record in records], ["completed", "completed"])
-        self.assertEqual([record.total_time_s for record in records], [40.0, 50.0])
+        completed = [event for event in events if event["type"] == "task_completed"]
+        self.assertEqual([event["task_id"] for event in completed], [1, 2])
+        self.assertEqual([event["total_time_s"] for event in completed], [40.0, 50.0])
         self.assertEqual(len(env.running_tasks), 0)
         self.assertEqual(states[0].task_energy_j, 20.0)
 
@@ -337,33 +319,33 @@ class BatteryDoDTests(unittest.TestCase):
             ],
             time_s=30,
         )
+        events = []
+        env.task_event_sink = events.append
 
         apply_step(
             env=env,
             step_s=30,
             battery=battery,
             compute_config=compute_config(),
-            task_config=task_config(),
             isl_config=ISLConfig(1.0, 0.0),
             tasks=[task],
             assignments=[Assignment(task_id=1, route=Route((0,)), mode="local")],
         )
         env.time_s = 60
-        states, records = apply_step(
+        states = apply_step(
             env=env,
             step_s=30,
             battery=battery,
             compute_config=compute_config(),
-            task_config=task_config(),
             isl_config=ISLConfig(1.0, 0.0),
             tasks=[],
             assignments=[],
         )
 
         self.assertEqual(len(env.running_tasks), 0)
-        self.assertEqual(records[0].status, "failed")
-        self.assertEqual(records[0].failed_reason, "deadline")
-        self.assertEqual(records[0].compute_time_s, 40.0)
+        failed = [event for event in events if event["type"] == "task_failed"]
+        self.assertEqual(failed[0]["reason"], "deadline")
+        self.assertEqual(failed[0]["executed_compute_time_s"], 40.0)
         self.assertEqual(states[0].failed_tasks, 1)
 
 if __name__ == "__main__":

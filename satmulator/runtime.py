@@ -34,7 +34,6 @@ class SatelliteRuntime:
     plane: int
     slot: int
     battery_j: float
-    load: float = 0.0
     task_queue: list[RunningTask] = field(default_factory=list)
     pos_km: Vector3 = (0.0, 0.0, 0.0)
     vel_km_s: Vector3 = (0.0, 0.0, 0.0)
@@ -76,7 +75,6 @@ class SatelliteRuntime:
             z_km=self.pos_km[2],
             sunlit=self.sunlit,
             battery_j=self.battery_j,
-            load=self.load,
             queue_backlog_s=sum(
                 task.remaining_compute_time_s for task in self.task_queue
             ),

@@ -57,11 +57,6 @@ class ISLConfig:
 
 
 @dataclass(frozen=True)
-class SchedulerConfig:
-    name: str
-
-
-@dataclass(frozen=True)
 class Task:
     task_id: int
     created_time_s: int
@@ -71,35 +66,6 @@ class Task:
     deadline_s: float
     lat_deg: float | None = None
     lon_deg: float | None = None
-    compute_time_s: float | None = None
-
-
-@dataclass(frozen=True)
-class TaskRecord:
-    task_id: int
-    created_time_s: int
-    source_sat: int
-    target_sat: int
-    mode: str
-    lat_deg: float | None
-    lon_deg: float | None
-    compute_cycles: float
-    input_bits: float
-    output_bits: float
-    deadline_s: float
-    waiting_time_s: float
-    compute_time_s: float
-    transmission_time_s: float
-    total_time_s: float
-    energy_j: float
-    completed: bool
-    failed_reason: str
-    source_energy_j: float = 0.0
-    target_energy_j: float = 0.0
-    total_energy_j: float = 0.0
-    status: str = "completed"
-    remaining_deadline_s: float = 0.0
-    score: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -125,38 +91,13 @@ class Route:
         return len(self.nodes) - 1
 
 
-@dataclass(frozen=True, init=False)
+@dataclass(frozen=True)
 class Assignment:
     task_id: int
     route: Route
     mode: str
     score: float = 0.0
     failed_reason: str = ""
-
-    def __init__(
-        self,
-        *,
-        task_id: int,
-        route: Route | tuple[int, ...] | None = None,
-        mode: str,
-        score: float = 0.0,
-        failed_reason: str = "",
-        source_sat: int | None = None,
-        target_sat: int | None = None,
-    ) -> None:
-        if route is None:
-            if source_sat is None:
-                raise ValueError("assignment requires a route or source_sat")
-            target = source_sat if target_sat is None else target_sat
-            nodes = (source_sat,) if target == source_sat else (source_sat, target)
-            route = Route(nodes)
-        elif not isinstance(route, Route):
-            route = Route(tuple(route))
-        object.__setattr__(self, "task_id", task_id)
-        object.__setattr__(self, "route", route)
-        object.__setattr__(self, "mode", mode)
-        object.__setattr__(self, "score", score)
-        object.__setattr__(self, "failed_reason", failed_reason)
 
     @property
     def source_sat(self) -> int:
@@ -188,7 +129,6 @@ class SatelliteView:
     z_km: float
     sunlit: bool
     battery_j: float = 0.0
-    load: float = 0.0
     queue_backlog_s: float = 0.0
     plane: int | None = None
     slot: int | None = None

@@ -10,7 +10,6 @@ from .models import (
     BatteryConfig,
     ComputeConfig,
     ISLConfig,
-    SchedulerConfig,
     TaskConfig,
 )
 from .workload import demand_points_provenance, load_demand_points
@@ -79,7 +78,7 @@ class SimulationConfig:
     compute: ComputeConfig
     task: TaskConfig
     isl: ISLConfig
-    scheduler: SchedulerConfig
+    scheduler_name: str
     effective: JsonObject
 
 
@@ -285,8 +284,6 @@ def load_config(path: Path) -> SimulationConfig:
         tx_power_w=isl_values["tx_power_w"],
         max_range_km=isl_values["max_range_km"],
     )
-    scheduler = SchedulerConfig(name=sections["scheduler"]["name"])
-
     return SimulationConfig(
         start=_parse_utc_datetime(time_config["start_utc"]),
         duration_s=time_config["duration_s"],
@@ -302,6 +299,6 @@ def load_config(path: Path) -> SimulationConfig:
         compute=compute,
         task=task,
         isl=isl,
-        scheduler=scheduler,
+        scheduler_name=sections["scheduler"]["name"],
         effective=_effective_config(sections, demand_points_file, logging),
     )

@@ -48,14 +48,10 @@ def transmission_energy_j(bits: float, isl_config: ISLConfig) -> float:
 
 
 def compute_cycles(task: Task, compute_config: ComputeConfig) -> float:
-    if task.compute_time_s is not None:
-        return task.compute_time_s * compute_config.cpu_frequency_hz
     return task.input_bits * compute_config.cycles_per_input_bit
 
 
 def task_compute_time_s(task: Task, compute_config: ComputeConfig) -> float:
-    if task.compute_time_s is not None:
-        return task.compute_time_s
     return compute_cycles(task, compute_config) / compute_config.cpu_frequency_hz
 
 

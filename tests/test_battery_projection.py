@@ -8,12 +8,9 @@ from satmulator.isl import ISLGraph
 from satmulator.models import (
     BatteryConfig,
     ComputeConfig,
-    DemandDistribution,
     ISLConfig,
     SatelliteView,
-    SchedulerConfig,
     Task,
-    TaskConfig,
 )
 from satmulator.scheduler import (
     BatteryReservation,
@@ -44,19 +41,6 @@ def _compute() -> ComputeConfig:
     )
 
 
-def _task_config() -> TaskConfig:
-    return TaskConfig(
-        interval_s=20,
-        random_seed=1,
-        tasks_per_step=1,
-        input_bits=15.0,
-        output_bits=0.0,
-        deadline_s=100.0,
-        deadline_min_s=30.0,
-        demand_distribution=DemandDistribution((), (), 0.0),
-        min_elevation_deg=0.0,
-    )
-
 
 def _sunlit_satellite() -> SatelliteView:
     return SatelliteView(
@@ -79,10 +63,9 @@ def _task() -> Task:
         task_id=1,
         created_time_s=0,
         source_sat=0,
-        input_bits=0.0,
+        input_bits=15.0,
         output_bits=0.0,
         deadline_s=100.0,
-        compute_time_s=15.0,
     )
 
 
@@ -208,10 +191,8 @@ def test_phoenix2_tries_safe_peer_after_local_battery_rejection() -> None:
         step_s=20,
         battery=_battery(),
         compute_config=_compute(),
-        task_config=_task_config(),
         isl_config=ISLConfig(rate_bps=1.0e9, tx_power_w=0.0),
         isl_graph=ISLGraph({0: (1,), 1: (0,)}),
-        scheduler_config=SchedulerConfig(name="phoenix2"),
     )
 
     assert len(assignments) == 1
@@ -241,10 +222,9 @@ def test_method7_projects_once_per_satellite_not_once_per_task(monkeypatch) -> N
             task_id=task_id,
             created_time_s=0,
             source_sat=0,
-            input_bits=0.0,
+            input_bits=1.0,
             output_bits=0.0,
             deadline_s=100.0,
-            compute_time_s=1.0,
         )
         for task_id in range(20)
     ]
@@ -272,10 +252,8 @@ def test_method7_projects_once_per_satellite_not_once_per_task(monkeypatch) -> N
         step_s=20,
         battery=_battery(),
         compute_config=_compute(),
-        task_config=_task_config(),
         isl_config=ISLConfig(rate_bps=1.0e9, tx_power_w=0.0),
         isl_graph=ISLGraph({0: (1,), 1: (0, 2), 2: (1,)}),
-        scheduler_config=SchedulerConfig(name="method7"),
     )
 
     assert calls == len(satellite_views)
@@ -292,11 +270,6 @@ def test_method7_stops_after_safe_sunlit_local_action(monkeypatch) -> None:
     def unexpected_route_search(*args, **kwargs):
         raise AssertionError("local action must not build a route tree")
 
-    monkeypatch.setattr(
-        scheduler_module,
-        "build_route_tree",
-        unexpected_route_search,
-    )
     monkeypatch.setattr(
         scheduler_module,
         "build_route_tree",
@@ -319,10 +292,9 @@ def test_method7_stops_after_safe_sunlit_local_action(monkeypatch) -> None:
         task_id=99,
         created_time_s=0,
         source_sat=0,
-        input_bits=0.0,
+        input_bits=1.0,
         output_bits=0.0,
         deadline_s=100.0,
-        compute_time_s=1.0,
     )
 
     assignments = NoEclipseSearchMethod7().assign_tasks(
@@ -332,10 +304,8 @@ def test_method7_stops_after_safe_sunlit_local_action(monkeypatch) -> None:
         step_s=20,
         battery=_battery(),
         compute_config=_compute(),
-        task_config=_task_config(),
         isl_config=ISLConfig(rate_bps=1.0e9, tx_power_w=0.0),
         isl_graph=ISLGraph({0: ()}),
-        scheduler_config=SchedulerConfig(name="method7"),
     )
 
     assert assignments[0].mode == "local"
@@ -374,10 +344,9 @@ def test_method7_does_not_short_circuit_congested_sunlit_local() -> None:
         task_id=99,
         created_time_s=0,
         source_sat=0,
-        input_bits=0.0,
+        input_bits=1.0,
         output_bits=0.0,
         deadline_s=100.0,
-        compute_time_s=1.0,
     )
 
     assignments = Method7Scheduler().assign_tasks(
@@ -387,10 +356,8 @@ def test_method7_does_not_short_circuit_congested_sunlit_local() -> None:
         step_s=20,
         battery=_battery(),
         compute_config=_compute(),
-        task_config=_task_config(),
         isl_config=ISLConfig(rate_bps=1.0e9, tx_power_w=0.0),
         isl_graph=ISLGraph({0: (1,), 1: (0,)}),
-        scheduler_config=SchedulerConfig(name="method7"),
     )
 
     assert assignments[0].mode == "offload"
@@ -429,7 +396,7 @@ def test_method7_does_not_rescan_compute_rejected_eclipse_targets(
         )
         for sat_id in range(3)
     ]
-    tasks = [replace(_task(), task_id=task_id, compute_time_s=15.0) for task_id in (1, 2)]
+    tasks = [replace(_task(), task_id=task_id) for task_id in (1, 2)]
 
     UnblockedMethod7().assign_tasks(
         tasks=tasks,
@@ -438,10 +405,8 @@ def test_method7_does_not_rescan_compute_rejected_eclipse_targets(
         step_s=20,
         battery=_battery(),
         compute_config=_compute(),
-        task_config=_task_config(),
         isl_config=ISLConfig(rate_bps=1.0e9, tx_power_w=0.0),
         isl_graph=ISLGraph({0: (1, 2), 1: (0,), 2: (0,)}),
-        scheduler_config=SchedulerConfig(name="method7"),
     )
 
     assert calls == 2
@@ -473,10 +438,8 @@ def test_schedulers_do_not_accept_work_that_spends_eclipse_reserve(
         step_s=20,
         battery=_battery(),
         compute_config=_compute(),
-        task_config=_task_config(),
         isl_config=ISLConfig(rate_bps=1.0e9, tx_power_w=0.0),
         isl_graph=ISLGraph({0: ()}),
-        scheduler_config=SchedulerConfig(name=scheduler_name),
     )
 
     assert len(assignments) == 1

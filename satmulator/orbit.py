@@ -29,12 +29,10 @@ from .models import (
     SatelliteState,
     SatelliteView,
     SnapshotContext,
-    SchedulerConfig,
     Task,
     TaskConfig,
-    TaskRecord,
 )
-from .route_cost import compute_cycles, estimate_route_cost
+from .route_cost import estimate_route_cost
 from .runtime import EnvironmentRuntime, RunningTask, SatelliteRuntime, TaskEventSink
 from .scheduler import Scheduler, enforce_edf_queue_feasibility
 from .workload import deadline_random_seed, generate_step_tasks, validate_task_config
@@ -211,10 +209,8 @@ def assign_step_tasks(
     step_s: int,
     battery: BatteryConfig,
     compute_config: ComputeConfig,
-    task_config: TaskConfig,
     isl_config: ISLConfig,
     isl_graph,
-    scheduler_config: SchedulerConfig,
 ) -> list[Assignment]:
     if any(task.source_sat is None for task in tasks):
         raise ValueError("cannot assign tasks without a visible source satellite")
@@ -226,10 +222,8 @@ def assign_step_tasks(
         step_s=step_s,
         battery=battery,
         compute_config=compute_config,
-        task_config=task_config,
         isl_config=isl_config,
         isl_graph=isl_graph,
-        scheduler_config=scheduler_config,
     )
     if scheduler.queue_discipline == "edf":
         return enforce_edf_queue_feasibility(
@@ -288,67 +282,19 @@ def apply_step(
     step_s: int,
     battery: BatteryConfig,
     compute_config: ComputeConfig,
-    task_config: TaskConfig,
     isl_config: ISLConfig,
     tasks: list[Task],
     assignments: list[Assignment],
     expired_tasks: list[Task] | None = None,
     queue_discipline: str = "fifo",
-) -> tuple[list[SatelliteState], list[TaskRecord]]:
+) -> list[SatelliteState]:
     stats_by_sat = {sat.sat_id: SatelliteStepStats() for sat in env.satellites}
-    records: list[TaskRecord] = []
     task_by_id = {task.task_id: task for task in tasks}
     cpu_time_left_s = {sat.sat_id: step_s for sat in env.satellites}
     satellite_by_id = {sat.sat_id: sat for sat in env.satellites}
 
     def remaining_deadline_s(task: Task) -> float:
         return task.created_time_s + task.deadline_s - env.time_s
-
-    def make_task_record(
-        *,
-        task: Task,
-        source_sat: int,
-        target_sat: int,
-        mode: str,
-        waiting_time_s: float,
-        compute_time_s: float,
-        transmission_time_s: float,
-        total_time_s: float,
-        energy_j: float,
-        completed: bool,
-        failed_reason: str,
-        source_energy_j: float,
-        target_energy_j: float,
-        total_energy_j: float,
-        status: str,
-        score: float,
-    ) -> TaskRecord:
-        return TaskRecord(
-            task_id=task.task_id,
-            created_time_s=task.created_time_s,
-            source_sat=source_sat,
-            target_sat=target_sat,
-            mode=mode,
-            lat_deg=task.lat_deg,
-            lon_deg=task.lon_deg,
-            compute_cycles=compute_cycles(task, compute_config),
-            input_bits=task.input_bits,
-            output_bits=task.output_bits,
-            deadline_s=task.deadline_s,
-            waiting_time_s=waiting_time_s,
-            compute_time_s=compute_time_s,
-            transmission_time_s=transmission_time_s,
-            total_time_s=total_time_s,
-            energy_j=energy_j,
-            completed=completed,
-            failed_reason=failed_reason,
-            source_energy_j=source_energy_j,
-            target_energy_j=target_energy_j,
-            total_energy_j=total_energy_j,
-            status=status,
-            remaining_deadline_s=remaining_deadline_s(task),
-            score=score,
-        )
 
     expired_tasks = [] if expired_tasks is None else expired_tasks
 
@@ -365,7 +311,6 @@ def apply_step(
         waiting_time_s = env.time_s - task.created_time_s
         env.failed_tasks.append(task.task_id)
         source_sat = task.source_sat if task.source_sat is not None else -1
-        target_sat = source_sat
 
         if source_sat in stats_by_sat:
             stats_by_sat[source_sat].failed_tasks += 1
@@ -379,26 +324,6 @@ def apply_step(
             source_sat=source_sat,
             reason=failed_reason,
             waiting_time_s=waiting_time_s,
-        )
-        records.append(
-            make_task_record(
-                task=task,
-                source_sat=source_sat,
-                target_sat=target_sat,
-                mode="unassigned",
-                waiting_time_s=waiting_time_s,
-                compute_time_s=0.0,
-                transmission_time_s=0.0,
-                total_time_s=waiting_time_s,
-                energy_j=0.0,
-                completed=False,
-                failed_reason=failed_reason,
-                source_energy_j=0.0,
-                target_energy_j=0.0,
-                total_energy_j=0.0,
-                status="failed",
-                score=0.0,
-            )
         )
 
     for assignment in assignments:
@@ -430,26 +355,6 @@ def apply_step(
                 waiting_time_s=waiting_time_s,
             )
 
-            records.append(
-                make_task_record(
-                    task=task,
-                    source_sat=assignment.source_sat,
-                    target_sat=assignment.target_sat,
-                    mode="defer",
-                    waiting_time_s=waiting_time_s,
-                    compute_time_s=0.0,
-                    transmission_time_s=0.0,
-                    total_time_s=waiting_time_s,
-                    energy_j=0.0,
-                    completed=False,
-                    failed_reason="",
-                    source_energy_j=0.0,
-                    target_energy_j=0.0,
-                    total_energy_j=0.0,
-                    status="deferred",
-                    score=assignment.score,
-                )
-            )
             continue
 
         # Scheduler explicit fail action.
@@ -468,26 +373,6 @@ def apply_step(
                 waiting_time_s=waiting_time_s,
             )
 
-            records.append(
-                make_task_record(
-                    task=task,
-                    source_sat=assignment.source_sat,
-                    target_sat=assignment.target_sat,
-                    mode="fail",
-                    waiting_time_s=waiting_time_s,
-                    compute_time_s=0.0,
-                    transmission_time_s=0.0,
-                    total_time_s=waiting_time_s,
-                    energy_j=0.0,
-                    completed=False,
-                    failed_reason=assignment.failed_reason or "scheduler_fail",
-                    source_energy_j=0.0,
-                    target_energy_j=0.0,
-                    total_energy_j=0.0,
-                    status="failed",
-                    score=assignment.score,
-                )
-            )
             continue
 
         cost = estimate_route_cost(
@@ -529,11 +414,9 @@ def apply_step(
         running: RunningTask,
         *,
         waiting_time_s: float,
-        compute_time_s: float,
         transmission_time_s: float,
         total_time_s: float,
     ) -> None:
-        source_energy_j, target_energy_j, total_energy_j = accumulated_energy(running)
         stats_by_sat[running.source_sat].failed_tasks += 1
         env.failed_tasks.append(running.task.task_id)
         env.emit_task_event(
@@ -550,26 +433,6 @@ def apply_step(
             transmission_time_s=transmission_time_s,
             total_time_s=total_time_s,
             score=running.score,
-        )
-        records.append(
-            make_task_record(
-                task=running.task,
-                source_sat=running.source_sat,
-                target_sat=running.target_sat,
-                mode=running.mode,
-                waiting_time_s=waiting_time_s,
-                compute_time_s=compute_time_s,
-                transmission_time_s=transmission_time_s,
-                total_time_s=total_time_s,
-                energy_j=source_energy_j,
-                completed=False,
-                failed_reason="deadline",
-                source_energy_j=source_energy_j,
-                target_energy_j=target_energy_j,
-                total_energy_j=total_energy_j,
-                status="failed",
-                score=running.score,
-            )
         )
 
     if queue_discipline not in {"fifo", "edf"}:
@@ -590,7 +453,6 @@ def apply_step(
                 fail_running_task(
                     running,
                     waiting_time_s=waiting_time_s,
-                    compute_time_s=running.executed_compute_time_s,
                     transmission_time_s=0.0,
                     total_time_s=waiting_time_s,
                 )
@@ -647,7 +509,6 @@ def apply_step(
                 fail_running_task(
                     running,
                     waiting_time_s=waiting_time_s,
-                    compute_time_s=running.executed_compute_time_s,
                     transmission_time_s=running.transmission_time_s,
                     total_time_s=total_time_s,
                 )
@@ -679,26 +540,6 @@ def apply_step(
                     for sat_id, energy_j in running.energy_by_sat.items()
                 },
                 score=running.score,
-            )
-            records.append(
-                make_task_record(
-                    task=task,
-                    source_sat=running.source_sat,
-                    target_sat=running.target_sat,
-                    mode=running.mode,
-                    waiting_time_s=waiting_time_s,
-                    compute_time_s=running.executed_compute_time_s,
-                    transmission_time_s=running.transmission_time_s,
-                    total_time_s=total_time_s,
-                    energy_j=source_energy_j,
-                    completed=True,
-                    failed_reason="",
-                    source_energy_j=source_energy_j,
-                    target_energy_j=target_energy_j,
-                    total_energy_j=total_energy_j,
-                    status="completed",
-                    score=running.score,
-                )
             )
             sat.task_queue.pop(0)
         cpu_time_left_s[sat.sat_id] = cpu_time_left
@@ -738,7 +579,7 @@ def apply_step(
             )
         )
 
-    return states, records
+    return states
 
 
 def iter_circular_states(
@@ -756,11 +597,10 @@ def iter_circular_states(
     task_config: TaskConfig,
     isl_config: ISLConfig,
     scheduler: Scheduler,
-    scheduler_config: SchedulerConfig,
     walker_phase: int = 0,
     task_event_sink: TaskEventSink | None = None,
     step_sink: StepSink | None = None,
-) -> Iterable[tuple[list[SatelliteState], list[TaskRecord]]]:
+) -> Iterable[list[SatelliteState]]:
     if satellites <= 0:
         raise ValueError("satellites must be positive")
     if planes <= 0 or satellites % planes != 0:
@@ -884,22 +724,19 @@ def iter_circular_states(
             step_s=step_s,
             battery=battery,
             compute_config=compute_config,
-            task_config=task_config,
             isl_config=isl_config,
             isl_graph=build_isl_graph(
                 satellite_views,
                 isl_config,
                 candidate_graph=isl_candidate_graph,
             ),
-            scheduler_config=scheduler_config,
         )
 
-        states, task_records = apply_step(
+        states = apply_step(
             env=env,
             step_s=step_s,
             battery=battery,
             compute_config=compute_config,
-            task_config=task_config,
             isl_config=isl_config,
             tasks=tasks,
             assignments=assignments,
@@ -909,7 +746,7 @@ def iter_circular_states(
 
         if step_sink is not None:
             step_sink(states, circular_snapshot_context(sun_vector))
-        yield states, task_records
+        yield states
 
 
 

@@ -1,21 +1,7 @@
 import unittest
 
-from satmulator.models import ComputeConfig, DemandDistribution, ISLConfig, Route, Task, TaskConfig
+from satmulator.models import ComputeConfig, ISLConfig, Route, Task
 from satmulator.route_cost import estimate_route_cost, estimate_route_timing
-
-
-def task_config() -> TaskConfig:
-    return TaskConfig(
-        interval_s=30,
-        random_seed=1,
-        tasks_per_step=1,
-        input_bits=100.0,
-        output_bits=10.0,
-        deadline_s=30.0,
-        deadline_min_s=1.0,
-        demand_distribution=DemandDistribution((), (), 0.0),
-        min_elevation_deg=30.0,
-    )
 
 
 def task() -> Task:
@@ -32,7 +18,6 @@ def task() -> Task:
 class RouteCostTests(unittest.TestCase):
     def setUp(self) -> None:
         self.task = task()
-        self.task_config = task_config()
         self.compute = ComputeConfig(
             cycles_per_input_bit=10.0,
             cpu_frequency_hz=100.0,
@@ -93,36 +78,6 @@ class RouteCostTests(unittest.TestCase):
         self.assertEqual(cost.energy_by_sat[0], 20.0)
         self.assertEqual(cost.energy_by_sat[2], 22.0)
         self.assertEqual(cost.energy_by_sat[1], 502.0)
-
-    def test_explicit_compute_time_overrides_cycle_model(self) -> None:
-        explicit = Task(
-            task_id=2,
-            created_time_s=0,
-            source_sat=0,
-            input_bits=100.0,
-            output_bits=10.0,
-            deadline_s=30.0,
-            compute_time_s=5.0,
-        )
-
-        cost = estimate_route_cost(
-            task=explicit,
-            route=Route((0,)),
-            compute_config=self.compute,
-            isl_config=self.isl,
-        )
-
-        self.assertEqual(cost.compute_time_s, 5.0)
-        self.assertEqual(cost.energy_by_sat, {0: 250.0})
-
-        timing = estimate_route_timing(
-            task=explicit,
-            route=Route((0,)),
-            compute_config=self.compute,
-            isl_config=self.isl,
-        )
-        self.assertEqual(timing.compute_time_s, 5.0)
-
 
 if __name__ == "__main__":
     unittest.main()

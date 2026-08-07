@@ -20,9 +20,7 @@ from .models import (
     ISLConfig,
     Route,
     SatelliteView,
-    SchedulerConfig,
     Task,
-    TaskConfig,
 )
 from .route_cost import (
     RouteCost,
@@ -580,10 +578,8 @@ class Scheduler:
         step_s: int,
         battery: BatteryConfig,
         compute_config: ComputeConfig,
-        task_config: TaskConfig,
         isl_config: ISLConfig,
         isl_graph: ISLGraph,
-        scheduler_config: SchedulerConfig,
     ) -> list[Assignment]:
         return [
             self.assign_task(
@@ -613,7 +609,7 @@ class LocalOnlyScheduler(Scheduler):
             )
         return Assignment(
             task_id=task.task_id,
-            route=(task.source_sat,),
+            route=Route((task.source_sat,)),
             mode=self.name,
         )
 
@@ -626,10 +622,8 @@ class LocalOnlyScheduler(Scheduler):
         step_s: int,
         battery: BatteryConfig,
         compute_config: ComputeConfig,
-        task_config: TaskConfig,
         isl_config: ISLConfig,
         isl_graph: ISLGraph,
-        scheduler_config: SchedulerConfig,
     ) -> list[Assignment]:
         if battery is None or compute_config is None or isl_config is None:
             return [
@@ -755,10 +749,8 @@ class NearestSunlitScheduler(Scheduler):
         step_s: int,
         battery: BatteryConfig,
         compute_config: ComputeConfig,
-        task_config: TaskConfig,
         isl_config: ISLConfig,
         isl_graph: ISLGraph,
-        scheduler_config: SchedulerConfig,
     ) -> list[Assignment]:
         if battery is None or compute_config is None or isl_config is None:
             return [
@@ -1103,10 +1095,8 @@ class GreedyEnergyScheduler(Scheduler):
         step_s: int,
         battery: BatteryConfig,
         compute_config: ComputeConfig,
-        task_config: TaskConfig,
         isl_config: ISLConfig,
         isl_graph: ISLGraph,
-        scheduler_config: SchedulerConfig,
     ) -> list[Assignment]:
         by_id = {sat.sat_id: sat for sat in satellite_views}
         local_quota_cycles = self._local_quota_by_sat(
@@ -1388,10 +1378,8 @@ class Method3Scheduler(Scheduler):
         step_s: int,
         battery: BatteryConfig,
         compute_config: ComputeConfig,
-        task_config: TaskConfig,
         isl_config: ISLConfig,
         isl_graph: ISLGraph,
-        scheduler_config: SchedulerConfig,
     ) -> list[Assignment]:
         import heapq
 
@@ -1421,22 +1409,12 @@ class Method3Scheduler(Scheduler):
             for source_sat in unique_sources
         }
 
-        warning_ratio = getattr(scheduler_config, "warning_ratio", 0.10)
-        sunlit_local_load_weight = getattr(
-            scheduler_config, "sunlit_local_load_weight", 1.0
-        )
-        sunlit_local_battery_weight = getattr(
-            scheduler_config, "sunlit_local_battery_weight", 0.25
-        )
-        eclipse_local_battery_weight = getattr(
-            scheduler_config, "eclipse_local_battery_weight", 3.0
-        )
-        eclipse_local_warning_penalty = getattr(
-            scheduler_config, "eclipse_local_warning_penalty", 2.0
-        )
-        sunlit_offload_load_weight = getattr(
-            scheduler_config, "sunlit_offload_load_weight", 1.0
-        )
+        warning_ratio = 0.10
+        sunlit_local_load_weight = 1.0
+        sunlit_local_battery_weight = 0.25
+        eclipse_local_battery_weight = 3.0
+        eclipse_local_warning_penalty = 2.0
+        sunlit_offload_load_weight = 1.0
 
         # min-heap of current sunlit loads
         sunlit_heap = []
@@ -1840,10 +1818,8 @@ class Method3ModScheduler(Method3Scheduler):
         step_s: int,
         battery: BatteryConfig,
         compute_config: ComputeConfig,
-        task_config: TaskConfig,
         isl_config: ISLConfig,
         isl_graph: ISLGraph,
-        scheduler_config: SchedulerConfig,
     ) -> list[Assignment]:
         import heapq
 
@@ -2260,10 +2236,8 @@ class Method5Scheduler(Method3ModScheduler):
         step_s: int,
         battery: BatteryConfig,
         compute_config: ComputeConfig,
-        task_config: TaskConfig,
         isl_config: ISLConfig,
         isl_graph: ISLGraph,
-        scheduler_config: SchedulerConfig,
     ) -> list[Assignment]:
         """Fill immediate safe capacity before allowing a one-slot wait.
 
@@ -2890,10 +2864,8 @@ class Method6Scheduler(Method3ModScheduler):
         step_s: int,
         battery: BatteryConfig,
         compute_config: ComputeConfig,
-        task_config: TaskConfig,
         isl_config: ISLConfig,
         isl_graph: ISLGraph,
-        scheduler_config: SchedulerConfig,
     ) -> list[Assignment]:
         import heapq
 
@@ -2921,7 +2893,6 @@ class Method6Scheduler(Method3ModScheduler):
                 route.nodes,
                 task.input_bits,
                 task.output_bits,
-                task.compute_time_s,
                 compute_config.cycles_per_input_bit,
                 compute_config.cpu_frequency_hz,
                 compute_config.cpu_power_w,
@@ -3882,10 +3853,8 @@ class Phoenix2Scheduler(_PhoenixSchedulerBase):
         step_s,
         battery,
         compute_config,
-        task_config,
         isl_config,
         isl_graph,
-        scheduler_config,
     ):
         by_id = {sat.sat_id: sat for sat in satellite_views}
         reserved_available_time = {

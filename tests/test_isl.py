@@ -358,10 +358,8 @@ class ISLGraphTests(unittest.TestCase):
             step_s=1,
             battery=None,
             compute_config=None,
-            task_config=None,
             isl_config=None,
             isl_graph=graph,
-            scheduler_config=None,
         )
 
         self.assertEqual([assignment.task_id for assignment in assignments], [1, 2])

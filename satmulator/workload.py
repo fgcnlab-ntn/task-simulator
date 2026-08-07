@@ -370,7 +370,7 @@ def emit_generated_task(
         ),
         workload={
             "compute_cycles": compute_cycles(task, compute_config),
-            "compute_time_s": task.compute_time_s,
+            "compute_time_s": None,
             "input_bits": task.input_bits,
             "output_bits": task.output_bits,
         },
@@ -432,7 +432,6 @@ def resolve_pending_tasks(
                     deadline_s=task.deadline_s,
                     lat_deg=task.lat_deg,
                     lon_deg=task.lon_deg,
-                    compute_time_s=task.compute_time_s,
                 )
             )
         elif env.time_s - task.created_time_s >= task.deadline_s:
