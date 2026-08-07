@@ -4,7 +4,6 @@ from satmulator.isl import (
     ISLGraph,
     build_isl_graph,
     filter_link_availability,
-    fully_connected_isl_graph,
     grid_constellation_layout,
     grid_isl_graph,
     has_line_of_sight,
@@ -51,13 +50,6 @@ def point_view(
 
 
 class ISLGraphTests(unittest.TestCase):
-    def test_fully_connected_graph_has_every_other_satellite(self) -> None:
-        graph = fully_connected_isl_graph([view(2), view(0), view(1)])
-
-        self.assertEqual(graph.neighbors(0), (1, 2))
-        self.assertEqual(graph.neighbors(1), (0, 2))
-        self.assertEqual(graph.neighbors(2), (0, 1))
-
     def test_grid_graph_connects_only_four_topological_neighbors(self) -> None:
         satellites = [
             view(
@@ -103,8 +95,8 @@ class ISLGraphTests(unittest.TestCase):
 
         layout = grid_constellation_layout(satellites, walker_phase=1)
 
-        self.assertEqual(layout.candidate_graph.neighbors(8), (1, 4, 9, 11))
-        self.assertNotIn(0, layout.candidate_graph.neighbors(8))
+        self.assertEqual(layout.neighbors(8), (1, 4, 9, 11))
+        self.assertNotIn(0, layout.neighbors(8))
 
     def test_static_layout_is_reused_when_link_availability_changes(self) -> None:
         near = [
@@ -177,14 +169,14 @@ class ISLGraphTests(unittest.TestCase):
         self.assertEqual(graph.neighbors(0), ())
         self.assertEqual(graph.neighbors(1), ())
 
-    def test_build_isl_graph_uses_configured_topology(self) -> None:
+    def test_build_isl_graph_filters_grid_by_range(self) -> None:
         graph = build_isl_graph(
             [
                 view(0, x=10000.0, plane=0, slot=0),
                 view(1, x=10003.0, plane=0, slot=1),
                 view(2, x=10010.0, plane=0, slot=2),
             ],
-            ISLConfig(1.0, 0.0, topology="grid", max_range_km=5.0),
+            ISLConfig(1.0, 0.0, max_range_km=5.0),
         )
 
         self.assertEqual(graph.neighbors(0), (1,))
@@ -197,8 +189,7 @@ class ISLGraphTests(unittest.TestCase):
                 ISLConfig(
                     1.0,
                     0.0,
-                    topology="grid",
-                    max_range_km=None,
+                    max_range_km=0.0,
                 ),
             )
 

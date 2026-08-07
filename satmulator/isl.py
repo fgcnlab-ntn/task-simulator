@@ -16,24 +16,6 @@ class ISLGraph:
         return self.adjacency.get(sat_id, ())
 
 
-@dataclass(frozen=True)
-class ConstellationLayout:
-    topology: str
-    candidate_graph: ISLGraph
-
-
-def fully_connected_isl_graph(satellites: Iterable[SatelliteView]) -> ISLGraph:
-    sat_ids = sorted(sat.sat_id for sat in satellites)
-    if len(sat_ids) != len(set(sat_ids)):
-        raise ValueError("duplicate satellite id")
-    return ISLGraph(
-        {
-            sat_id: tuple(other for other in sat_ids if other != sat_id)
-            for sat_id in sat_ids
-        }
-    )
-
-
 def distance_km(a: SatelliteView, b: SatelliteView) -> float:
     dx = a.x_km - b.x_km
     dy = a.y_km - b.y_km
@@ -73,7 +55,7 @@ def has_line_of_sight(
 def grid_constellation_layout(
     satellites: Iterable[SatelliteView],
     walker_phase: int = 0,
-) -> ConstellationLayout:
+) -> ISLGraph:
     """Build the fixed four-neighbor topology for a Walker constellation."""
 
     sat_list = sorted(satellites, key=lambda sat: sat.sat_id)
@@ -91,7 +73,7 @@ def grid_constellation_layout(
         by_position[position] = sat
 
     if not sat_list:
-        return ConstellationLayout("grid", ISLGraph({}))
+        return ISLGraph({})
 
     plane_count = max(plane for plane, _ in by_position) + 1
     slots_per_plane = max(slot for _, slot in by_position) + 1
@@ -132,46 +114,28 @@ def grid_constellation_layout(
                 (0, (slot + seam_offset) % slots_per_plane),
             )
 
-    candidate_graph = ISLGraph(
+    return ISLGraph(
         {sat_id: tuple(sorted(neighbors)) for sat_id, neighbors in adjacency.items()}
     )
-    return ConstellationLayout("grid", candidate_graph)
-
-
-def build_constellation_layout(
-    satellites: Iterable[SatelliteView],
-    config: ISLConfig,
-    *,
-    walker_phase: int = 0,
-) -> ConstellationLayout:
-    sat_list = tuple(satellites)
-    if config.topology == "fully-connected":
-        return ConstellationLayout(
-            "fully-connected",
-            fully_connected_isl_graph(sat_list),
-        )
-    if config.topology == "grid":
-        return grid_constellation_layout(sat_list, walker_phase)
-    raise ValueError(f"unknown ISL topology: {config.topology}")
 
 
 def filter_link_availability(
     satellites: Iterable[SatelliteView],
-    layout: ConstellationLayout,
+    candidate_graph: ISLGraph,
     max_range_km: float,
 ) -> ISLGraph:
     if max_range_km <= 0.0:
-        raise ValueError("grid ISL topology requires positive max_range_km")
+        raise ValueError("ISL requires positive max_range_km")
 
     sat_list = tuple(satellites)
     by_id = {sat.sat_id: sat for sat in sat_list}
     if len(by_id) != len(sat_list):
         raise ValueError("duplicate satellite id")
-    if set(by_id) != set(layout.candidate_graph.adjacency):
-        raise ValueError("satellites do not match constellation layout")
+    if set(by_id) != set(candidate_graph.adjacency):
+        raise ValueError("satellites do not match ISL candidate graph")
 
     adjacency: dict[int, list[int]] = {sat_id: [] for sat_id in by_id}
-    for first_id, neighbors in layout.candidate_graph.adjacency.items():
+    for first_id, neighbors in candidate_graph.adjacency.items():
         first = by_id[first_id]
         for second_id in neighbors:
             if second_id <= first_id:
@@ -195,36 +159,26 @@ def grid_isl_graph(
     *,
     walker_phase: int = 0,
 ) -> ISLGraph:
-    """Compatibility helper that builds and filters a grid in one call."""
+    """Build and filter the Walker grid in one call."""
 
     sat_list = tuple(satellites)
-    layout = grid_constellation_layout(sat_list, walker_phase)
-    return filter_link_availability(sat_list, layout, max_range_km)
+    candidate_graph = grid_constellation_layout(sat_list, walker_phase)
+    return filter_link_availability(sat_list, candidate_graph, max_range_km)
 
 
 def build_isl_graph(
     satellites: Iterable[SatelliteView],
     config: ISLConfig,
     *,
-    layout: ConstellationLayout | None = None,
+    candidate_graph: ISLGraph | None = None,
     walker_phase: int = 0,
 ) -> ISLGraph:
     sat_list = tuple(satellites)
-    if layout is None:
-        layout = build_constellation_layout(
-            sat_list,
-            config,
-            walker_phase=walker_phase,
-        )
-    if layout.topology != config.topology:
-        raise ValueError("constellation layout does not match ISL topology")
-    if config.topology == "fully-connected":
-        return layout.candidate_graph
-    if config.topology == "grid":
-        if config.max_range_km is None:
-            raise ValueError("grid ISL topology requires positive max_range_km")
-        return filter_link_availability(sat_list, layout, config.max_range_km)
-    raise ValueError(f"unknown ISL topology: {config.topology}")
+    if candidate_graph is None:
+        candidate_graph = grid_constellation_layout(sat_list, walker_phase)
+    if config.max_range_km <= 0.0:
+        raise ValueError("ISL requires positive max_range_km")
+    return filter_link_availability(sat_list, candidate_graph, config.max_range_km)
 
 
 def shortest_route(graph: ISLGraph, source_sat: int, target_sat: int) -> Route | None:

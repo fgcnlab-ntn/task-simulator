@@ -4,8 +4,6 @@
     "description": "Local-only scheduler experiment"
   },
   "orbit": {
-    "orbit_model": "circular",
-    "tle_file": null,
     "sun_position_file": "de440s.bsp",
     "satellites": 1584,
     "planes": 72,
@@ -66,7 +64,6 @@
   "isl": {
     "rate_bps": 1000000000.0,
     "tx_power_w": 10.0,
-    "topology": "grid",
     "max_range_km": 5000.0
   },
   "scheduler": {

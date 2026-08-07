@@ -5,13 +5,13 @@ offloading experiments.
 
 The current model supports:
 
-- circular Walker-style orbit model and TLE/SGP4 orbit model
+- circular Walker-style orbit model
 - sunlight/eclipse classification
 - per-satellite battery state
 - deterministic and demand-point task generation
 - local and nearest-sunlit schedulers
 - per-satellite FIFO execution queues for assigned tasks
-- four-neighbor grid or fully-connected ISL routing with per-hop accounting
+- four-neighbor grid ISL routing with per-hop accounting
 - target load limits in CPU cycles per slot
 - summary metrics for eclipse unsafe ratio and task failure ratio
 - structured JSON/JSONL experiment logs
@@ -20,15 +20,15 @@ It does not yet model queueing, link contention, or thermal throttling dynamics.
 
 ## Install
 
-TLE runs and demand-point coordinate conversion require Skyfield. Circular
-runs without demand-point workloads use only the Python standard library:
+Sun-position calculation and demand-point coordinate conversion require
+Skyfield:
 
 ```bash
 python3 -m pip install -r requirements.txt
 ```
 
-`de440s.bsp` is not tracked by git. Circular runs do not need it. TLE runs use it
-for Sun-position calculation; Skyfield can download it on first use:
+`de440s.bsp` is not tracked by git. The simulator uses it for Sun-position
+calculation; Skyfield can download it on first use:
 
 ```bash
 python3 -c "from skyfield.api import load; load('de440s.bsp')"
@@ -43,8 +43,6 @@ References:
 - Ephemeris data (DE440s): https://ssd.jpl.nasa.gov/ftp/eph/planets/bsp/de440s.bsp
 - DE440 technical paper: https://doi.org/10.3847/1538-3881/abd414
 - Skyfield documentation: https://rhodesmill.org/skyfield/planets.html
-
-For offline TLE runs, copy `configs/template.json`, set the `orbit` section to `orbit_model: "tle"`, provide `tle_file` and `sun_position_file`, and use `isl.topology: "fully-connected"`.
 
 ## Run
 
@@ -91,8 +89,6 @@ preserving essentially all source population.
 
 `--config` is required. Every simulation and output setting comes from the
 complete standalone config; the CLI does not override individual fields.
-
-TLE runs should be described by a complete standalone TLE config file.
 
 The effective config is written to:
 
@@ -148,12 +144,7 @@ The grid builds a fixed candidate layout once: two in-plane links and two
 cross-plane links per satellite. The plane seam is shifted by the configured
 Walker phase. At each simulation step, only range and Earth line-of-sight are
 reevaluated to determine which candidate links are active. Diagonal satellites
-therefore require at least two hops. Fully-connected routing remains available by setting `isl.topology` to
-`fully-connected` in a standalone config.
-
-TLE input does not carry reliable plane/slot assignments, so TLE configs must use
-`isl.topology: "fully-connected"` until explicit constellation layout metadata is
-provided.
+therefore require at least two hops.
 
 ## Outputs
 
@@ -188,8 +179,8 @@ every ground point creates one fixed-size task at each selected time slot, and
 the nearest visible satellite executes it locally.
 
 `states.jsonl` stores one JSON object per simulation step, including the ECI Sun
-direction needed to reproduce TLE snapshot plots without reopening the BSP
-ephemeris. `tasks.jsonl` stores task lifecycle events such as generation,
+direction without requiring consumers to reopen the BSP ephemeris. `tasks.jsonl`
+stores task lifecycle events such as generation,
 coverage waiting, assignment, completion, and failure. Both files remain valid
 and readable if a long run stops early.
 
@@ -202,7 +193,7 @@ See `TASK_CONFIG.md` for the task-oriented config fields.
 - `satmulator/cli.py` — config parsing and run orchestration
 - `satmulator/runtime.py` — mutable satellite/environment state
 - `satmulator/models.py` — configs, tasks, assignments, snapshots
-- `satmulator/orbit.py` — orbit models and timestep flow
+- `satmulator/orbit.py` — circular orbit model and timestep flow
 - `satmulator/scheduler.py` — task assignment schedulers
 - `satmulator/battery.py` — battery update logic
 - `satmulator/runlog.py` — streaming JSON/JSONL experiment logs
@@ -212,5 +203,4 @@ See `TASK_CONFIG.md` for the task-oriented config fields.
 
 1. queueing and task finish time
 2. thermal throttling dynamics
-3. TLE constellation layout metadata
-4. workload read/write for controlled experiments
+3. workload read/write for controlled experiments

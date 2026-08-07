@@ -4,8 +4,6 @@
     "description": "Iridium 66 Walker Delta eclipse-time simulation config"
   },
   "orbit": {
-    "orbit_model": "circular",
-    "tle_file": null,
     "sun_position_file": "de440s.bsp",
     "satellites": 66,
     "planes": 6,
@@ -77,7 +75,6 @@
   "isl": {
     "rate_bps": 1000000000.0,
     "tx_power_w": 10.0,
-    "topology": "grid",
     "max_range_km": 5000.0
   },
   "scheduler": {

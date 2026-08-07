@@ -7,7 +7,7 @@ import sys
 import time
 from pathlib import Path
 from .models import BatteryConfig, ComputeConfig, ISLConfig, SchedulerConfig, TaskConfig
-from .orbit import iter_circular_states, iter_tle_states
+from .orbit import iter_circular_states
 from .runlog import RunLog
 from .scheduler import create_scheduler
 from .workload import demand_points_provenance, load_demand_points
@@ -29,8 +29,6 @@ CONFIG_SECTIONS = {
         "description": "run_description",
     },
     "orbit": {
-        "orbit_model": "orbit_model",
-        "tle_file": "tle_file",
         "sun_position_file": "sun_position_file",
         "satellites": "satellites",
         "planes": "planes",
@@ -75,7 +73,6 @@ CONFIG_SECTIONS = {
     "isl": {
         "rate_bps": "isl_rate_bps",
         "tx_power_w": "isl_tx_power_w",
-        "topology": "isl_topology",
         "max_range_km": "isl_max_range_km",
     },
     "scheduler": {
@@ -177,9 +174,6 @@ def resolve_config(cli_args: argparse.Namespace) -> argparse.Namespace:
     config_path = cli_args.config
     values = OPTIONAL_CONFIG_DEFAULTS.copy()
     values.update(load_standalone_json_config(config_path))
-    values["tle_file"] = (
-        None if values["tle_file"] is None else Path(values["tle_file"])
-    )
     values["task_demand_points_file"] = (
         None
         if values["task_demand_points_file"] is None
@@ -244,17 +238,8 @@ def validate_args(args: argparse.Namespace) -> None:
         raise ValueError("isl.rate_bps must be positive")
     if args.isl_tx_power_w < 0:
         raise ValueError("isl.tx_power_w must be non-negative")
-    if args.isl_topology not in {"fully-connected", "grid"}:
-        raise ValueError("isl.topology must be fully-connected or grid")
-    if args.isl_topology == "grid" and (
-        args.isl_max_range_km is None or args.isl_max_range_km <= 0.0
-    ):
-        raise ValueError("isl.max_range_km must be positive for grid topology")
-    if args.orbit_model == "tle" and args.isl_topology == "grid":
-        raise ValueError(
-            "grid ISL topology requires plane/slot metadata unavailable in TLE mode; "
-            'use isl.topology: "fully-connected"'
-        )
+    if args.isl_max_range_km is None or args.isl_max_range_km <= 0.0:
+        raise ValueError("isl.max_range_km must be positive")
     logging_task_events = getattr(args, "logging_task_events", "full")
     if logging_task_events not in {"full", "lifecycle", "summary", "off"}:
         raise ValueError(
@@ -338,7 +323,6 @@ def build_configs(
     isl_config = ISLConfig(
         rate_bps=args.isl_rate_bps,
         tx_power_w=args.isl_tx_power_w,
-        topology=args.isl_topology,
         max_range_km=args.isl_max_range_km,
     )
     scheduler_config = SchedulerConfig(name=args.scheduler)
@@ -346,21 +330,14 @@ def build_configs(
 
 
 def effective_run_config(args: argparse.Namespace) -> dict:
-    if args.orbit_model == "tle":
-        orbit_config = {
-            "orbit_model": args.orbit_model,
-            "tle_file": None if args.tle_file is None else str(args.tle_file),
-            "sun_position_file": args.sun_position_file,
-        }
-    else:
-        orbit_config = {
-            "orbit_model": args.orbit_model,
-            "satellites": args.satellites,
-            "planes": args.planes,
-            "altitude_km": args.altitude_km,
-            "inclination_deg": args.inclination_deg,
-            "walker_phase": args.walker_phase,
-        }
+    orbit_config = {
+        "sun_position_file": args.sun_position_file,
+        "satellites": args.satellites,
+        "planes": args.planes,
+        "altitude_km": args.altitude_km,
+        "inclination_deg": args.inclination_deg,
+        "walker_phase": args.walker_phase,
+    }
     config = {
         "run": {
             "name": args.run_name,
@@ -411,7 +388,6 @@ def effective_run_config(args: argparse.Namespace) -> dict:
         "isl": {
             "rate_bps": args.isl_rate_bps,
             "tx_power_w": args.isl_tx_power_w,
-            "topology": args.isl_topology,
             "max_range_km": args.isl_max_range_km,
         },
         "scheduler": {
@@ -466,25 +442,16 @@ def run(args: argparse.Namespace) -> int:
             "step_sink": run_log.write_step,
         }
 
-        if args.orbit_model == "tle":
-            if args.tle_file is None:
-                raise ValueError("orbit.tle_file is required when orbit.orbit_model tle")
-            step_iterator = iter_tle_states(
-                tle_file=args.tle_file,
-                sun_position_file=args.sun_position_file,
-                **common,
-            )
-        else:
-            step_iterator = iter_circular_states(
-                satellites=args.satellites,
-                planes=args.planes,
-                altitude_km=args.altitude_km,
-                inclination_deg=args.inclination_deg,
-                sun_position_file=args.sun_position_file,
-                walker_phase=args.walker_phase,
-                raan_spread_deg=walker_raan_spread_deg(args),
-                **common,
-            )
+        step_iterator = iter_circular_states(
+            satellites=args.satellites,
+            planes=args.planes,
+            altitude_km=args.altitude_km,
+            inclination_deg=args.inclination_deg,
+            sun_position_file=args.sun_position_file,
+            walker_phase=args.walker_phase,
+            raan_spread_deg=walker_raan_spread_deg(args),
+            **common,
+        )
 
         first = None
         last = None
@@ -546,11 +513,9 @@ def run(args: argparse.Namespace) -> int:
     battery_violations = summary.get("battery_violations", {})
 
     print("Minimal orbit simulation complete")
-    print(f"  orbit model: {args.orbit_model}")
     print(f"  scheduler: {scheduler.name}")
     print(f"  satellites: {len(first)}")
-    if args.orbit_model == "circular":
-        print(f"  planes: {args.planes}")
+    print(f"  planes: {args.planes}")
     print(f"  steps: {steps}, duration: {args.duration_s}s, step: {args.step_s}s")
     print(
         f"  t=0 sunlit/eclipse: "

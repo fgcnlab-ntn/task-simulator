@@ -6,7 +6,6 @@ import random
 from array import array
 from dataclasses import dataclass
 from functools import lru_cache
-from pathlib import Path
 from typing import Callable, Iterable
 
 from .battery import (
@@ -15,7 +14,7 @@ from .battery import (
 )
 from .constants import EARTH_MU_KM3_S2, EARTH_RADIUS_KM
 from .geometry import circular_state, is_sunlit_cylindrical_shadow, vector_unit, xy_unit
-from .isl import build_constellation_layout, build_isl_graph
+from .isl import build_isl_graph, grid_constellation_layout
 from .models import (
     Assignment,
     BatteryConfig,
@@ -800,10 +799,8 @@ def iter_circular_states(
             for sat_id in range(satellites)
         ],
     )
-    constellation_layout = build_constellation_layout(
-        env.views(),
-        isl_config,
-        walker_phase=walker_phase,
+    isl_candidate_graph = grid_constellation_layout(
+        env.views(), walker_phase=walker_phase
     )
 
     for time_s in range(0, duration_s + 1, step_s):
@@ -868,7 +865,7 @@ def iter_circular_states(
             isl_graph=build_isl_graph(
                 satellite_views,
                 isl_config,
-                layout=constellation_layout,
+                candidate_graph=isl_candidate_graph,
             ),
             scheduler_config=scheduler_config,
         )
@@ -890,148 +887,6 @@ def iter_circular_states(
             step_sink(states, circular_snapshot_context(sun_vector))
         yield states, task_records
 
-
-def load_tle_satellites(tle_file: Path):
-    try:
-        from skyfield.api import load
-        from skyfield.iokit import parse_tle_file
-    except ImportError as exc:
-        raise SystemExit(
-            "Skyfield is required for --orbit-model tle. Install it with: "
-            "python3 -m pip install -r requirements.txt"
-        ) from exc
-
-    ts = load.timescale()
-
-    with tle_file.open("rb") as f:
-        satellites = list(parse_tle_file(f, ts))
-
-    if not satellites:
-        raise ValueError(f"no satellites found in TLE file: {tle_file}")
-
-    return ts, satellites
-
-
-def iter_tle_states(
-    *,
-    tle_file: Path,
-    sun_position_file: str,
-    start: dt.datetime,
-    duration_s: int,
-    step_s: int,
-    battery: BatteryConfig,
-    compute_config: ComputeConfig,
-    task_config: TaskConfig,
-    isl_config: ISLConfig,
-    scheduler: Scheduler,
-    scheduler_config: SchedulerConfig,
-    task_event_sink: TaskEventSink | None = None,
-    step_sink: StepSink | None = None,
-) -> Iterable[tuple[list[SatelliteState], list[TaskRecord]]]:
-    if step_s <= 0:
-        raise ValueError("step must be positive")
-
-    validate_battery_config(battery)
-    validate_compute_config(compute_config)
-    validate_task_config(task_config)
-
-    try:
-        from skyfield.api import load, wgs84
-    except ImportError as exc:
-        raise SystemExit(
-            "Skyfield is required for --orbit-model tle. Install it with: "
-            "python3 -m pip install -r requirements.txt"
-        ) from exc
-
-    ts, satellites = load_tle_satellites(tle_file)
-    eph = load(sun_position_file)
-
-    env = EnvironmentRuntime(
-        rng=random.Random(task_config.random_seed),
-        deadline_rng=random.Random(deadline_random_seed(task_config.random_seed)),
-        task_event_sink=task_event_sink,
-        satellites=[
-            SatelliteRuntime(
-                sat_id=sat_id,
-                name=sat.name or f"sat_{sat_id}",
-                plane=-1,
-                slot=sat_id,
-                battery_j=battery.initial_j,
-            )
-            for sat_id, sat in enumerate(satellites)
-        ],
-    )
-    constellation_layout = build_constellation_layout(env.views(), isl_config)
-
-    for time_s in range(0, duration_s + 1, step_s):
-        env.time_s = time_s
-        now = start + dt.timedelta(seconds=time_s)
-        env.time_utc = now
-        t = ts.from_datetime(now)
-        earth = eph["earth"].at(t)
-        sun = eph["sun"].at(t)
-        sun_vector = tuple(float(x) for x in (sun.position.km - earth.position.km))
-        context = snapshot_context_from_sun_vector(sun_vector)
-
-        for sat_id, sat in enumerate(satellites):
-            geocentric = sat.at(t)
-            pos = tuple(float(x) for x in geocentric.position.km)
-            vel = tuple(float(x) for x in geocentric.velocity.km_per_s)
-            subpoint = wgs84.subpoint(geocentric)
-            sunlit = bool(geocentric.is_sunlit(eph))
-
-            env.satellites[sat_id].update_orbit(
-                pos_km=pos,
-                vel_km_s=vel,
-                lat_deg=float(subpoint.latitude.degrees),
-                lon_deg=float(subpoint.longitude.degrees),
-                elevation_km=float(subpoint.elevation.km),
-                sunlit=sunlit,
-            )
-
-        new_tasks, expired_tasks = generate_step_tasks(env, task_config, compute_config)
-        deferred_tasks, expired_deferred_tasks = pop_deferred_tasks(env)
-
-        tasks = deferred_tasks + new_tasks
-        expired_tasks = expired_tasks + expired_deferred_tasks
-
-        satellite_views = env.views(
-            include_queue_tasks=scheduler.queue_discipline == "edf"
-        )
-        assignments = assign_step_tasks(
-            scheduler=scheduler,
-            tasks=tasks,
-            satellite_views=satellite_views,
-            time_s=env.time_s,
-            step_s=step_s,
-            battery=battery,
-            compute_config=compute_config,
-            task_config=task_config,
-            isl_config=isl_config,
-            isl_graph=build_isl_graph(
-                satellite_views,
-                isl_config,
-                layout=constellation_layout,
-            ),
-            scheduler_config=scheduler_config,
-        )
-
-        states, task_records = apply_step(
-            env=env,
-            step_s=step_s,
-            battery=battery,
-            compute_config=compute_config,
-            task_config=task_config,
-            isl_config=isl_config,
-            tasks=tasks,
-            assignments=assignments,
-            expired_tasks=expired_tasks,
-            queue_discipline=scheduler.queue_discipline,
-        )
-
-        if step_sink is not None:
-            step_sink(states, context)
-        yield states, task_records
 
 
 def circular_snapshot_context(
@@ -1071,38 +926,3 @@ def sun_vector_from_ephemeris(
     earth = eph["earth"].at(t)
     sun = eph["sun"].at(t)
     return tuple(float(x) for x in (sun.position.km - earth.position.km))
-
-
-def snapshot_context_from_sun_vector(
-    sun_vector: tuple[float, float, float],
-) -> SnapshotContext:
-    return SnapshotContext(
-        projection_label="ECI x-y projection; sun arrow is the real Sun vector projected into this plane",
-        sun_xy_unit=xy_unit(sun_vector),
-        sun_eci_unit=vector_unit(sun_vector),
-    )
-
-
-def tle_snapshot_context(
-    *,
-    sun_position_file: str,
-    start: dt.datetime,
-    time_s: int,
-) -> SnapshotContext:
-    try:
-        from skyfield.api import load
-    except ImportError as exc:
-        raise SystemExit(
-            "Skyfield is required for --orbit-model tle. Install it with: "
-            "python3 -m pip install -r requirements.txt"
-        ) from exc
-
-    ts = load.timescale()
-    eph = load(sun_position_file)
-    t = ts.from_datetime(start + dt.timedelta(seconds=time_s))
-    earth = eph["earth"].at(t)
-    sun = eph["sun"].at(t)
-
-    sun_vector = tuple(float(x) for x in (sun.position.km - earth.position.km))
-
-    return snapshot_context_from_sun_vector(sun_vector)

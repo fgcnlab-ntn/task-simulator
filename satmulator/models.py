@@ -63,8 +63,7 @@ class ComputeConfig:
 class ISLConfig:
     rate_bps: float
     tx_power_w: float
-    topology: str = "grid"
-    max_range_km: float | None = 5000.0
+    max_range_km: float = 5000.0
 
 
 @dataclass(frozen=True)
