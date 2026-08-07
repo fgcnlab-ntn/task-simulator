@@ -13,7 +13,13 @@ from .battery import (
     validate_battery_config,
 )
 from .constants import EARTH_MU_KM3_S2, EARTH_RADIUS_KM
-from .geometry import circular_state, is_sunlit_cylindrical_shadow, vector_unit, xy_unit
+from .geometry import (
+    circular_plane,
+    circular_state,
+    is_sunlit_cylindrical_shadow,
+    vector_unit,
+    xy_unit,
+)
 from .isl import build_isl_graph, grid_constellation_layout
 from .models import (
     Assignment,
@@ -97,6 +103,14 @@ def build_circular_illumination_timeline(
     """Precompute exact simulator-slot illumination and transition lookups."""
 
     times = tuple(range(0, duration_s + 1, step_s))
+    orbital_speed_km_s = radius_km * mean_motion
+    plane_geometry = tuple(
+        circular_plane(
+            inclination_rad,
+            raan_spread_rad * plane / planes,
+        )
+        for plane in range(planes)
+    )
     sunlit_rows: list[bytes] = []
     for time_s in times:
         time_utc = None if start is None else start + dt.timedelta(seconds=time_s)
@@ -110,8 +124,7 @@ def build_circular_illumination_timeline(
             raise ValueError("Sun vector norm must be positive")
 
         row = bytearray(satellites)
-        for plane in range(planes):
-            raan = raan_spread_rad * plane / planes
+        for plane, geometry in enumerate(plane_geometry):
             plane_phase = 2.0 * math.pi * walker_phase * plane / satellites
             for slot in range(sats_per_plane):
                 sat_id = plane * sats_per_plane + slot
@@ -121,7 +134,10 @@ def build_circular_illumination_timeline(
                     + mean_motion * time_s
                 )
                 pos, _vel = circular_state(
-                    radius_km, inclination_rad, raan, arg
+                    geometry,
+                    radius_km,
+                    orbital_speed_km_s,
+                    arg,
                 )
                 row[sat_id] = is_sunlit_cylindrical_shadow(pos, sun_unit)
         sunlit_rows.append(bytes(row))
@@ -760,6 +776,14 @@ def iter_circular_states(
     inclination_rad = math.radians(inclination_deg)
     raan_spread_rad = math.tau
     mean_motion = math.sqrt(EARTH_MU_KM3_S2 / (radius_km**3))
+    orbital_speed_km_s = radius_km * mean_motion
+    plane_geometry = tuple(
+        circular_plane(
+            inclination_rad,
+            raan_spread_rad * plane / planes,
+        )
+        for plane in range(planes)
+    )
     sun_ephemeris = (
         None
         if start is None or sun_position_file is None
@@ -812,8 +836,7 @@ def iter_circular_states(
         if sun_unit is None:
             raise ValueError("Sun vector norm must be positive")
 
-        for plane in range(planes):
-            raan = raan_spread_rad * plane / planes
+        for plane, geometry in enumerate(plane_geometry):
             plane_phase = 2.0 * math.pi * walker_phase * plane / satellites
 
             for slot in range(sats_per_plane):
@@ -823,7 +846,12 @@ def iter_circular_states(
                     + plane_phase
                     + mean_motion * time_s
                 )
-                pos, vel = circular_state(radius_km, inclination_rad, raan, arg)
+                pos, vel = circular_state(
+                    geometry,
+                    radius_km,
+                    orbital_speed_km_s,
+                    arg,
+                )
                 sunlit = bool(
                     illumination_timeline.sunlit_by_step[step_index][sat_id]
                 )
