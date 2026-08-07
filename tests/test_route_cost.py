@@ -6,7 +6,6 @@ from satmulator.route_cost import estimate_route_cost, estimate_route_timing
 
 def task_config() -> TaskConfig:
     return TaskConfig(
-        enabled=True,
         interval_s=30,
         random_seed=1,
         tasks_per_step=1,

@@ -8,7 +8,7 @@ The current model supports:
 - circular Walker-style orbit model
 - sunlight/eclipse classification
 - per-satellite battery state
-- deterministic and demand-point task generation
+- population-weighted demand-point task generation
 - local and nearest-sunlit schedulers
 - per-satellite FIFO execution queues for assigned tasks
 - four-neighbor grid ISL routing with per-hop accounting
@@ -49,19 +49,7 @@ References:
 Use JSON config files for reproducible runs:
 
 ```bash
-python3 minimal_orbit.py --config configs/template/template.json
-```
-
-Nearest-sunlit offloading:
-
-```bash
-python3 minimal_orbit.py --config configs/template/nearest_sunlit.json
-```
-
-Task-oriented demand-point workload:
-
-```bash
-python3 minimal_orbit.py --config configs/template/demand_points.json
+python3 minimal_orbit.py --config configs/loading-ratio/r100/local-only.json
 ```
 
 CPU-power sweep for one satellite keeping its CPU fully active through a
@@ -96,49 +84,7 @@ The effective config is written to:
 <output>/run.json
 ```
 
-## Template model
-
-`configs/template.json` is a complete, standalone Starlink-like template scenario:
-
-- 1584 satellites, 72 planes, 550 km altitude, 53.05° inclination
-- start time `2026-05-22T12:00:00Z`, duration 1800 s, step 30 s
-- battery capacity 100000 J, initial 80%, safe minimum 70%
-- default legacy mode: one task per satellite every 300 s
-- demand-point mode: task locations and workload sizes sampled from configured distributions
-- default legacy task size 1e9 CPU cycles, 1e7 input bits, 1e6 output bits
-- default four-neighbor grid ISL with a 5000 km link range and Earth-obstruction filtering
-- default ISL cost: 1 Gbps transfer rate, 10 W transmit power
-- default scheduler target load limit: 4e9 CPU cycles per slot
-- scheduler: `local`
-
-`configs/oneweb_648.json` is the matching OneWeb ideal Walker Delta scenario:
-
-- 648 satellites, 18 planes, 36 satellites per plane
-- 1200 km altitude, 87.9° inclination
-- Walker phase 1, with the same timing, battery, task, scheduler, and grid-ISL
-  defaults as the Starlink-like template
-
-`configs/kuiper_784.json` is the matching Kuiper ideal Walker Delta scenario:
-
-- 784 satellites, 28 planes, 28 satellites per plane
-- 590 km altitude, 33.0° inclination
-- Walker phase 1, with the same timing, battery, task, scheduler, and grid-ISL
-  defaults as the Starlink-like template
-
-`configs/kuiper_1156_630km_51p9deg.json` is a higher-inclination Kuiper Walker
-Delta shell for Starlink-like eclipse-time comparisons:
-
-- 1156 satellites, 34 planes, 34 satellites per plane
-- 630 km altitude, 51.9° inclination
-- Walker phase 1, with the same timing, battery, task, scheduler, and grid-ISL
-  defaults as the Starlink-like template
-
-`configs/iridium_66.json` is the matching Iridium ideal Walker Star scenario:
-
-- 66 satellites, 6 planes, 11 satellites per plane
-- 780 km altitude, 86.4° inclination
-- Walker phase 2, with the same timing, battery, task, scheduler, and grid-ISL
-  defaults as the Starlink-like template
+## Model
 
 The grid builds a fixed candidate layout once: two in-plane links and two
 cross-plane links per satellite. The plane seam is shifted by the configured
@@ -180,7 +126,7 @@ See `TASK_CONFIG.md` for the task-oriented config fields.
 ## Code structure
 
 - `minimal_orbit.py` — CLI wrapper
-- `configs/` — complete standalone JSON configs; `configs/template/template.json` is the copyable baseline
+- `configs/` — complete standalone experiment configs
 - `satmulator/cli.py` — config parsing and run orchestration
 - `satmulator/runtime.py` — mutable satellite/environment state
 - `satmulator/models.py` — configs, tasks, assignments, snapshots

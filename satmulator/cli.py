@@ -42,7 +42,6 @@ CONFIG_SECTIONS = {
         "idle_w": "idle_w",
     },
     "task": {
-        "enabled": "task_enable",
         "interval_s": "task_interval_s",
         "random_seed": "task_random_seed",
         "tasks_per_step": "tasks_per_step",
@@ -246,12 +245,6 @@ def validate_args(args: argparse.Namespace) -> None:
             raise ValueError("logging summary window exceeds time.duration_s")
 
 
-def walker_raan_spread_deg(args: argparse.Namespace) -> float:
-    """Return the RAAN spread for the built-in Walker constellation presets."""
-
-    return 180.0 if str(args.run_name).lower().startswith("iridium") else 360.0
-
-
 def build_configs(
     args: argparse.Namespace,
 ) -> tuple[BatteryConfig, ComputeConfig, TaskConfig, ISLConfig, SchedulerConfig]:
@@ -263,7 +256,6 @@ def build_configs(
         idle_w=args.idle_w,
     )
     task_config = TaskConfig(
-        enabled=args.task_enable,
         interval_s=args.task_interval_s,
         random_seed=args.task_random_seed,
         tasks_per_step=args.tasks_per_step,
@@ -316,7 +308,6 @@ def effective_run_config(args: argparse.Namespace) -> dict:
             "idle_w": args.idle_w,
         },
         "task": {
-            "enabled": args.task_enable,
             "interval_s": args.task_interval_s,
             "random_seed": args.task_random_seed,
             "tasks_per_step": args.tasks_per_step,
@@ -391,7 +382,6 @@ def run(args: argparse.Namespace) -> int:
             inclination_deg=args.inclination_deg,
             sun_position_file=args.sun_position_file,
             walker_phase=args.walker_phase,
-            raan_spread_deg=walker_raan_spread_deg(args),
             **common,
         )
 

@@ -8,7 +8,6 @@ task count to every satellite.
 
 ## Task fields
 
-- `enabled`: enable or disable task generation.
 - `interval_s`: generate tasks every N simulated seconds.
 - `random_seed`: seed for reproducible stochastic workloads.
 - `tasks_per_step`: number of tasks created at each generation time.

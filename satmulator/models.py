@@ -31,7 +31,6 @@ class DemandDistribution:
 
 @dataclass(frozen=True)
 class TaskConfig:
-    enabled: bool
     interval_s: int
     random_seed: int | None
     tasks_per_step: int

@@ -321,8 +321,6 @@ def generate_step_tasks(
     task_config: TaskConfig,
     compute_config: ComputeConfig,
 ) -> tuple[list[Task], list[Task]]:
-    if not task_config.enabled:
-        return [], []
     if env.time_s > 0 and env.time_s % task_config.interval_s == 0:
         env.pending_tasks.extend(
             generate_demand_point_tasks(env, task_config, compute_config)

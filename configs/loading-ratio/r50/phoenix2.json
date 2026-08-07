@@ -24,7 +24,6 @@
     "idle_w": 20.0
   },
   "task": {
-    "enabled": true,
     "interval_s": 30,
     "random_seed": 42,
     "tasks_per_step": 4000,

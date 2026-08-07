@@ -46,7 +46,6 @@ def _compute() -> ComputeConfig:
 
 def _task_config() -> TaskConfig:
     return TaskConfig(
-        enabled=True,
         interval_s=20,
         random_seed=1,
         tasks_per_step=1,

@@ -742,7 +742,6 @@ def iter_circular_states(
     scheduler: Scheduler,
     scheduler_config: SchedulerConfig,
     walker_phase: int = 0,
-    raan_spread_deg: float = 360.0,
     task_event_sink: TaskEventSink | None = None,
     step_sink: StepSink | None = None,
 ) -> Iterable[tuple[list[SatelliteState], list[TaskRecord]]]:
@@ -752,9 +751,6 @@ def iter_circular_states(
         raise ValueError("planes must be positive and divide satellites")
     if step_s <= 0:
         raise ValueError("step must be positive")
-    if not 0.0 < raan_spread_deg <= 360.0:
-        raise ValueError("RAAN spread must be within (0, 360]")
-
     validate_battery_config(battery)
     validate_compute_config(compute_config)
     validate_task_config(task_config)
@@ -762,7 +758,7 @@ def iter_circular_states(
     sats_per_plane = satellites // planes
     radius_km = EARTH_RADIUS_KM + altitude_km
     inclination_rad = math.radians(inclination_deg)
-    raan_spread_rad = math.radians(raan_spread_deg)
+    raan_spread_rad = math.tau
     mean_motion = math.sqrt(EARTH_MU_KM3_S2 / (radius_km**3))
     sun_ephemeris = (
         None
