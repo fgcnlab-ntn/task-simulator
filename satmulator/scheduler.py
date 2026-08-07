@@ -4,7 +4,15 @@ from collections import deque
 from dataclasses import dataclass
 
 from .battery import battery_is_safe, battery_step
-from .isl import ISLGraph, shortest_route
+from .isl import (
+    ISLGraph,
+    build_route_tree,
+    route_from_parents,
+    route_nodes_reversed,
+    routes_from_source,
+    routes_to_targets,
+    shortest_route,
+)
 from .models import (
     Assignment,
     BatteryConfig,
@@ -25,13 +33,6 @@ from .route_cost import (
     task_compute_time_s,
     transmission_energy_j,
 )
-
-
-def distance_km(a: SatelliteView, b: SatelliteView) -> float:
-    dx = a.x_km - b.x_km
-    dy = a.y_km - b.y_km
-    dz = a.z_km - b.z_km
-    return (dx * dx + dy * dy + dz * dz) ** 0.5
 
 
 def route_or_raise(graph: ISLGraph, source_sat: int, target_sat: int) -> Route:
@@ -159,85 +160,6 @@ def enforce_edf_queue_feasibility(
         projected_queues[assignment.target_sat] = list(projection.tasks)
         checked.append(assignment)
     return checked
-
-
-def route_parents_from_source(
-    graph: ISLGraph, source_sat: int
-) -> dict[int, int | None]:
-    """Return the shortest-route parent tree rooted at one source."""
-    if source_sat not in graph.adjacency:
-        return {}
-
-    parents: dict[int, int | None] = {source_sat: None}
-    queue: deque[int] = deque([source_sat])
-
-    while queue:
-        current = queue.popleft()
-        for neighbor in graph.neighbors(current):
-            if neighbor in parents:
-                continue
-            parents[neighbor] = current
-            queue.append(neighbor)
-
-    return parents
-
-
-def route_parents_avoiding_relays(
-    graph: ISLGraph,
-    source_sat: int,
-    blocked_relays: set[int],
-) -> dict[int, int | None]:
-    """Build a shortest-path tree without traversing blocked relay nodes."""
-
-    if source_sat not in graph.adjacency:
-        return {}
-
-    parents: dict[int, int | None] = {source_sat: None}
-    queue: deque[int] = deque([source_sat])
-    while queue:
-        current = queue.popleft()
-        for neighbor in graph.neighbors(current):
-            if neighbor in parents or neighbor in blocked_relays:
-                continue
-            parents[neighbor] = current
-            queue.append(neighbor)
-    return parents
-
-
-def route_from_parents(
-    parents: dict[int, int | None],
-    target_sat: int,
-) -> Route | None:
-    nodes = route_nodes_from_parents(parents, target_sat)
-    if nodes is None:
-        return None
-    return Route(nodes)
-
-
-def route_nodes_from_parents(
-    parents: dict[int, int | None],
-    target_sat: int,
-) -> tuple[int, ...] | None:
-    nodes = reversed_route_nodes_from_parents(parents, target_sat)
-    if nodes is None:
-        return None
-    nodes.reverse()
-    return tuple(nodes)
-
-
-def reversed_route_nodes_from_parents(
-    parents: dict[int, int | None],
-    target_sat: int,
-) -> list[int] | None:
-    if target_sat not in parents:
-        return None
-
-    nodes = [target_sat]
-    current = target_sat
-    while parents[current] is not None:
-        current = parents[current]
-        nodes.append(current)
-    return nodes
 
 
 def reserved_energy_for_sat(reserved_energy, sat_id: int) -> float:
@@ -634,60 +556,6 @@ def route_respects_battery_projection(
         if not battery_is_safe(minimum_j, battery.min_safe_j):
             return False
     return True
-
-
-def routes_from_source(graph: ISLGraph, source_sat: int) -> dict[int, Route]:
-    """Return shortest routes from one source to every reachable satellite."""
-
-    parents = route_parents_from_source(graph, source_sat)
-    routes: dict[int, Route] = {}
-    for target_sat in parents:
-        route = route_from_parents(parents, target_sat)
-        assert route is not None
-        routes[target_sat] = route
-    return routes
-
-
-def routes_to_targets(
-    graph: ISLGraph,
-    source_sat: int,
-    target_sats: set[int],
-) -> dict[int, Route]:
-    """Return shortest routes from one source to requested reachable targets."""
-
-    if not target_sats or source_sat not in graph.adjacency:
-        return {}
-
-    remaining = set(target_sats)
-    parents: dict[int, int | None] = {source_sat: None}
-    queue: deque[int] = deque([source_sat])
-
-    if source_sat in remaining:
-        remaining.remove(source_sat)
-
-    while queue and remaining:
-        current = queue.popleft()
-        for neighbor in graph.neighbors(current):
-            if neighbor in parents:
-                continue
-            parents[neighbor] = current
-            if neighbor in remaining:
-                remaining.remove(neighbor)
-                if not remaining:
-                    break
-            queue.append(neighbor)
-
-    found_targets = target_sats - remaining
-    routes: dict[int, Route] = {}
-    for target_sat in found_targets:
-        nodes = [target_sat]
-        current = target_sat
-        while parents[current] is not None:
-            current = parents[current]
-            nodes.append(current)
-        nodes.reverse()
-        routes[target_sat] = Route(tuple(nodes))
-    return routes
 
 
 class Scheduler:
@@ -1549,7 +1417,7 @@ class Method3Scheduler(Scheduler):
             task.source_sat for task in ordered_tasks if task.source_sat is not None
         }
         route_parents_by_source: dict[int, dict[int, int | None]] = {
-            source_sat: route_parents_from_source(isl_graph, source_sat)
+            source_sat: build_route_tree(isl_graph, source_sat)
             for source_sat in unique_sources
         }
 
@@ -1647,7 +1515,7 @@ class Method3Scheduler(Scheduler):
             if best_sunlit is not None:
                 candidate_sat_id, candidate_available_time = best_sunlit
                 route_parents = route_parents_by_source[source.sat_id]
-                reversed_route_nodes = reversed_route_nodes_from_parents(
+                reversed_route_nodes = route_nodes_reversed(
                     route_parents,
                     candidate_sat_id,
                 )
@@ -2001,7 +1869,7 @@ class Method3ModScheduler(Method3Scheduler):
             task.source_sat for task in ordered_tasks if task.source_sat is not None
         }
         route_parents_by_source: dict[int, dict[int, int | None]] = {
-            source_sat: route_parents_from_source(isl_graph, source_sat)
+            source_sat: build_route_tree(isl_graph, source_sat)
             for source_sat in unique_sources
         }
 
@@ -2090,7 +1958,7 @@ class Method3ModScheduler(Method3Scheduler):
                 candidate_sat_id, candidate_available_time = best_sunlit
 
                 route_parents = route_parents_by_source[source.sat_id]
-                reversed_route_nodes = reversed_route_nodes_from_parents(
+                reversed_route_nodes = route_nodes_reversed(
                     route_parents,
                     candidate_sat_id,
                 )
@@ -2419,7 +2287,7 @@ class Method5Scheduler(Method3ModScheduler):
             return []
 
         route_parents_by_source = {
-            source_sat: route_parents_from_source(isl_graph, source_sat)
+            source_sat: build_route_tree(isl_graph, source_sat)
             for source_sat in {
                 task.source_sat
                 for task in ordered_tasks
@@ -2584,7 +2452,7 @@ class Method5Scheduler(Method3ModScheduler):
                     )
                     continue
 
-                reversed_route_nodes = reversed_route_nodes_from_parents(
+                reversed_route_nodes = route_nodes_reversed(
                     route_parents_by_source[source.sat_id],
                     candidate_sat_id,
                 )
@@ -2946,7 +2814,7 @@ class Method6Scheduler(Method3ModScheduler):
                 break
 
             cost, finish_time, _battery_safe = result
-            reversed_route_nodes = reversed_route_nodes_from_parents(
+            reversed_route_nodes = route_nodes_reversed(
                 route_parents,
                 sat_id,
             )
@@ -3093,13 +2961,13 @@ class Method6Scheduler(Method3ModScheduler):
             parents = route_parents_by_source.get(source_sat)
             if parents is None:
                 parents = (
-                    route_parents_avoiding_relays(
+                    build_route_tree(
                         isl_graph,
                         source_sat,
                         blocked_route_relays - {source_sat},
                     )
                     if blocked_route_relays
-                    else route_parents_from_source(isl_graph, source_sat)
+                    else build_route_tree(isl_graph, source_sat)
                 )
                 route_parents_by_source[source_sat] = parents
             return parents
@@ -3227,7 +3095,7 @@ class Method6Scheduler(Method3ModScheduler):
 
             if best_sunlit is not None:
                 candidate_sat_id, candidate_available_time = best_sunlit
-                reversed_route_nodes = reversed_route_nodes_from_parents(
+                reversed_route_nodes = route_nodes_reversed(
                     route_parents_for_source(source.sat_id),
                     candidate_sat_id,
                 )
@@ -3592,7 +3460,7 @@ class Method8Scheduler(Method7Scheduler):
             - relay_energy_j
             < battery.min_safe_j
         }
-        parents = route_parents_avoiding_relays(
+        parents = build_route_tree(
             isl_graph,
             source_sat,
             blocked_relays - {source_sat, target_sat},

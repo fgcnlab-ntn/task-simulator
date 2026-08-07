@@ -1,11 +1,10 @@
 import unittest
 
+from satmulator.constants import EARTH_RADIUS_KM
 from satmulator.isl import (
     ISLGraph,
     build_isl_graph,
-    filter_link_availability,
     grid_constellation_layout,
-    grid_isl_graph,
     has_line_of_sight,
     shortest_route,
 )
@@ -49,6 +48,10 @@ def point_view(
     )
 
 
+def isl_config(max_range_km: float) -> ISLConfig:
+    return ISLConfig(1.0, 0.0, max_range_km=max_range_km)
+
+
 class ISLGraphTests(unittest.TestCase):
     def test_grid_graph_connects_only_four_topological_neighbors(self) -> None:
         satellites = [
@@ -63,7 +66,7 @@ class ISLGraphTests(unittest.TestCase):
             for slot in range(3)
         ]
 
-        graph = grid_isl_graph(satellites, max_range_km=100.0)
+        graph = build_isl_graph(satellites, isl_config(100.0))
 
         self.assertEqual(graph.neighbors(0), (1, 2, 3, 6))
         self.assertEqual(graph.neighbors(4), (1, 3, 5, 7))
@@ -77,7 +80,7 @@ class ISLGraphTests(unittest.TestCase):
             view(3, x=10001.0, y=1.0, plane=1, slot=1),
         ]
 
-        route = shortest_route(grid_isl_graph(satellites, 10.0), 0, 3)
+        route = shortest_route(build_isl_graph(satellites, isl_config(10.0)), 0, 3)
 
         self.assertIsNotNone(route)
         self.assertEqual(route.nodes, (0, 1, 3))
@@ -109,25 +112,43 @@ class ISLGraphTests(unittest.TestCase):
         ]
         layout = grid_constellation_layout(near)
 
-        near_graph = filter_link_availability(near, layout, 5.0)
-        far_graph = filter_link_availability(far, layout, 5.0)
+        near_graph = build_isl_graph(
+            near,
+            isl_config(5.0),
+            candidate_graph=layout,
+        )
+        far_graph = build_isl_graph(
+            far,
+            isl_config(5.0),
+            candidate_graph=layout,
+        )
 
         self.assertEqual(near_graph.neighbors(0), (1,))
         self.assertEqual(far_graph.neighbors(0), ())
 
     def test_grid_graph_filters_neighbors_by_range(self) -> None:
-        graph = grid_isl_graph(
+        graph = build_isl_graph(
             [
                 view(0, x=10000.0, plane=0, slot=0),
                 view(1, x=10003.0, plane=0, slot=1),
                 view(2, x=10010.0, plane=0, slot=2),
             ],
-            max_range_km=5.0,
+            isl_config(5.0),
         )
 
         self.assertEqual(graph.neighbors(0), (1,))
         self.assertEqual(graph.neighbors(1), (0,))
         self.assertEqual(graph.neighbors(2), ())
+
+    def test_grid_graph_includes_link_at_exact_maximum_range(self) -> None:
+        satellites = [
+            view(0, x=10000.0, plane=0, slot=0),
+            view(1, x=10003.0, y=4.0, plane=0, slot=1),
+        ]
+
+        graph = build_isl_graph(satellites, isl_config(5.0))
+
+        self.assertEqual(graph.neighbors(0), (1,))
 
     def test_line_of_sight_blocks_links_through_earth(self) -> None:
         first = point_view(0, x=7000.0)
@@ -141,8 +162,14 @@ class ISLGraphTests(unittest.TestCase):
 
         self.assertTrue(has_line_of_sight(first, second))
 
+    def test_line_of_sight_rejects_link_tangent_to_earth(self) -> None:
+        first = point_view(0, x=-1000.0, y=EARTH_RADIUS_KM)
+        second = point_view(1, x=1000.0, y=EARTH_RADIUS_KM)
+
+        self.assertFalse(has_line_of_sight(first, second))
+
     def test_grid_graph_rejects_earth_blocked_links(self) -> None:
-        graph = grid_isl_graph(
+        graph = build_isl_graph(
             [
                 SatelliteView(
                     sat_id=0,
@@ -163,7 +190,7 @@ class ISLGraphTests(unittest.TestCase):
                     slot=1,
                 ),
             ],
-            max_range_km=20000.0,
+            isl_config(20000.0),
         )
 
         self.assertEqual(graph.neighbors(0), ())
@@ -195,16 +222,16 @@ class ISLGraphTests(unittest.TestCase):
 
     def test_grid_topology_requires_plane_and_slot_metadata(self) -> None:
         with self.assertRaisesRegex(ValueError, "plane and slot metadata"):
-            grid_isl_graph([view(0)], max_range_km=5.0)
+            build_isl_graph([view(0)], isl_config(5.0))
 
     def test_grid_topology_rejects_incomplete_layout(self) -> None:
         with self.assertRaisesRegex(ValueError, "complete rectangular layout"):
-            grid_isl_graph(
+            build_isl_graph(
                 [
                     view(0, plane=0, slot=0),
                     view(1, plane=1, slot=1),
                 ],
-                max_range_km=5.0,
+                isl_config(5.0),
             )
 
     def test_shortest_route_returns_direct_route_when_available(self) -> None:

@@ -294,12 +294,12 @@ def test_method7_stops_after_safe_sunlit_local_action(monkeypatch) -> None:
 
     monkeypatch.setattr(
         scheduler_module,
-        "route_parents_from_source",
+        "build_route_tree",
         unexpected_route_search,
     )
     monkeypatch.setattr(
         scheduler_module,
-        "route_parents_avoiding_relays",
+        "build_route_tree",
         unexpected_route_search,
     )
 
