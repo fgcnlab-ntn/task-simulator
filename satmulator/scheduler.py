@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import deque
 from dataclasses import dataclass
 
-from .battery import battery_is_safe, projected_battery_after_step
+from .battery import battery_is_safe, battery_step
 from .isl import ISLGraph, shortest_route
 from .models import (
     Assignment,
@@ -1405,7 +1405,7 @@ class Method3Scheduler(Scheduler):
         if t_fin > deadline_time:
             return None
 
-        projected = projected_battery_after_step(
+        projected, _, _ = battery_step(
             battery_now=sat.battery_j,
             sunlit=sat.sunlit,
             step_s=step_s,

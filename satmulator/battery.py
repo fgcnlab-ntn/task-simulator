@@ -3,8 +3,7 @@ from __future__ import annotations
 from .models import BatteryConfig
 
 
-# Battery updates accumulate floating-point error over thousands of steps.
-# One microjoule is still negligible beside the simulator's joule-scale loads.
+# Tolerate accumulated floating-point noise.
 ENERGY_EPSILON_J = 1.0e-6
 
 
@@ -25,7 +24,7 @@ def validate_battery_config(battery: BatteryConfig) -> None:
         raise ValueError("minimum safe battery must be within [0, capacity]")
 
 
-def apply_battery_step(
+def battery_step(
     *,
     battery_now: float,
     sunlit: bool,
@@ -34,35 +33,18 @@ def apply_battery_step(
     task_energy_j: float,
     update: bool,
 ) -> tuple[float, float, float]:
-    consumed_j = battery.idle_w * step_s
-    harvested_j = battery.harvest_w * step_s if sunlit else 0.0
+    """Return next battery, harvested, and idle-consumed energy in joules."""
+
     if not update:
         return battery_now, 0.0, 0.0
+
+    consumed_j = battery.idle_w * step_s
+    harvested_j = battery.harvest_w * step_s if sunlit else 0.0
     battery_now = max(
         0.0,
-        projected_battery_after_step(
-            battery_now=battery_now,
-            sunlit=sunlit,
-            step_s=step_s,
-            battery=battery,
-            task_energy_j=task_energy_j,
-            update=update,
+        min(
+            battery.capacity_j,
+            battery_now - consumed_j - task_energy_j + harvested_j,
         ),
     )
     return battery_now, harvested_j, consumed_j
-
-
-def projected_battery_after_step(
-    *,
-    battery_now: float,
-    sunlit: bool,
-    step_s: int,
-    battery: BatteryConfig,
-    task_energy_j: float,
-    update: bool,
-) -> float:
-    if not update:
-        return battery_now
-    consumed_j = battery.idle_w * step_s
-    harvested_j = battery.harvest_w * step_s if sunlit else 0.0
-    return min(battery.capacity_j, battery_now - consumed_j - task_energy_j + harvested_j)

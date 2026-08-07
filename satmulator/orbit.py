@@ -9,7 +9,7 @@ from functools import lru_cache
 from typing import Callable, Iterable
 
 from .battery import (
-    apply_battery_step,
+    battery_step,
     validate_battery_config,
 )
 from .constants import EARTH_MU_KM3_S2, EARTH_RADIUS_KM
@@ -692,7 +692,7 @@ def apply_step(
     for sat in env.satellites:
         stats = stats_by_sat[sat.sat_id]
 
-        battery_now, harvested_j, consumed_j = apply_battery_step(
+        battery_now, harvested_j, consumed_j = battery_step(
             battery_now=sat.battery_j,
             sunlit=sat.sunlit,
             step_s=step_s,

@@ -1,6 +1,6 @@
 import unittest
 
-from satmulator.battery import ENERGY_EPSILON_J, battery_is_safe
+from satmulator.battery import ENERGY_EPSILON_J, battery_is_safe, battery_step
 from satmulator.models import (
     Assignment,
     BatteryConfig,
@@ -38,6 +38,35 @@ def compute_config() -> ComputeConfig:
 
 
 class BatteryDoDTests(unittest.TestCase):
+    def test_battery_step_clamps_to_physical_bounds(self) -> None:
+        battery = BatteryConfig(
+            capacity_j=100.0,
+            initial_j=50.0,
+            min_safe_j=20.0,
+            harvest_w=10.0,
+            idle_w=1.0,
+        )
+
+        depleted, _, _ = battery_step(
+            battery_now=5.0,
+            sunlit=False,
+            step_s=10,
+            battery=battery,
+            task_energy_j=1.0,
+            update=True,
+        )
+        charged, _, _ = battery_step(
+            battery_now=95.0,
+            sunlit=True,
+            step_s=10,
+            battery=battery,
+            task_energy_j=0.0,
+            update=True,
+        )
+
+        self.assertEqual(depleted, 0.0)
+        self.assertEqual(charged, 100.0)
+
     def test_safe_limit_ignores_only_floating_point_noise(self) -> None:
         minimum_j = 151200.0
 
