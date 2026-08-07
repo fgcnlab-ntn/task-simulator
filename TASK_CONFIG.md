@@ -17,8 +17,8 @@ fixed-size task for every demand point at every generation slot.
   `demand-points-fixed-all`.
 - `random_seed`: seed for reproducible stochastic workloads.
 - `tasks_per_sat`: legacy deterministic task count per satellite.
-- `tasks_per_step_choices`, `tasks_per_step_weights`: discrete distribution for
-  the number of tasks created at each generation time in `demand-points` mode.
+- `tasks_per_step`: number of tasks created at each generation time in
+  `demand-points` mode.
 - `demand_points_file`: CSV file with `lat,lon,weight` columns.  The weight can
   come from population, nighttime lights, or measured traffic demand. The
   default demand-point config uses the checked-in 5° global WorldPop aggregate

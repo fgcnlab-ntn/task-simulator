@@ -29,18 +29,7 @@
     "generation_mode": "satellite-deterministic",
     "random_seed": 42,
     "tasks_per_sat": 1,
-    "tasks_per_step_choices": [
-      0,
-      5,
-      10,
-      20
-    ],
-    "tasks_per_step_weights": [
-      0.2,
-      0.4,
-      0.2,
-      0.2
-    ],
+    "tasks_per_step": 8,
     "input_bits": 10000000.0,
     "output_bits": 1000000.0,
     "demand_points_file": null,

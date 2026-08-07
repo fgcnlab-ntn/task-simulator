@@ -36,8 +36,7 @@ class TaskConfig:
     generation_mode: str
     random_seed: int | None
     tasks_per_sat: int
-    tasks_per_step_choices: tuple[int, ...]
-    tasks_per_step_weights: tuple[float, ...]
+    tasks_per_step: int
     input_bits: float
     output_bits: float
     deadline_s: float

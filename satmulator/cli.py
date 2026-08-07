@@ -48,8 +48,7 @@ CONFIG_SECTIONS = {
         "generation_mode": "task_generation_mode",
         "random_seed": "task_random_seed",
         "tasks_per_sat": "tasks_per_sat",
-        "tasks_per_step_choices": "tasks_per_step_choices",
-        "tasks_per_step_weights": "tasks_per_step_weights",
+        "tasks_per_step": "tasks_per_step",
         "input_bits": "task_input_bits",
         "output_bits": "task_output_bits",
         "compute_time_s": "task_compute_time_s",
@@ -198,6 +197,8 @@ def validate_args(args: argparse.Namespace) -> None:
         raise ValueError("task.interval_s must be positive")
     if args.tasks_per_sat < 0:
         raise ValueError("task.tasks_per_sat must be non-negative")
+    if args.tasks_per_step < 0:
+        raise ValueError("task.tasks_per_step must be non-negative")
     if args.task_deadline_s <= 0:
         raise ValueError("task.deadline_s must be positive")
     if args.task_deadline_min_s <= 0:
@@ -281,8 +282,7 @@ def build_configs(
         generation_mode=args.task_generation_mode,
         random_seed=args.task_random_seed,
         tasks_per_sat=args.tasks_per_sat,
-        tasks_per_step_choices=tuple(args.tasks_per_step_choices),
-        tasks_per_step_weights=tuple(args.tasks_per_step_weights),
+        tasks_per_step=args.tasks_per_step,
         input_bits=args.task_input_bits,
         output_bits=args.task_output_bits,
         compute_time_s=getattr(args, "task_compute_time_s", None),
@@ -338,8 +338,7 @@ def effective_run_config(args: argparse.Namespace) -> dict:
             "generation_mode": args.task_generation_mode,
             "random_seed": args.task_random_seed,
             "tasks_per_sat": args.tasks_per_sat,
-            "tasks_per_step_choices": args.tasks_per_step_choices,
-            "tasks_per_step_weights": args.tasks_per_step_weights,
+            "tasks_per_step": args.tasks_per_step,
             "input_bits": args.task_input_bits,
             "output_bits": args.task_output_bits,
             "compute_time_s": getattr(args, "task_compute_time_s", None),

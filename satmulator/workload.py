@@ -7,13 +7,12 @@ import math
 import random
 from functools import lru_cache
 from pathlib import Path
-from typing import Iterable, Sequence, TypeVar
+from typing import Iterable, Sequence
 
 from .models import ComputeConfig, DemandDistribution, DemandPoint, Task, TaskConfig
 from .route_cost import compute_cycles
 from .runtime import EnvironmentRuntime, SatelliteRuntime
 
-T = TypeVar("T")
 DEADLINE_SEED_SALT = 0x444541444C494E45
 
 
@@ -75,22 +74,13 @@ def demand_points_provenance(path: Path | None) -> dict[str, object] | None:
     }
 
 
-def validate_distribution(name: str, choices: Sequence[object], weights: Sequence[float]) -> None:
-    if not choices:
-        raise ValueError(f"{name} choices must not be empty")
-    if len(choices) != len(weights):
-        raise ValueError(f"{name} choices and weights must have the same length")
-    if any(weight < 0.0 for weight in weights):
-        raise ValueError(f"{name} weights must be non-negative")
-    if sum(weights) <= 0.0:
-        raise ValueError(f"{name} weights must contain a positive value")
-
-
 def validate_task_config(task_config: TaskConfig) -> None:
     if task_config.interval_s <= 0:
         raise ValueError("task interval must be positive")
     if task_config.tasks_per_sat < 0:
         raise ValueError("tasks per satellite must be non-negative")
+    if task_config.tasks_per_step < 0:
+        raise ValueError("tasks per step must be non-negative")
     if task_config.input_bits < 0 or task_config.output_bits < 0:
         raise ValueError("task input/output bits must be non-negative")
     compute_time_s = getattr(task_config, "compute_time_s", None)
@@ -113,19 +103,12 @@ def validate_task_config(task_config: TaskConfig) -> None:
         "demand-points-fixed-weighted-all",
     }:
         raise ValueError(f"unknown task generation mode: {task_config.generation_mode}")
-    validate_distribution(
-        "tasks_per_step", task_config.tasks_per_step_choices, task_config.tasks_per_step_weights
-    )
     if (
         task_config.generation_mode
         in {"demand-points", "demand-points-fixed-all", "demand-points-fixed-weighted-all"}
         and not task_config.demand_distribution
     ):
         raise ValueError("demand-points task generation requires a demand_points_file")
-
-
-def weighted_choice(rng: random.Random, choices: Sequence[T], weights: Sequence[float]) -> T:
-    return rng.choices(list(choices), weights=list(weights), k=1)[0]
 
 
 def deadline_random_seed(random_seed: int | None) -> int | None:
@@ -408,11 +391,8 @@ def generate_demand_point_tasks(
 ) -> list[Task]:
     if env.time_utc is None:
         raise ValueError("demand-point task generation requires an absolute UTC simulation time")
-    task_count = weighted_choice(
-        env.rng, task_config.tasks_per_step_choices, task_config.tasks_per_step_weights
-    )
     tasks: list[Task] = []
-    for _ in range(task_count):
+    for _ in range(task_config.tasks_per_step):
         point = choose_demand_point(env.rng, task_config.demand_distribution)
         task = Task(
             task_id=env.next_task_id,

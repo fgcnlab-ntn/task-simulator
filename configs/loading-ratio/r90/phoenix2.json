@@ -29,12 +29,7 @@
     "generation_mode": "demand-points",
     "random_seed": 42,
     "tasks_per_sat": 1,
-    "tasks_per_step_choices": [
-      7200
-    ],
-    "tasks_per_step_weights": [
-      1.0
-    ],
+    "tasks_per_step": 7200,
     "input_bits": 20000000.0,
     "output_bits": 1000000.0,
     "demand_points_file": "data/demand/global_population_2025_5deg.csv",
